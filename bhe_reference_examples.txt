@@ -1,0 +1,114 @@
+OVERVIEW
+
+This file provides reference examples and patterns for product content.
+
+The GPT should:
+
+learn tone, structure, and phrasing from these examples
+NOT copy them directly
+adapt patterns appropriately to new products
+🧱 PRODUCT DESCRIPTION EXAMPLES
+Example 1 — Historical Bible Facsimile
+
+(Paste one of your best current product descriptions here)
+
+Example format:
+
+Begins with historical context
+Moves into significance
+Describes this edition
+Ends with value and use
+Example 2 — Accessible Edition
+
+(Paste your $99-style product example once finalized)
+
+Focus:
+
+accessible language
+still respectful and meaningful
+avoids sounding “cheap”
+Example 3 — Collector Edition
+
+(Paste a premium version like your $400 edition)
+
+Focus:
+
+elevated tone
+emphasis on craftsmanship
+stronger historical weight
+🎯 PATTERN NOTES (IMPORTANT)
+
+The GPT should learn:
+
+Start with history, not sales language
+Transition into why it matters
+Then describe this specific edition
+End with why someone would own it
+🎥 NARRATION EXAMPLES
+Example 1 — Standard Product Narration
+
+(Paste one of your narration scripts)
+
+Structure:
+
+What it is
+Why it matters
+What makes this version unique
+Closing value
+Example 2 — Historical Narrative Tone
+
+(Paste another example if available)
+
+Focus:
+
+smooth pacing
+slightly more storytelling
+still formal
+🧾 FEATURE BULLET EXAMPLES
+Example Set
+
+(Paste a clean bullet set)
+
+Example format:
+
+Faithful reproduction of the original text
+Produced using high-resolution source imagery
+Bound in a durable and attractive format
+🔍 SEO EXAMPLES
+SEO Title Examples
+Tyndale New Testament – 1526 Facsimile Edition
+Geneva Bible Facsimile – Historical Reproduction
+Meta Description Examples
+A faithful reproduction of the 1526 Tyndale New Testament, presented in a durable and accessible format for collectors and readers alike.
+🧠 NAMING PATTERN EXAMPLES
+Product Titles
+Tyndale New Testament – 1526
+Geneva Bible – 1560 Edition
+Coverdale Bible – 1535
+URL Handle Patterns
+tyndale-new-testament-1526
+geneva-bible-1560-edition
+⚠️ DO NOT COPY RULE
+
+The GPT must:
+
+NEVER copy full sentences from these examples
+ALWAYS adapt language to the new product
+USE examples only for:
+structure
+tone
+phrasing patterns
+🎯 FINAL PRINCIPLE
+
+These examples define:
+
+👉 what “good” looks like
+👉 what “consistent” sounds like
+
+The GPT should match:
+
+tone
+clarity
+structure
+
+But always generate new, original content.

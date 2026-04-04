@@ -1,0 +1,2867 @@
+const express = require("express");
+const multer = require("multer");
+const { Firestore } = require("@google-cloud/firestore");
+const { Storage } = require("@google-cloud/storage");
+const { v1: DocumentAi } = require("@google-cloud/documentai");
+
+const REQUIRED_ENV_VARS = ["BHE_API_KEY", "OPENAI_API_KEY"];
+for (const key of REQUIRED_ENV_VARS) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+}
+
+const app = express();
+app.use(express.json({ limit: "25mb" }));
+
+const BHE_API_KEY = process.env.BHE_API_KEY || "";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.2";
+const DOCUMENT_AI_LOCATION = process.env.DOCUMENT_AI_LOCATION || "us";
+const DOCUMENT_AI_PROCESSOR_ID = process.env.DOCUMENT_AI_PROCESSOR_ID || "";
+const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "location-map-985";
+const BUCKET_NAME = process.env.BUCKET_NAME || "bhe-product-assets";
+const PORT = process.env.PORT || 8080;
+
+
+app.use((req, res, next) => {
+  const isPublicPath = req.path === "/" || req.path === "/health";
+
+  if (isPublicPath) {
+    return next();
+  }
+
+  if (!BHE_API_KEY) {
+    return res.status(500).json({
+      ok: false,
+      error: "BHE_API_KEY is not configured"
+    });
+  }
+
+  const incomingApiKey = req.header("x-api-key") || "";
+
+  if (incomingApiKey !== BHE_API_KEY) {
+    return res.status(401).json({
+      ok: false,
+      error: "Unauthorized"
+    });
+  }
+
+  return next();
+});
+
+const db = new Firestore({
+  projectId: "location-map-985",
+  databaseId: "chatgptstorage"
+});
+
+const storage = new Storage({
+  projectId: "location-map-985"
+});
+
+const documentAiClient = new DocumentAi.DocumentProcessorServiceClient({
+  apiEndpoint: `${DOCUMENT_AI_LOCATION}-documentai.googleapis.com`
+});
+
+const productsCollection = db.collection("products");
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }
+});
+function buildDefaultProduct({ slug, title, productType }) {
+  return {
+    slug,
+    title,
+    subtitle: "",
+    productType,
+    status: "draft",
+
+    authors: [],
+    series: null,
+    language: "English",
+    isbn10: "",
+    isbn13: "",
+
+    binding: "",
+    dimensions: {
+      depthIn: 0,
+      heightIn: 0,
+      thicknessIn: 0
+    },
+    weightLb: 0,
+
+    pricing: {
+      retailPrice: 0,
+      storePrice: 0,
+      costPerItem: 0
+    },
+
+    organization: {
+      collections: [],
+      tags: [],
+      genre: "",
+      targetAudience: "Adults",
+      vendor: "Biblical Heritage Exhibit",
+      category: "Media > Books > Print Books"
+    },
+
+    content: {
+      shortDescription: "",
+      mainDescription: "",
+      featureBullets: [],
+      seoTitle: "",
+      metaDescription: "",
+      urlHandle: slug
+    },
+
+    mediaNotes: {
+      videoEmphasis: "",
+      requiredPhotoVideoFeatures: [],
+      photoLibraryUrl: ""
+    },
+
+    assets: {
+      sourceFiles: [],
+      imagesRaw: [],
+      imagesEdited: [],
+      exports: []
+    },
+
+    ocr: {
+      status: "not_started",
+      documents: []
+    },
+
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function isValidSlug(slug) {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+}
+
+function isValidFilename(filename) {
+  return /^[a-zA-Z0-9._-]+$/.test(filename);
+}
+
+function getAssetFolder(assetType) {
+  const folderMap = {
+    sourceFiles: "source",
+    imagesRaw: "images/raw",
+    imagesEdited: "images/edited",
+    exports: "exports"
+  };
+
+  return folderMap[assetType] || null;
+}
+
+function getAssetArrayPath(assetType) {
+  const allowedTypes = ["sourceFiles", "imagesRaw", "imagesEdited", "exports"];
+  return allowedTypes.includes(assetType) ? `assets.${assetType}` : null;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function getDefaultOcrBlock() {
+  return {
+    status: "not_started",
+    documents: []
+  };
+}
+
+function getSafeAssets(product = {}) {
+  const assets = product.assets || {};
+
+  return {
+    sourceFiles: Array.isArray(assets.sourceFiles) ? assets.sourceFiles : [],
+    imagesRaw: Array.isArray(assets.imagesRaw) ? assets.imagesRaw : [],
+    imagesEdited: Array.isArray(assets.imagesEdited) ? assets.imagesEdited : [],
+    exports: Array.isArray(assets.exports) ? assets.exports : []
+  };
+}
+
+function isAllowedOcrAssetType(assetType) {
+  return ["sourceFiles", "imagesRaw", "imagesEdited", "exports"].includes(assetType);
+}
+
+function getOcrModeForMimeType(mimeType) {
+  if (mimeType === "application/pdf") {
+    return "document_ai_pdf";
+  }
+
+  if (mimeType === "image/tiff") {
+    return "document_ai_tiff";
+  }
+
+  if (mimeType.startsWith("image/")) {
+    return "document_ai_image";
+  }
+
+  return "document_ai_generic";
+}
+
+function computeOverallOcrStatus(documents) {
+  if (!Array.isArray(documents) || documents.length === 0) {
+    return "not_started";
+  }
+
+  if (documents.some((doc) => doc.status === "processing")) {
+    return "processing";
+  }
+
+  if (documents.some((doc) => doc.status === "failed")) {
+    return "failed";
+  }
+
+  if (documents.every((doc) => doc.status === "completed")) {
+    return "completed";
+  }
+
+  if (documents.some((doc) => doc.status === "queued")) {
+    return "queued";
+  }
+
+  return "not_started";
+}
+
+function getRawOcrOutputPath(slug, sourceFilename) {
+  const base = sourceFilename.replace(/\.[^.]+$/, "");
+  return `products/${slug}/ocr/raw/${base}.json`;
+}
+
+function getTextOcrOutputPath(slug, sourceFilename) {
+  const base = sourceFilename.replace(/\.[^.]+$/, "");
+  return `products/${slug}/ocr/text/${base}.txt`;
+}
+
+function getNowIso() {
+  return new Date().toISOString();
+}
+
+function buildProductListItem(product = {}, fallbackSlug = "") {
+  return {
+    slug: product.slug || fallbackSlug,
+    title: product.title || "",
+    subtitle: product.subtitle || "",
+    productType: product.productType || "",
+    status: product.status || "",
+    updatedAt: product.updatedAt || ""
+  };
+}
+
+function buildSearchText(product = {}) {
+  const authors = Array.isArray(product.authors) ? product.authors : [];
+  const collections = Array.isArray(product.organization?.collections)
+    ? product.organization.collections
+    : [];
+  const tags = Array.isArray(product.organization?.tags)
+    ? product.organization.tags
+    : [];
+  const featureBullets = Array.isArray(product.content?.featureBullets)
+    ? product.content.featureBullets
+    : [];
+
+  const ocrDocuments = Array.isArray(product.ocr?.documents) ? product.ocr.documents : [];
+  const ocrBestTexts = ocrDocuments
+    .map((doc) => (typeof doc?.bestText === "string" ? doc.bestText : ""))
+    .filter(Boolean);
+
+  return [
+    product.slug || "",
+    product.title || "",
+    product.subtitle || "",
+    product.productType || "",
+    product.series || "",
+    product.language || "",
+    product.content?.shortDescription || "",
+    product.content?.mainDescription || "",
+    product.content?.seoTitle || "",
+    product.content?.metaDescription || "",
+    ...authors,
+    ...collections,
+    ...tags,
+    ...featureBullets,
+    ...ocrBestTexts
+  ]
+    .join(" ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function applyBestText(record) {
+  const now = getNowIso();
+
+  if (record.humanReviewedText && record.humanReviewedText.trim()) {
+    return {
+      ...record,
+      bestText: record.humanReviewedText,
+      bestTextSource: "humanReviewedText",
+      bestTextUpdatedAt: now
+    };
+  }
+
+  if (record.aiCorrectedText && record.aiCorrectedText.trim()) {
+    return {
+      ...record,
+      bestText: record.aiCorrectedText,
+      bestTextSource: "aiCorrectedText",
+      bestTextUpdatedAt: now
+    };
+  }
+
+  if (record.normalizedText && record.normalizedText.trim()) {
+    return {
+      ...record,
+      bestText: record.normalizedText,
+      bestTextSource: "normalizedText",
+      bestTextUpdatedAt: now
+    };
+  }
+
+  if (record.cleanedText && record.cleanedText.trim()) {
+    return {
+      ...record,
+      bestText: record.cleanedText,
+      bestTextSource: "cleanedText",
+      bestTextUpdatedAt: now
+    };
+  }
+
+  if (record.extractedText && record.extractedText.trim()) {
+    return {
+      ...record,
+      bestText: record.extractedText,
+      bestTextSource: "extractedText",
+      bestTextUpdatedAt: now
+    };
+  }
+
+  return {
+    ...record,
+    bestText: "",
+    bestTextSource: "",
+    bestTextUpdatedAt: record.bestTextUpdatedAt || ""
+  };
+}
+
+function withOcrDefaults(record = {}) {
+  return {
+    assetType: record.assetType || "",
+    sourceFilename: record.sourceFilename || "",
+    sourceStoragePath: record.sourceStoragePath || "",
+    mimeType: record.mimeType || "",
+    status: record.status || "",
+    ocrProvider: record.ocrProvider || "",
+    ocrMode: record.ocrMode || "",
+    rawOutputPath: record.rawOutputPath || "",
+    textOutputPath: record.textOutputPath || "",
+    extractedText: record.extractedText || "",
+    pageCount: typeof record.pageCount === "number" ? record.pageCount : 0,
+    processedAt: record.processedAt || "",
+    error: record.error || "",
+
+    cleanedText: record.cleanedText || "",
+    cleanupStatus: record.cleanupStatus || "not_started",
+    cleanupProcessedAt: record.cleanupProcessedAt || "",
+    cleanupError: record.cleanupError || "",
+
+    normalizedText: record.normalizedText || "",
+    normalizationStatus: record.normalizationStatus || "not_started",
+    normalizationProcessedAt: record.normalizationProcessedAt || "",
+    normalizationError: record.normalizationError || "",
+
+    aiCorrectedText: record.aiCorrectedText || "",
+    aiCorrectionStatus: record.aiCorrectionStatus || "not_started",
+    aiCorrectionProcessedAt: record.aiCorrectionProcessedAt || "",
+    aiCorrectionError: record.aiCorrectionError || "",
+
+    humanReviewedText: record.humanReviewedText || "",
+
+    bestText: record.bestText || "",
+    bestTextSource: record.bestTextSource || "",
+    bestTextUpdatedAt: record.bestTextUpdatedAt || ""
+  };
+}
+
+function buildSourceTextPackage(product) {
+  const ocr = product.ocr || getDefaultOcrBlock();
+  const documents = Array.isArray(ocr.documents) ? ocr.documents : [];
+
+  const usableDocuments = documents
+    .map((doc) => withOcrDefaults(doc))
+    .filter((doc) => doc.bestText && doc.bestText.trim())
+    .map((doc) => ({
+      sourceFilename: doc.sourceFilename,
+      sourceStoragePath: doc.sourceStoragePath,
+      bestText: doc.bestText,
+      bestTextSource: doc.bestTextSource,
+      bestTextUpdatedAt: doc.bestTextUpdatedAt
+    }));
+
+  const combinedText = usableDocuments
+    .map((doc) => `===== ${doc.sourceFilename} =====\n${doc.bestText}`)
+    .join("\n\n")
+    .trim();
+
+  return {
+    documents: usableDocuments,
+    combinedText
+  };
+}
+
+function buildDraftPrompt(product, sourceTextPackage) {
+  const payload = {
+    product: {
+      slug: product.slug || "",
+      title: product.title || "",
+      subtitle: product.subtitle || "",
+      productType: product.productType || "",
+      status: product.status || "",
+      authors: Array.isArray(product.authors) ? product.authors : [],
+      series: product.series || null,
+      language: product.language || "",
+      isbn10: product.isbn10 || "",
+      isbn13: product.isbn13 || "",
+      binding: product.binding || "",
+      dimensions: product.dimensions || {},
+      weightLb: typeof product.weightLb === "number" ? product.weightLb : 0,
+      pricing: product.pricing || {},
+      organization: product.organization || {},
+      mediaNotes: product.mediaNotes || {},
+      existingContent: product.content || {}
+    },
+    sourceText: sourceTextPackage
+  };
+
+  return [
+    "You are a product content writer for Biblical Heritage Exhibit.",
+    "Generate a structured draft from the provided product record and source text.",
+    "Use source text as the primary factual source.",
+    "Preserve facts and avoid inventing bibliographic details.",
+    "Do not invent ISBNs, dimensions, pricing, authors, dates, or edition claims not supported by the source text or existing product record.",
+    "You may improve clarity and grammar.",
+    "Return valid JSON only with exactly these keys:",
+    "title, subtitle, shortDescription, mainDescription, featureBullets, seoTitle, metaDescription",
+    "featureBullets must be an array of 3 to 5 short strings.",
+    "mainDescription must be a readable marketing-ready paragraph or short multi-paragraph description.",
+    "shortDescription and metaDescription should be concise.",
+    "",
+    JSON.stringify(payload, null, 2)
+  ].join("\n");
+}
+
+function extractOpenAiText(responseJson) {
+  if (typeof responseJson?.output_text === "string" && responseJson.output_text.trim()) {
+    return responseJson.output_text.trim();
+  }
+
+  const outputs = Array.isArray(responseJson?.output) ? responseJson.output : [];
+  const parts = [];
+
+  for (const item of outputs) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const piece of content) {
+      if (typeof piece?.text === "string" && piece.text) {
+        parts.push(piece.text);
+      }
+    }
+  }
+
+  return parts.join("\n").trim();
+}
+
+function parseDraftJson(text) {
+  const direct = text.trim();
+
+  try {
+    return JSON.parse(direct);
+  } catch (error) {
+    // continue
+  }
+
+  const fencedMatch =
+    direct.match(/```json\s*([\s\S]*?)```/i) ||
+    direct.match(/```([\s\S]*?)```/);
+
+  if (fencedMatch) {
+    return JSON.parse(fencedMatch[1].trim());
+  }
+
+  const firstBrace = direct.indexOf("{");
+  const lastBrace = direct.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return JSON.parse(direct.slice(firstBrace, lastBrace + 1));
+  }
+
+  throw new Error("Could not parse draft JSON");
+}
+
+function sanitizeOptionalString(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  if (typeof value !== "string") {
+    throw new Error("Invalid optional string");
+  }
+
+  return value.trim();
+}
+
+function sanitizeOptionalBoolean(value) {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  if (typeof value !== "boolean") {
+    throw new Error("Invalid optional boolean");
+  }
+
+  return value;
+}
+
+function buildAssetRecord({
+  filename,
+  storagePath,
+  contentType,
+  purpose,
+  subtype,
+  notes,
+  ocrRequested
+}) {
+  return {
+    filename,
+    storagePath,
+    contentType,
+    uploadedAt: getNowIso(),
+    purpose,
+    subtype,
+    notes,
+    ocrRequested
+  };
+}
+
+function sanitizeDraft(draft, product) {
+  if (!draft || typeof draft !== "object" || Array.isArray(draft)) {
+    throw new Error("Invalid draft shape");
+  }
+
+  const cleanTitle =
+    typeof draft.title === "string" && draft.title.trim()
+      ? draft.title.trim()
+      : (product.title || "").trim();
+
+  const cleanSubtitle =
+    typeof draft.subtitle === "string"
+      ? draft.subtitle.trim()
+      : (product.subtitle || "").trim();
+
+  const cleanShortDescription =
+    typeof draft.shortDescription === "string" ? draft.shortDescription.trim() : "";
+
+  const cleanMainDescription =
+    typeof draft.mainDescription === "string" ? draft.mainDescription.trim() : "";
+
+  const cleanFeatureBullets = Array.isArray(draft.featureBullets)
+    ? draft.featureBullets
+        .filter((item) => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 5)
+    : [];
+
+  const cleanSeoTitle =
+    typeof draft.seoTitle === "string"
+      ? draft.seoTitle.trim()
+      : cleanTitle;
+
+  const cleanMetaDescription =
+    typeof draft.metaDescription === "string" ? draft.metaDescription.trim() : "";
+
+  return {
+    title: cleanTitle,
+    subtitle: cleanSubtitle,
+    shortDescription: cleanShortDescription,
+    mainDescription: cleanMainDescription,
+    featureBullets: cleanFeatureBullets,
+    seoTitle: cleanSeoTitle,
+    metaDescription: cleanMetaDescription
+  };
+}
+
+function validateDraftPayload(draft) {
+  if (!isPlainObject(draft)) {
+    return false;
+  }
+
+  if (
+    typeof draft.title !== "string" ||
+    typeof draft.subtitle !== "string" ||
+    typeof draft.shortDescription !== "string" ||
+    typeof draft.mainDescription !== "string" ||
+    typeof draft.seoTitle !== "string" ||
+    typeof draft.metaDescription !== "string" ||
+    !Array.isArray(draft.featureBullets) ||
+    !draft.featureBullets.every((item) => typeof item === "string")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+async function runAiCorrection(sourceText) {
+  const instructions = [
+    "You are correcting OCR text from historical Bible-related documents.",
+    "Return plain corrected text only.",
+    "Do not add commentary, bullets, labels, or markdown.",
+    "Preserve paragraph order and meaning.",
+    "Fix obvious OCR corruption and spacing issues.",
+    "Do not invent facts or missing content.",
+    "If a word is uncertain, choose the most conservative plausible correction.",
+    "Do not rewrite into marketing copy."
+  ].join(" ");
+
+  const input = ["Correct this OCR text conservatively.", "", sourceText].join("\n");
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      instructions,
+      input,
+      reasoning: { effort: "low" },
+      text: { verbosity: "low" }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json();
+  const correctedText = extractOpenAiText(data);
+
+  if (!correctedText) {
+    throw new Error("OpenAI API returned empty correction text");
+  }
+
+  return correctedText;
+}
+
+async function runDraftGeneration(product, sourceTextPackage) {
+  const prompt = buildDraftPrompt(product, sourceTextPackage);
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      instructions:
+        "Return valid JSON only. Do not include markdown fences. Do not include explanatory text.",
+      input: prompt,
+      reasoning: { effort: "medium" },
+      text: { verbosity: "low" }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json();
+  const rawText = extractOpenAiText(data);
+
+  if (!rawText) {
+    throw new Error("OpenAI API returned empty draft text");
+  }
+
+  const parsedDraft = parseDraftJson(rawText);
+  return sanitizeDraft(parsedDraft, product);
+}
+
+async function saveTextFileToStorage(storagePath, text) {
+  const file = storage.bucket(BUCKET_NAME).file(storagePath);
+  await file.save(text, {
+    contentType: "text/plain; charset=utf-8"
+  });
+}
+
+async function saveJsonFileToStorage(storagePath, jsonValue) {
+  const file = storage.bucket(BUCKET_NAME).file(storagePath);
+  await file.save(JSON.stringify(jsonValue, null, 2), {
+    contentType: "application/json; charset=utf-8"
+  });
+}
+
+function validateDocumentAiConfig() {
+  if (!DOCUMENT_AI_LOCATION || !DOCUMENT_AI_PROCESSOR_ID) {
+    throw new Error("DOCUMENT_AI_LOCATION and DOCUMENT_AI_PROCESSOR_ID must be configured");
+  }
+}
+
+function getDocumentAiProcessorName() {
+  validateDocumentAiConfig();
+  return documentAiClient.processorPath(
+    GCP_PROJECT_ID,
+    DOCUMENT_AI_LOCATION,
+    DOCUMENT_AI_PROCESSOR_ID
+  );
+}
+
+function getMimeTypeForDocumentAi(mimeType) {
+  const allowedMimeTypes = new Set([
+    "application/pdf",
+    "image/tiff",
+    "image/tif",
+    "image/gif",
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "image/bmp"
+  ]);
+
+  if (!allowedMimeTypes.has(mimeType)) {
+    throw new Error(`Unsupported mimeType for Document AI: ${mimeType}`);
+  }
+
+  if (mimeType === "image/jpg") {
+    return "image/jpeg";
+  }
+
+  if (mimeType === "image/tif") {
+    return "image/tiff";
+  }
+
+  return mimeType;
+}
+
+async function runDocumentAiOcr({ sourceStoragePath, sourceFilename, mimeType }) {
+  validateDocumentAiConfig();
+
+  const normalizedMimeType = getMimeTypeForDocumentAi(mimeType);
+  const processorName = getDocumentAiProcessorName();
+
+  const file = storage.bucket(BUCKET_NAME).file(sourceStoragePath);
+  const [fileBuffer] = await file.download();
+
+  const request = {
+    name: processorName,
+    rawDocument: {
+      content: fileBuffer.toString("base64"),
+      mimeType: normalizedMimeType,
+      displayName: sourceFilename
+    },
+    skipHumanReview: true
+  };
+
+  const [result] = await documentAiClient.processDocument(request);
+  const document = result.document || {};
+  const extractedText = document.text || "";
+  const pageCount = Array.isArray(document.pages) ? document.pages.length : 0;
+
+  return {
+    extractedText,
+    pageCount,
+    rawResult: result
+  };
+}
+
+function cleanOcrText(rawText) {
+  if (typeof rawText !== "string") {
+    return "";
+  }
+
+  let text = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  text = text.replace(/[ \t]+/g, " ");
+  text = text.replace(/\n[ \t]+/g, "\n");
+  text = text.replace(/[ \t]+\n/g, "\n");
+
+  const lines = text.split("\n").map((line) => line.trim());
+  const cleanedLines = [];
+  let previousBlank = false;
+
+  for (const line of lines) {
+    const normalizedLine = line.replace(/\s+/g, " ").trim();
+
+    if (!normalizedLine) {
+      if (!previousBlank) {
+        cleanedLines.push("");
+      }
+      previousBlank = true;
+      continue;
+    }
+
+    cleanedLines.push(normalizedLine);
+    previousBlank = false;
+  }
+
+  text = cleanedLines.join("\n");
+  text = text.replace(/\n{3,}/g, "\n\n");
+  return text.trim();
+}
+
+function normalizeOcrText(inputText) {
+  if (typeof inputText !== "string") {
+    return "";
+  }
+
+  let text = cleanOcrText(inputText);
+
+  const replacements = [
+    [/\bEglish\b/g, "English"],
+    [/\borgullaguges\b/g, "original languages"],
+    [/\bDriginally\b/g, "Originally"],
+    [/\bfint ported by Bible\b/g, "first printed Bible"],
+    [/\bIndeportece\b/g, "Independence"],
+    [/\bAmericas freedom and Indeportece\b/g, "America's freedom and Independence"],
+    [/\bBilde\b/g, "Bible"],
+    [/\bBitte\b/g, "Bible"],
+    [/\bEyll Bakke\b/g, "Bible back"],
+    [/\bligital\b/g, "digital"],
+    [/\bremaing Copies\b/g, "remaining copies"],
+    [/\bworld tidy\b/g, "world today"],
+    [/\bfrommy\b/g, "Germany"],
+    [/\bgotho Font woriginal Quarto\b/g, "gothic font with original quarto"],
+    [/\bgishtors\b/g, "legislators"],
+    [/\bPartors\b/g, "Pastors"],
+    [/\bannivery\b/g, "anniversary"],
+    [/\bCommemoratul\b/g, "Commemorative"],
+    [/\bhustoric presentativ pièce\b/g, "historic presentation piece"],
+    [/\bacross the country and Foreign Territories\b/g, "across the country and foreign territories"],
+    [/\brefraction\b/g, "Reformation"]
+  ];
+
+  for (const [pattern, replacement] of replacements) {
+    text = text.replace(pattern, replacement);
+  }
+
+  text = text.replace(/\bE4h\b/g, "New");
+  text = text.replace(/\bward be significat\b/g, "would be significant");
+  text = text.replace(/\bsoming the seed\b/g, "sowing the seed");
+  text = text.replace(/\bHry\/hout\b/g, "throughout");
+  text = text.replace(/\bSooth\b/g, "500th");
+  text = text.replace(/\baming\b/g, "anniversary");
+  text = text.replace(/\bthy\b/g, "taking");
+  text = text.replace(/\bfore in full ed or\b/g, "offered in full color");
+  text = text.replace(/\bAndre Axercised the Capitol Connection\b/g, "through Capitol Commission");
+  text = text.replace(/\bsee speed project\b/g, "see special project");
+  text = text.replace(/\?+/g, "");
+
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line, index, arr) => !(line === "" && arr[index - 1] === ""))
+    .join("\n")
+    .trim();
+}
+
+function sanitizeFilenameForStorage(filename) {
+  const trimmed = (filename || "uploaded-file").trim();
+  const replaced = trimmed.replace(/[^a-zA-Z0-9._-]/g, "-");
+  return replaced || `uploaded-${Date.now()}`;
+}
+
+async function importConversationFilesToProduct({
+  slug,
+  assetType,
+  purpose,
+  subtype,
+  notes,
+  ocrRequested,
+  openaiFileIdRefs
+}) {
+  const cleanAssetType = assetType.trim();
+  const assetArrayPath = getAssetArrayPath(cleanAssetType);
+  const assetFolder = getAssetFolder(cleanAssetType);
+
+  if (!assetArrayPath || !assetFolder) {
+    throw new Error("Invalid assetType");
+  }
+
+  const docRef = productsCollection.doc(slug);
+  const doc = await docRef.get();
+
+  if (!doc.exists) {
+    throw new Error("Product not found");
+  }
+
+  const cleanPurpose = sanitizeOptionalString(purpose);
+  const cleanSubtype = sanitizeOptionalString(subtype);
+  const cleanNotes = sanitizeOptionalString(notes);
+  const cleanOcrRequested = sanitizeOptionalBoolean(ocrRequested);
+
+  const bucket = storage.bucket(BUCKET_NAME);
+  const importedAssets = [];
+  const ocrResults = [];
+
+  for (const fileRef of openaiFileIdRefs) {
+    const originalName =
+      typeof fileRef?.name === "string" && fileRef.name.trim()
+        ? fileRef.name.trim()
+        : `uploaded-${Date.now()}`;
+
+    const mimeType =
+      typeof fileRef?.mime_type === "string" && fileRef.mime_type.trim()
+        ? fileRef.mime_type.trim()
+        : "application/octet-stream";
+
+    const downloadLink =
+      typeof fileRef?.download_link === "string" ? fileRef.download_link.trim() : "";
+
+    if (!downloadLink) {
+      throw new Error(`Missing download link for uploaded file: ${originalName}`);
+    }
+
+    const safeFilename = sanitizeFilenameForStorage(originalName);
+    const storagePath = `products/${slug}/${assetFolder}/${safeFilename}`;
+
+    const response = await fetch(downloadLink);
+    if (!response.ok) {
+      throw new Error(`Failed to download uploaded file: ${originalName}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const file = bucket.file(storagePath);
+    await file.save(buffer, { contentType: mimeType });
+
+    const assetRecord = buildAssetRecord({
+      filename: safeFilename,
+      storagePath,
+      contentType: mimeType,
+      purpose: cleanPurpose,
+      subtype: cleanSubtype,
+      notes: cleanNotes,
+      ocrRequested: cleanOcrRequested
+    });
+
+    await docRef.update({
+      [assetArrayPath]: Firestore.FieldValue.arrayUnion(assetRecord),
+      updatedAt: getNowIso()
+    });
+
+    importedAssets.push(assetRecord);
+
+    if (cleanOcrRequested && isAllowedOcrAssetType(cleanAssetType)) {
+      const ocrMode = getOcrModeForMimeType(mimeType);
+      const rawOutputPath = getRawOcrOutputPath(slug, safeFilename);
+      const textOutputPath = getTextOcrOutputPath(slug, safeFilename);
+
+      const baseRecord = withOcrDefaults(
+        applyBestText({
+          assetType: cleanAssetType,
+          sourceFilename: safeFilename,
+          sourceStoragePath: storagePath,
+          mimeType,
+          status: "processing",
+          ocrProvider: "document_ai",
+          ocrMode,
+          rawOutputPath,
+          textOutputPath,
+          extractedText: "",
+          pageCount: 0,
+          processedAt: "",
+          error: ""
+        })
+      );
+
+      const currentProduct = (await docRef.get()).data() || {};
+      const currentOcr = currentProduct.ocr || getDefaultOcrBlock();
+      const currentDocs = Array.isArray(currentOcr.documents) ? currentOcr.documents : [];
+
+      const docsWithoutExisting = currentDocs.filter(
+        (item) => !(item?.sourceStoragePath === storagePath && item?.sourceFilename === safeFilename)
+      );
+
+      await docRef.update({
+        ocr: {
+          status: "processing",
+          documents: [...docsWithoutExisting, baseRecord]
+        },
+        updatedAt: getNowIso()
+      });
+
+      const ocrRun = await runDocumentAiOcr({
+        sourceStoragePath: storagePath,
+        sourceFilename: safeFilename,
+        mimeType
+      });
+
+      await saveJsonFileToStorage(rawOutputPath, ocrRun.rawResult);
+      await saveTextFileToStorage(textOutputPath, ocrRun.extractedText);
+
+      let updatedOcrRecord = withOcrDefaults(
+        applyBestText({
+          ...baseRecord,
+          status: "completed",
+          extractedText: ocrRun.extractedText,
+          pageCount: ocrRun.pageCount,
+          processedAt: getNowIso()
+        })
+      );
+
+      updatedOcrRecord.cleanedText = cleanOcrText(updatedOcrRecord.extractedText);
+      updatedOcrRecord.cleanupStatus = "completed";
+      updatedOcrRecord.cleanupProcessedAt = getNowIso();
+      updatedOcrRecord = applyBestText(updatedOcrRecord);
+
+      updatedOcrRecord.normalizedText = normalizeOcrText(updatedOcrRecord.cleanedText);
+      updatedOcrRecord.normalizationStatus = "completed";
+      updatedOcrRecord.normalizationProcessedAt = getNowIso();
+      updatedOcrRecord = applyBestText(updatedOcrRecord);
+
+      try {
+        updatedOcrRecord.aiCorrectedText = await runAiCorrection(updatedOcrRecord.normalizedText);
+        updatedOcrRecord.aiCorrectionStatus = "completed";
+        updatedOcrRecord.aiCorrectionProcessedAt = getNowIso();
+      } catch (ocrAiError) {
+        updatedOcrRecord.aiCorrectionStatus = "failed";
+        updatedOcrRecord.aiCorrectionError = ocrAiError.message;
+      }
+
+      updatedOcrRecord = withOcrDefaults(applyBestText(updatedOcrRecord));
+
+      const refreshedProduct = (await docRef.get()).data() || {};
+      const refreshedOcr = refreshedProduct.ocr || getDefaultOcrBlock();
+      const refreshedDocs = Array.isArray(refreshedOcr.documents) ? refreshedOcr.documents : [];
+
+      const replacedDocs = refreshedDocs
+        .filter(
+          (item) => !(item?.sourceStoragePath === storagePath && item?.sourceFilename === safeFilename)
+        )
+        .concat(updatedOcrRecord);
+
+      await docRef.update({
+        ocr: {
+          status: computeOverallOcrStatus(replacedDocs),
+          documents: replacedDocs
+        },
+        updatedAt: getNowIso()
+      });
+
+      ocrResults.push({
+        filename: safeFilename,
+        status: updatedOcrRecord.aiCorrectionStatus === "completed" ? "completed" : "partial",
+        bestTextSource: updatedOcrRecord.bestTextSource,
+        pageCount: updatedOcrRecord.pageCount
+      });
+    }
+  }
+
+  return {
+    slug,
+    importedCount: importedAssets.length,
+    importedAssets,
+    ocrRequested: cleanOcrRequested,
+    ocrResults
+  };
+}
+
+app.get("/", (req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: "bhe-product-api",
+    message: "API is running"
+  });
+});
+
+app.get("/health", (req, res) => {
+  const checks = {
+    bheApiKeyConfigured: Boolean(process.env.BHE_API_KEY),
+    openAiKeyConfigured: Boolean(process.env.OPENAI_API_KEY),
+    documentAiProcessorConfigured: Boolean(process.env.DOCUMENT_AI_PROCESSOR_ID)
+  };
+
+  const ok = Object.values(checks).every(Boolean);
+
+  return res.status(ok ? 200 : 500).json({ ok, checks });
+});
+
+app.post("/products", async (req, res) => {
+  try {
+    const { slug, title, productType } = req.body;
+
+    if (
+      typeof slug !== "string" ||
+      typeof title !== "string" ||
+      typeof productType !== "string" ||
+      !slug.trim() ||
+      !title.trim() ||
+      !productType.trim() ||
+      !isValidSlug(slug)
+    ) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanSlug = slug.trim();
+    const docRef = productsCollection.doc(cleanSlug);
+    const existingDoc = await docRef.get();
+
+    if (existingDoc.exists) {
+      return res.status(409).json({ ok: false, error: "Product already exists" });
+    }
+
+    const product = buildDefaultProduct({
+      slug: cleanSlug,
+      title: title.trim(),
+      productType: productType.trim()
+    });
+
+    const productWithSearchText = {
+      ...product,
+      searchText: buildSearchText(product)
+    };
+
+    await docRef.set(productWithSearchText);
+
+    return res.status(201).json({
+      ok: true,
+      slug: productWithSearchText.slug,
+      message: "Product created"
+    });
+  } catch (error) {
+    console.error("Error creating product:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/search", async (req, res) => {
+  try {
+    const { query, limit = 10 } = req.body;
+
+    if (typeof query !== "string" || !query.trim()) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid query" });
+    }
+
+    const cleanQuery = query.trim().toLowerCase();
+    const tokens = cleanQuery.split(/\s+/).filter(Boolean);
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 25);
+
+    const snapshot = await productsCollection.limit(200).get();
+
+    const results = snapshot.docs
+      .map((doc) => {
+        const product = doc.data() || {};
+        const fallbackSearchText = buildSearchText(product);
+        const searchText =
+          typeof product.searchText === "string" && product.searchText.trim()
+            ? product.searchText
+            : fallbackSearchText;
+
+        const matchedTokenCount = tokens.filter((token) => searchText.includes(token)).length;
+
+        return {
+          slug: product.slug || doc.id,
+          title: product.title || "",
+          subtitle: product.subtitle || "",
+          productType: product.productType || "",
+          status: product.status || "",
+          series: product.series || null,
+          authors: Array.isArray(product.authors) ? product.authors : [],
+          updatedAt: product.updatedAt || "",
+          _score: matchedTokenCount
+        };
+      })
+      .filter((item) => item._score > 0)
+      .sort((a, b) => {
+        if (b._score !== a._score) {
+          return b._score - a._score;
+        }
+        return (b.updatedAt || "").localeCompare(a.updatedAt || "");
+      })
+      .slice(0, safeLimit)
+      .map(({ _score, ...item }) => item);
+
+    return res.status(200).json({
+      ok: true,
+      query: cleanQuery,
+      count: results.length,
+      results
+    });
+  } catch (error) {
+    console.error("Error searching products:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.get("/products", async (req, res) => {
+  try {
+    const rawLimit = req.query.limit;
+    const safeLimit = Math.min(Math.max(Number(rawLimit) || 25, 1), 100);
+
+    const snapshot = await productsCollection.limit(200).get();
+
+    const products = snapshot.docs
+      .map((doc) => buildProductListItem(doc.data() || {}, doc.id))
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
+      .slice(0, safeLimit);
+
+    return res.status(200).json({ ok: true, count: products.length, products });
+  } catch (error) {
+    console.error("Error listing products:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.get("/products/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    return res.status(200).json({ ok: true, product: doc.data() });
+  } catch (error) {
+    console.error("Error fetching product:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.get("/products/:slug/assets", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data() || {};
+    const assets = getSafeAssets(product);
+
+    return res.status(200).json({ ok: true, slug, assets });
+  } catch (error) {
+    console.error("Error fetching assets:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/assets/upload", upload.single("file"), async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const {
+      assetType,
+      purpose,
+      subtype,
+      notes,
+      ocrRequested = "false"
+    } = req.body;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ ok: false, error: "No file was provided" });
+    }
+
+    if (typeof assetType !== "string" || !assetType.trim()) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid assetType" });
+    }
+
+    const cleanAssetType = assetType.trim();
+    const assetArrayPath = getAssetArrayPath(cleanAssetType);
+    const assetFolder = getAssetFolder(cleanAssetType);
+
+    if (!assetArrayPath || !assetFolder) {
+      return res.status(400).json({ ok: false, error: "Invalid assetType" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    let cleanPurpose = "";
+    let cleanSubtype = "";
+    let cleanNotes = "";
+    let cleanOcrRequested = false;
+
+    try {
+      cleanPurpose = sanitizeOptionalString(purpose);
+      cleanSubtype = sanitizeOptionalString(subtype);
+      cleanNotes = sanitizeOptionalString(notes);
+      cleanOcrRequested =
+        ocrRequested === true ||
+        ocrRequested === "true" ||
+        ocrRequested === "1";
+    } catch (validationError) {
+      return res.status(400).json({ ok: false, error: validationError.message });
+    }
+
+    const originalName =
+      typeof req.file.originalname === "string" && req.file.originalname.trim()
+        ? req.file.originalname.trim()
+        : `uploaded-${Date.now()}`;
+
+    const safeFilename = sanitizeFilenameForStorage(originalName);
+    const mimeType = req.file.mimetype || "application/octet-stream";
+    const storagePath = `products/${slug}/${assetFolder}/${safeFilename}`;
+
+    const file = storage.bucket(BUCKET_NAME).file(storagePath);
+    await file.save(req.file.buffer, {
+      contentType: mimeType
+    });
+
+    const assetRecord = buildAssetRecord({
+      filename: safeFilename,
+      storagePath,
+      contentType: mimeType,
+      purpose: cleanPurpose,
+      subtype: cleanSubtype,
+      notes: cleanNotes,
+      ocrRequested: cleanOcrRequested
+    });
+
+    await docRef.update({
+      [assetArrayPath]: Firestore.FieldValue.arrayUnion(assetRecord),
+      updatedAt: getNowIso()
+    });
+
+    let ocr = null;
+
+    if (cleanOcrRequested && isAllowedOcrAssetType(cleanAssetType)) {
+      try {
+        const ocrMode = getOcrModeForMimeType(mimeType);
+        const rawOutputPath = getRawOcrOutputPath(slug, safeFilename);
+        const textOutputPath = getTextOcrOutputPath(slug, safeFilename);
+
+        const baseRecord = withOcrDefaults(
+          applyBestText({
+            assetType: cleanAssetType,
+            sourceFilename: safeFilename,
+            sourceStoragePath: storagePath,
+            mimeType,
+            status: "processing",
+            ocrProvider: "document_ai",
+            ocrMode,
+            rawOutputPath,
+            textOutputPath,
+            extractedText: "",
+            pageCount: 0,
+            processedAt: "",
+            error: ""
+          })
+        );
+
+        const currentProduct = (await docRef.get()).data() || {};
+        const currentOcr = currentProduct.ocr || getDefaultOcrBlock();
+        const currentDocs = Array.isArray(currentOcr.documents) ? currentOcr.documents : [];
+
+        const docsWithoutExisting = currentDocs.filter(
+          (item) => !(item?.sourceStoragePath === storagePath && item?.sourceFilename === safeFilename)
+        );
+
+        await docRef.update({
+          ocr: {
+            status: "processing",
+            documents: [...docsWithoutExisting, baseRecord]
+          },
+          updatedAt: getNowIso()
+        });
+
+        const ocrRun = await runDocumentAiOcr({
+          sourceStoragePath: storagePath,
+          sourceFilename: safeFilename,
+          mimeType
+        });
+
+        await saveJsonFileToStorage(rawOutputPath, ocrRun.rawResult);
+        await saveTextFileToStorage(textOutputPath, ocrRun.extractedText);
+
+        let updatedOcrRecord = withOcrDefaults(
+          applyBestText({
+            ...baseRecord,
+            status: "completed",
+            extractedText: ocrRun.extractedText,
+            pageCount: ocrRun.pageCount,
+            processedAt: getNowIso()
+          })
+        );
+
+        updatedOcrRecord.cleanedText = cleanOcrText(updatedOcrRecord.extractedText);
+        updatedOcrRecord.cleanupStatus = "completed";
+        updatedOcrRecord.cleanupProcessedAt = getNowIso();
+        updatedOcrRecord = applyBestText(updatedOcrRecord);
+
+        updatedOcrRecord.normalizedText = normalizeOcrText(updatedOcrRecord.cleanedText);
+        updatedOcrRecord.normalizationStatus = "completed";
+        updatedOcrRecord.normalizationProcessedAt = getNowIso();
+        updatedOcrRecord = applyBestText(updatedOcrRecord);
+
+        try {
+          updatedOcrRecord.aiCorrectedText = await runAiCorrection(updatedOcrRecord.normalizedText);
+          updatedOcrRecord.aiCorrectionStatus = "completed";
+          updatedOcrRecord.aiCorrectionProcessedAt = getNowIso();
+        } catch (ocrAiError) {
+          updatedOcrRecord.aiCorrectionStatus = "failed";
+          updatedOcrRecord.aiCorrectionError = ocrAiError.message;
+        }
+
+        updatedOcrRecord = withOcrDefaults(applyBestText(updatedOcrRecord));
+
+        const refreshedProduct = (await docRef.get()).data() || {};
+        const refreshedOcr = refreshedProduct.ocr || getDefaultOcrBlock();
+        const refreshedDocs = Array.isArray(refreshedOcr.documents) ? refreshedOcr.documents : [];
+
+        const replacedDocs = refreshedDocs
+          .filter(
+            (item) => !(item?.sourceStoragePath === storagePath && item?.sourceFilename === safeFilename)
+          )
+          .concat(updatedOcrRecord);
+
+        await docRef.update({
+          ocr: {
+            status: computeOverallOcrStatus(replacedDocs),
+            documents: replacedDocs
+          },
+          updatedAt: getNowIso()
+        });
+
+        ocr = {
+          status: updatedOcrRecord.aiCorrectionStatus === "completed" ? "completed" : "partial",
+          bestTextSource: updatedOcrRecord.bestTextSource,
+          pageCount: updatedOcrRecord.pageCount
+        };
+      } catch (ocrError) {
+        ocr = {
+          status: "failed",
+          error: ocrError.message || "OCR failed"
+        };
+      }
+    }
+
+    return res.status(200).json({
+      ok: true,
+      message: "File uploaded and asset registered",
+      slug,
+      asset: assetRecord,
+      ocr
+    });
+  } catch (error) {
+    console.error("Error uploading asset:", error);
+    return res.status(500).json({ ok: false, error: "Upload failed" });
+  }
+});
+
+app.post("/products/:slug/assets/upload-from-url", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const {
+      assetType,
+      fileUrl,
+      filename,
+      purpose,
+      subtype,
+      notes,
+      ocrRequested = false
+    } = req.body;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    if (typeof assetType !== "string" || !assetType.trim()) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid assetType" });
+    }
+
+    if (typeof fileUrl !== "string" || !fileUrl.trim()) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid fileUrl" });
+    }
+
+    const cleanAssetType = assetType.trim();
+    const cleanFileUrl = fileUrl.trim();
+if (!/^https?:\/\//i.test(cleanFileUrl)) {
+  return res.status(400).json({
+    ok: false,
+    error: "fileUrl must be a publicly reachable http or https URL"
+  });
+}
+    const assetArrayPath = getAssetArrayPath(cleanAssetType);
+    const assetFolder = getAssetFolder(cleanAssetType);
+
+    if (!assetArrayPath || !assetFolder) {
+      return res.status(400).json({ ok: false, error: "Invalid assetType" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    let cleanPurpose = "";
+    let cleanSubtype = "";
+    let cleanNotes = "";
+    let cleanOcrRequested = false;
+
+    try {
+      cleanPurpose = sanitizeOptionalString(purpose);
+      cleanSubtype = sanitizeOptionalString(subtype);
+      cleanNotes = sanitizeOptionalString(notes);
+      cleanOcrRequested = sanitizeOptionalBoolean(ocrRequested);
+    } catch (validationError) {
+      return res.status(400).json({ ok: false, error: validationError.message });
+    }
+
+    const response = await fetch(cleanFileUrl);
+    if (!response.ok) {
+      return res.status(400).json({ ok: false, error: "Failed to download fileUrl" });
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const contentType =
+      response.headers.get("content-type")?.split(";")[0].trim() || "application/octet-stream";
+
+    const inferredFilename =
+      (typeof filename === "string" && filename.trim())
+        ? filename.trim()
+        : cleanFileUrl.split("/").pop() || `uploaded-${Date.now()}`;
+
+    const safeFilename = sanitizeFilenameForStorage(inferredFilename);
+    const storagePath = `products/${slug}/${assetFolder}/${safeFilename}`;
+
+    const file = storage.bucket(BUCKET_NAME).file(storagePath);
+    await file.save(buffer, { contentType });
+
+    const assetRecord = buildAssetRecord({
+      filename: safeFilename,
+      storagePath,
+      contentType,
+      purpose: cleanPurpose,
+      subtype: cleanSubtype,
+      notes: cleanNotes,
+      ocrRequested: cleanOcrRequested
+    });
+
+    await docRef.update({
+      [assetArrayPath]: Firestore.FieldValue.arrayUnion(assetRecord),
+      updatedAt: getNowIso()
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "File downloaded, stored, and registered",
+      slug,
+      asset: assetRecord
+    });
+  } catch (error) {
+    console.error("Error uploading asset from URL:", error);
+    return res.status(500).json({ ok: false, error: "Upload failed" });
+  }
+});
+
+app.post("/products/:slug/assets/import-openai-files", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const {
+      assetType,
+      purpose,
+      subtype,
+      notes,
+      ocrRequested = false,
+      openaiFileIdRefs
+    } = req.body;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    if (typeof assetType !== "string" || !assetType.trim()) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid assetType" });
+    }
+
+    if (!Array.isArray(openaiFileIdRefs) || openaiFileIdRefs.length === 0) {
+      return res.status(400).json({ ok: false, error: "No uploaded files were provided" });
+    }
+
+    const result = await importConversationFilesToProduct({
+      slug,
+      assetType,
+      purpose,
+      subtype,
+      notes,
+      ocrRequested,
+      openaiFileIdRefs
+    });
+
+    return res.status(200).json({ ok: true, ...result });
+  } catch (error) {
+    console.error("Error importing OpenAI files:", error);
+    const message = error.message || "Import failed";
+    const statusCode = message === "Product not found" ? 404 : 500;
+    return res.status(statusCode).json({ ok: false, error: message });
+  }
+});
+
+app.post("/products/:slug/assets/download-url", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { assetType, storagePath } = req.body;
+
+    if (
+      !isValidSlug(slug) ||
+      typeof assetType !== "string" ||
+      typeof storagePath !== "string" ||
+      !assetType.trim() ||
+      !storagePath.trim()
+    ) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanAssetType = assetType.trim();
+    const cleanStoragePath = storagePath.trim();
+
+    const assetArrayPath = getAssetArrayPath(cleanAssetType);
+    const assetFolder = getAssetFolder(cleanAssetType);
+
+    if (!assetArrayPath || !assetFolder) {
+      return res.status(400).json({ ok: false, error: "Invalid assetType" });
+    }
+
+    const expectedPrefix = `products/${slug}/${assetFolder}/`;
+
+    if (!cleanStoragePath.startsWith(expectedPrefix)) {
+      return res.status(400).json({ ok: false, error: "Invalid storagePath" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data() || {};
+    const assets = getSafeAssets(product);
+    const assetList = assets[cleanAssetType] || [];
+
+    const assetExists = assetList.some((asset) => asset && asset.storagePath === cleanStoragePath);
+
+    if (!assetExists) {
+      return res.status(404).json({ ok: false, error: "Asset not found on product" });
+    }
+
+    const file = storage.bucket(BUCKET_NAME).file(cleanStoragePath);
+
+    const [downloadUrl] = await file.getSignedUrl({
+      version: "v4",
+      action: "read",
+      expires: Date.now() + 15 * 60 * 1000
+    });
+
+    return res.status(200).json({
+      ok: true,
+      slug,
+      assetType: cleanAssetType,
+      storagePath: cleanStoragePath,
+      downloadUrl
+    });
+  } catch (error) {
+    console.error("Error generating download URL:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/archive", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data() || {};
+    const updates = { status: "archived", updatedAt: getNowIso() };
+    const mergedProduct = { ...product, ...updates };
+    updates.searchText = buildSearchText(mergedProduct);
+
+    await docRef.update(updates);
+
+    return res.status(200).json({ ok: true, message: "Product archived", slug });
+  } catch (error) {
+    console.error("Error archiving product:", error);
+    return res.status(500).json({ ok: false, error: "Archive failed" });
+  }
+});
+
+app.delete("/products/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    await docRef.delete();
+
+    return res.status(200).json({ ok: true, message: "Product deleted", slug });
+  } catch (error) {
+    console.error("Error deleting product:", error);
+    return res.status(500).json({ ok: false, error: "Delete failed" });
+  }
+});
+
+app.get("/products/:slug/source-text", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const sourceText = buildSourceTextPackage(product);
+
+    return res.status(200).json({ ok: true, slug, sourceText });
+  } catch (error) {
+    console.error("Error fetching source text:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/generate-draft", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const sourceTextPackage = buildSourceTextPackage(product);
+
+    if (!sourceTextPackage.combinedText || !sourceTextPackage.combinedText.trim()) {
+      return res.status(400).json({ ok: false, error: "No source text available for draft generation" });
+    }
+
+    const draft = await runDraftGeneration(product, sourceTextPackage);
+
+    return res.status(200).json({ ok: true, slug, draft });
+  } catch (error) {
+    console.error("Error generating draft:", error);
+    return res.status(500).json({ ok: false, error: "Draft generation failed" });
+  }
+});
+
+app.post("/products/:slug/draft/save", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { draft } = req.body;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    if (!validateDraftPayload(draft)) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid draft" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data() || {};
+    const existingContent = isPlainObject(product.content) ? product.content : {};
+
+    const updates = {
+      title: draft.title.trim(),
+      subtitle: draft.subtitle.trim(),
+      content: {
+        ...existingContent,
+        shortDescription: draft.shortDescription.trim(),
+        mainDescription: draft.mainDescription.trim(),
+        featureBullets: draft.featureBullets.map((item) => item.trim()),
+        seoTitle: draft.seoTitle.trim(),
+        metaDescription: draft.metaDescription.trim()
+      },
+      updatedAt: getNowIso()
+    };
+
+    const mergedProduct = { ...product, ...updates, content: updates.content };
+    updates.searchText = buildSearchText(mergedProduct);
+
+    await docRef.update(updates);
+
+    return res.status(200).json({ ok: true, message: "Draft saved", slug });
+  } catch (error) {
+    console.error("Error saving draft:", error);
+    return res.status(500).json({ ok: false, error: "Draft save failed" });
+  }
+});
+
+app.post("/products/:slug/assets/upload-url", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { assetType, filename, contentType } = req.body;
+
+    if (
+      !isValidSlug(slug) ||
+      typeof assetType !== "string" ||
+      typeof filename !== "string" ||
+      typeof contentType !== "string" ||
+      !assetType.trim() ||
+      !filename.trim() ||
+      !contentType.trim()
+    ) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanAssetType = assetType.trim();
+    const cleanFilename = filename.trim();
+    const cleanContentType = contentType.trim();
+    const assetFolder = getAssetFolder(cleanAssetType);
+
+    if (!assetFolder) {
+      return res.status(400).json({ ok: false, error: "Invalid assetType" });
+    }
+
+    if (!isValidFilename(cleanFilename)) {
+      return res.status(400).json({ ok: false, error: "Invalid filename" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const storagePath = `products/${slug}/${assetFolder}/${cleanFilename}`;
+    const file = storage.bucket(BUCKET_NAME).file(storagePath);
+
+    const [uploadUrl] = await file.getSignedUrl({
+      version: "v4",
+      action: "write",
+      expires: Date.now() + 15 * 60 * 1000,
+      contentType: cleanContentType
+    });
+
+    return res.status(200).json({ ok: true, uploadUrl, storagePath });
+  } catch (error) {
+    console.error("Error generating upload URL:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/assets/register", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const {
+      assetType,
+      filename,
+      storagePath,
+      contentType,
+      purpose,
+      subtype,
+      notes,
+      ocrRequested
+    } = req.body;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    if (
+      typeof assetType !== "string" ||
+      typeof filename !== "string" ||
+      typeof storagePath !== "string" ||
+      typeof contentType !== "string" ||
+      !assetType.trim() ||
+      !filename.trim() ||
+      !storagePath.trim() ||
+      !contentType.trim()
+    ) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanAssetType = assetType.trim();
+    const cleanFilename = filename.trim();
+    const cleanStoragePath = storagePath.trim();
+    const cleanContentType = contentType.trim();
+
+    const assetArrayPath = getAssetArrayPath(cleanAssetType);
+    const assetFolder = getAssetFolder(cleanAssetType);
+
+    if (!assetArrayPath || !assetFolder) {
+      return res.status(400).json({ ok: false, error: "Invalid assetType" });
+    }
+
+    if (!isValidFilename(cleanFilename)) {
+      return res.status(400).json({ ok: false, error: "Invalid filename" });
+    }
+
+    const expectedPrefix = `products/${slug}/${assetFolder}/`;
+
+    if (!cleanStoragePath.startsWith(expectedPrefix)) {
+      return res.status(400).json({ ok: false, error: "Invalid storagePath" });
+    }
+
+    let cleanPurpose = "";
+    let cleanSubtype = "";
+    let cleanNotes = "";
+    let cleanOcrRequested = false;
+
+    try {
+      cleanPurpose = sanitizeOptionalString(purpose);
+      cleanSubtype = sanitizeOptionalString(subtype);
+      cleanNotes = sanitizeOptionalString(notes);
+      cleanOcrRequested = sanitizeOptionalBoolean(ocrRequested);
+    } catch (validationError) {
+      return res.status(400).json({ ok: false, error: validationError.message });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const assetRecord = buildAssetRecord({
+      filename: cleanFilename,
+      storagePath: cleanStoragePath,
+      contentType: cleanContentType,
+      purpose: cleanPurpose,
+      subtype: cleanSubtype,
+      notes: cleanNotes,
+      ocrRequested: cleanOcrRequested
+    });
+
+    await docRef.update({
+      [assetArrayPath]: Firestore.FieldValue.arrayUnion(assetRecord),
+      updatedAt: getNowIso()
+    });
+
+    return res.status(200).json({ ok: true, message: "Asset registered", asset: assetRecord });
+  } catch (error) {
+    console.error("Error registering asset:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/content/save", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const {
+      title,
+      subtitle,
+      productType,
+      authors,
+      series,
+      language,
+      isbn10,
+      isbn13,
+      binding,
+      dimensions,
+      weightLb,
+      pricing,
+      organization,
+      content,
+      mediaNotes,
+      status
+    } = req.body;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const currentProduct = doc.data() || {};
+    const updates = { updatedAt: getNowIso() };
+
+    if (title !== undefined) {
+      if (typeof title !== "string") {
+        return res.status(400).json({ ok: false, error: "Invalid title" });
+      }
+      updates.title = title.trim();
+    }
+
+    if (subtitle !== undefined) {
+      if (typeof subtitle !== "string") {
+        return res.status(400).json({ ok: false, error: "Invalid subtitle" });
+      }
+      updates.subtitle = subtitle.trim();
+    }
+
+    if (productType !== undefined) {
+      if (typeof productType !== "string") {
+        return res.status(400).json({ ok: false, error: "Invalid productType" });
+      }
+      updates.productType = productType.trim();
+    }
+
+    if (authors !== undefined) {
+      if (!Array.isArray(authors) || !authors.every((item) => typeof item === "string")) {
+        return res.status(400).json({ ok: false, error: "Invalid authors" });
+      }
+      updates.authors = authors.map((item) => item.trim());
+    }
+
+    if (series !== undefined) {
+      if (series !== null && typeof series !== "string") {
+        return res.status(400).json({ ok: false, error: "Invalid series" });
+      }
+      updates.series = series === null ? null : series.trim();
+    }
+
+    if (language !== undefined) {
+      if (typeof language !== "string") {
+        return res.status(400).json({ ok: false, error: "Invalid language" });
+      }
+      updates.language = language.trim();
+    }
+
+    if (isbn10 !== undefined) {
+      if (typeof isbn10 !== "string") {
+        return res.status(400).json({ ok: false, error: "Invalid isbn10" });
+      }
+      updates.isbn10 = isbn10.trim();
+    }
+
+    if (isbn13 !== undefined) {
+      if (typeof isbn13 !== "string") {
+        return res.status(400).json({ ok: false, error: "Invalid isbn13" });
+      }
+      updates.isbn13 = isbn13.trim();
+    }
+
+    if (binding !== undefined) {
+      if (typeof binding !== "string") {
+        return res.status(400).json({ ok: false, error: "Invalid binding" });
+      }
+      updates.binding = binding.trim();
+    }
+
+    if (weightLb !== undefined) {
+      if (typeof weightLb !== "number") {
+        return res.status(400).json({ ok: false, error: "Invalid weightLb" });
+      }
+      updates.weightLb = weightLb;
+    }
+
+    if (status !== undefined) {
+      if (typeof status !== "string") {
+        return res.status(400).json({ ok: false, error: "Invalid status" });
+      }
+      updates.status = status.trim();
+    }
+
+    if (dimensions !== undefined) {
+      if (
+        !isPlainObject(dimensions) ||
+        typeof dimensions.depthIn !== "number" ||
+        typeof dimensions.heightIn !== "number" ||
+        typeof dimensions.thicknessIn !== "number"
+      ) {
+        return res.status(400).json({ ok: false, error: "Invalid dimensions" });
+      }
+      updates.dimensions = dimensions;
+    }
+
+    if (pricing !== undefined) {
+      if (
+        !isPlainObject(pricing) ||
+        typeof pricing.retailPrice !== "number" ||
+        typeof pricing.storePrice !== "number" ||
+        typeof pricing.costPerItem !== "number"
+      ) {
+        return res.status(400).json({ ok: false, error: "Invalid pricing" });
+      }
+      updates.pricing = pricing;
+    }
+
+    if (organization !== undefined) {
+      if (!isPlainObject(organization)) {
+        return res.status(400).json({ ok: false, error: "Invalid organization" });
+      }
+      updates.organization = organization;
+    }
+
+    if (content !== undefined) {
+      if (!isPlainObject(content)) {
+        return res.status(400).json({ ok: false, error: "Invalid content" });
+      }
+      updates.content = content;
+    }
+
+    if (mediaNotes !== undefined) {
+      if (!isPlainObject(mediaNotes)) {
+        return res.status(400).json({ ok: false, error: "Invalid mediaNotes" });
+      }
+      updates.mediaNotes = mediaNotes;
+    }
+
+    const mergedProduct = {
+      ...currentProduct,
+      ...updates,
+      organization:
+        updates.organization !== undefined ? updates.organization : currentProduct.organization,
+      content: updates.content !== undefined ? updates.content : currentProduct.content,
+      mediaNotes: updates.mediaNotes !== undefined ? updates.mediaNotes : currentProduct.mediaNotes,
+      dimensions: updates.dimensions !== undefined ? updates.dimensions : currentProduct.dimensions,
+      pricing: updates.pricing !== undefined ? updates.pricing : currentProduct.pricing,
+      authors: updates.authors !== undefined ? updates.authors : currentProduct.authors
+    };
+
+    updates.searchText = buildSearchText(mergedProduct);
+
+    await docRef.update(updates);
+
+    return res.status(200).json({ ok: true, message: "Content saved" });
+  } catch (error) {
+    console.error("Error saving content:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/ocr/start", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { assetType, sourceStoragePath, sourceFilename, mimeType } = req.body;
+
+    if (
+      !isValidSlug(slug) ||
+      typeof assetType !== "string" ||
+      typeof sourceStoragePath !== "string" ||
+      typeof sourceFilename !== "string" ||
+      typeof mimeType !== "string" ||
+      !assetType.trim() ||
+      !sourceStoragePath.trim() ||
+      !sourceFilename.trim() ||
+      !mimeType.trim()
+    ) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanAssetType = assetType.trim();
+    const cleanSourceStoragePath = sourceStoragePath.trim();
+    const cleanSourceFilename = sourceFilename.trim();
+    const cleanMimeType = mimeType.trim();
+
+    if (!isAllowedOcrAssetType(cleanAssetType)) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    if (!isValidFilename(cleanSourceFilename)) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const assetFolder = getAssetFolder(cleanAssetType);
+    const expectedPrefix = `products/${slug}/${assetFolder}/`;
+
+    if (!cleanSourceStoragePath.startsWith(expectedPrefix)) {
+      return res.status(400).json({ ok: false, error: "Invalid sourceStoragePath" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const productAssets = product.assets || {};
+    const assetList = productAssets[cleanAssetType] || [];
+
+    const assetExists = assetList.some(
+      (asset) => asset && asset.storagePath === cleanSourceStoragePath && asset.filename === cleanSourceFilename
+    );
+
+    if (!assetExists) {
+      return res.status(400).json({ ok: false, error: "Invalid sourceStoragePath" });
+    }
+
+    const currentOcr = product.ocr || getDefaultOcrBlock();
+    const currentDocuments = Array.isArray(currentOcr.documents) ? currentOcr.documents : [];
+
+    const existingIndex = currentDocuments.findIndex(
+      (ocrDoc) => ocrDoc.sourceStoragePath === cleanSourceStoragePath
+    );
+
+    const baseOcrDocument = withOcrDefaults({
+      assetType: cleanAssetType,
+      sourceFilename: cleanSourceFilename,
+      sourceStoragePath: cleanSourceStoragePath,
+      mimeType: cleanMimeType,
+      status: "processing",
+      ocrProvider: "document-ai",
+      ocrMode: getOcrModeForMimeType(cleanMimeType),
+      error: ""
+    });
+
+    const documentsBeforeRun =
+      existingIndex === -1
+        ? [...currentDocuments, baseOcrDocument]
+        : currentDocuments.map((docItem, index) =>
+            index === existingIndex
+              ? withOcrDefaults({
+                  ...docItem,
+                  assetType: cleanAssetType,
+                  sourceFilename: cleanSourceFilename,
+                  sourceStoragePath: cleanSourceStoragePath,
+                  mimeType: cleanMimeType,
+                  status: "processing",
+                  ocrProvider: "document-ai",
+                  ocrMode: getOcrModeForMimeType(cleanMimeType),
+                  error: ""
+                })
+              : withOcrDefaults(docItem)
+          );
+
+    await docRef.update({
+      ocr: { status: "processing", documents: documentsBeforeRun },
+      updatedAt: getNowIso()
+    });
+
+    try {
+      const documentAiResult = await runDocumentAiOcr({
+        sourceStoragePath: cleanSourceStoragePath,
+        sourceFilename: cleanSourceFilename,
+        mimeType: cleanMimeType
+      });
+
+      const rawOutputPath = getRawOcrOutputPath(slug, cleanSourceFilename);
+      const textOutputPath = getTextOcrOutputPath(slug, cleanSourceFilename);
+
+      await saveJsonFileToStorage(rawOutputPath, documentAiResult.rawResult);
+      await saveTextFileToStorage(textOutputPath, documentAiResult.extractedText || "");
+
+      const completedRecord = applyBestText(
+        withOcrDefaults({
+          ...baseOcrDocument,
+          rawOutputPath,
+          textOutputPath,
+          extractedText: documentAiResult.extractedText || "",
+          pageCount: documentAiResult.pageCount || 0,
+          status: "completed",
+          processedAt: getNowIso(),
+          error: ""
+        })
+      );
+
+      const refreshedDoc = await docRef.get();
+      const refreshedProduct = refreshedDoc.data() || {};
+      const refreshedOcr = refreshedProduct.ocr || getDefaultOcrBlock();
+      const refreshedDocuments = Array.isArray(refreshedOcr.documents)
+        ? refreshedOcr.documents
+        : [];
+
+      const refreshedIndex = refreshedDocuments.findIndex(
+        (ocrDoc) => ocrDoc.sourceStoragePath === cleanSourceStoragePath
+      );
+
+      const finalDocuments =
+        refreshedIndex === -1
+          ? [...refreshedDocuments, completedRecord]
+          : refreshedDocuments.map((docItem, index) =>
+              index === refreshedIndex
+                ? applyBestText(
+                    withOcrDefaults({
+                      ...docItem,
+                      ...completedRecord,
+                      rawOutputPath,
+                      textOutputPath,
+                      extractedText: documentAiResult.extractedText || "",
+                      pageCount: documentAiResult.pageCount || 0,
+                      status: "completed",
+                      processedAt: getNowIso(),
+                      error: ""
+                    })
+                  )
+                : withOcrDefaults(docItem)
+            );
+
+      await docRef.update({
+        ocr: {
+          status: computeOverallOcrStatus(finalDocuments),
+          documents: finalDocuments
+        },
+        updatedAt: getNowIso()
+      });
+
+      return res.status(200).json({ ok: true, message: "OCR completed", ocrDocument: completedRecord });
+    } catch (ocrError) {
+      console.error("Document AI OCR failed:", ocrError);
+
+      const failedRecord = withOcrDefaults({
+        ...baseOcrDocument,
+        status: "failed",
+        processedAt: getNowIso(),
+        error: ocrError.message || "OCR failed"
+      });
+
+      const refreshedDoc = await docRef.get();
+      const refreshedProduct = refreshedDoc.data() || {};
+      const refreshedOcr = refreshedProduct.ocr || getDefaultOcrBlock();
+      const refreshedDocuments = Array.isArray(refreshedOcr.documents)
+        ? refreshedOcr.documents
+        : [];
+
+      const refreshedIndex = refreshedDocuments.findIndex(
+        (ocrDoc) => ocrDoc.sourceStoragePath === cleanSourceStoragePath
+      );
+
+      const finalDocuments =
+        refreshedIndex === -1
+          ? [...refreshedDocuments, failedRecord]
+          : refreshedDocuments.map((docItem, index) =>
+              index === refreshedIndex
+                ? withOcrDefaults({
+                    ...docItem,
+                    status: "failed",
+                    ocrProvider: "document-ai",
+                    processedAt: getNowIso(),
+                    error: ocrError.message || "OCR failed"
+                  })
+                : withOcrDefaults(docItem)
+            );
+
+      await docRef.update({
+        ocr: {
+          status: computeOverallOcrStatus(finalDocuments),
+          documents: finalDocuments
+        },
+        updatedAt: getNowIso()
+      });
+
+      return res.status(500).json({ ok: false, error: "OCR failed" });
+    }
+  } catch (error) {
+    console.error("Error starting OCR job:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.get("/products/:slug/ocr", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const ocr = product.ocr || getDefaultOcrBlock();
+
+    return res.status(200).json({ ok: true, ocr });
+  } catch (error) {
+    console.error("Error fetching OCR block:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/ocr/register", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { sourceStoragePath, rawOutputPath, textOutputPath, extractedText, pageCount, status, error } = req.body;
+
+    if (
+      !isValidSlug(slug) ||
+      typeof sourceStoragePath !== "string" ||
+      typeof rawOutputPath !== "string" ||
+      typeof textOutputPath !== "string" ||
+      typeof extractedText !== "string" ||
+      typeof pageCount !== "number" ||
+      typeof status !== "string" ||
+      typeof error !== "string" ||
+      !sourceStoragePath.trim() ||
+      !rawOutputPath.trim() ||
+      !textOutputPath.trim() ||
+      !status.trim()
+    ) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanSourceStoragePath = sourceStoragePath.trim();
+    const cleanRawOutputPath = rawOutputPath.trim();
+    const cleanTextOutputPath = textOutputPath.trim();
+    const cleanExtractedText = extractedText;
+    const cleanStatus = status.trim();
+    const cleanError = error;
+
+    if (!["processing", "completed", "failed"].includes(cleanStatus)) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const rawPrefix = `products/${slug}/ocr/raw/`;
+    const textPrefix = `products/${slug}/ocr/text/`;
+
+    if (!cleanRawOutputPath.startsWith(rawPrefix) || !cleanTextOutputPath.startsWith(textPrefix)) {
+      return res.status(400).json({ ok: false, error: "Invalid OCR output path" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const currentOcr = product.ocr || getDefaultOcrBlock();
+    const currentDocuments = Array.isArray(currentOcr.documents) ? currentOcr.documents : [];
+
+    const documentIndex = currentDocuments.findIndex(
+      (ocrDoc) => ocrDoc.sourceStoragePath === cleanSourceStoragePath
+    );
+
+    if (documentIndex === -1) {
+      return res.status(404).json({ ok: false, error: "OCR record not found" });
+    }
+
+    const existingRecord = withOcrDefaults(currentDocuments[documentIndex]);
+    const updatedRecord = applyBestText(
+      withOcrDefaults({
+        ...existingRecord,
+        status: cleanStatus,
+        rawOutputPath: cleanRawOutputPath,
+        textOutputPath: cleanTextOutputPath,
+        extractedText: cleanExtractedText,
+        pageCount,
+        processedAt: getNowIso(),
+        error: cleanError
+      })
+    );
+
+    const updatedDocuments = [...currentDocuments];
+    updatedDocuments[documentIndex] = updatedRecord;
+    const overallStatus = computeOverallOcrStatus(updatedDocuments);
+
+    await docRef.update({
+      ocr: { status: overallStatus, documents: updatedDocuments },
+      updatedAt: getNowIso()
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "OCR result registered",
+      ocrDocument: {
+        sourceStoragePath: updatedRecord.sourceStoragePath,
+        rawOutputPath: updatedRecord.rawOutputPath,
+        textOutputPath: updatedRecord.textOutputPath,
+        extractedText: updatedRecord.extractedText,
+        pageCount: updatedRecord.pageCount,
+        status: updatedRecord.status,
+        error: updatedRecord.error,
+        bestText: updatedRecord.bestText,
+        bestTextSource: updatedRecord.bestTextSource
+      }
+    });
+  } catch (error) {
+    console.error("Error registering OCR result:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/ocr/cleanup", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { sourceStoragePath } = req.body;
+
+    if (!isValidSlug(slug) || typeof sourceStoragePath !== "string" || !sourceStoragePath.trim()) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanSourceStoragePath = sourceStoragePath.trim();
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const currentOcr = product.ocr || getDefaultOcrBlock();
+    const currentDocuments = Array.isArray(currentOcr.documents) ? currentOcr.documents : [];
+
+    const documentIndex = currentDocuments.findIndex(
+      (ocrDoc) => ocrDoc.sourceStoragePath === cleanSourceStoragePath
+    );
+
+    if (documentIndex === -1) {
+      return res.status(404).json({ ok: false, error: "OCR record not found" });
+    }
+
+    const existingRecord = withOcrDefaults(currentDocuments[documentIndex]);
+    const extractedText = existingRecord.extractedText || "";
+
+    if (!extractedText.trim()) {
+      return res.status(400).json({ ok: false, error: "No OCR text available to clean" });
+    }
+
+    const processingRecord = withOcrDefaults({
+      ...existingRecord,
+      cleanupStatus: "processing",
+      cleanupError: ""
+    });
+
+    const processingDocuments = [...currentDocuments];
+    processingDocuments[documentIndex] = processingRecord;
+
+    await docRef.update({
+      ocr: { status: currentOcr.status || "completed", documents: processingDocuments },
+      updatedAt: getNowIso()
+    });
+
+    try {
+      const cleanedText = cleanOcrText(extractedText);
+
+      const updatedRecord = applyBestText(
+        withOcrDefaults({
+          ...existingRecord,
+          cleanedText,
+          cleanupStatus: "completed",
+          cleanupProcessedAt: getNowIso(),
+          cleanupError: ""
+        })
+      );
+
+      const finalDocuments = [...processingDocuments];
+      finalDocuments[documentIndex] = updatedRecord;
+
+      await docRef.update({
+        ocr: { status: currentOcr.status || "completed", documents: finalDocuments },
+        updatedAt: getNowIso()
+      });
+
+      return res.status(200).json({
+        ok: true,
+        message: "OCR cleanup completed",
+        ocrDocument: {
+          sourceStoragePath: updatedRecord.sourceStoragePath,
+          cleanupStatus: updatedRecord.cleanupStatus,
+          cleanedText: updatedRecord.cleanedText,
+          cleanupError: updatedRecord.cleanupError,
+          bestText: updatedRecord.bestText,
+          bestTextSource: updatedRecord.bestTextSource
+        }
+      });
+    } catch (cleanupError) {
+      const failedRecord = withOcrDefaults({
+        ...existingRecord,
+        cleanupStatus: "failed",
+        cleanupProcessedAt: getNowIso(),
+        cleanupError: cleanupError.message || "Cleanup failed"
+      });
+
+      const finalDocuments = [...processingDocuments];
+      finalDocuments[documentIndex] = failedRecord;
+
+      await docRef.update({
+        ocr: { status: currentOcr.status || "completed", documents: finalDocuments },
+        updatedAt: getNowIso()
+      });
+
+      return res.status(500).json({ ok: false, error: "OCR cleanup failed" });
+    }
+  } catch (error) {
+    console.error("Error cleaning OCR text:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/ocr/normalize", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { sourceStoragePath } = req.body;
+
+    if (!isValidSlug(slug) || typeof sourceStoragePath !== "string" || !sourceStoragePath.trim()) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanSourceStoragePath = sourceStoragePath.trim();
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const currentOcr = product.ocr || getDefaultOcrBlock();
+    const currentDocuments = Array.isArray(currentOcr.documents) ? currentOcr.documents : [];
+
+    const documentIndex = currentDocuments.findIndex(
+      (ocrDoc) => ocrDoc.sourceStoragePath === cleanSourceStoragePath
+    );
+
+    if (documentIndex === -1) {
+      return res.status(404).json({ ok: false, error: "OCR record not found" });
+    }
+
+    const existingRecord = withOcrDefaults(currentDocuments[documentIndex]);
+    const sourceText =
+      (existingRecord.cleanedText && existingRecord.cleanedText.trim()) ||
+      (existingRecord.extractedText && existingRecord.extractedText.trim()) ||
+      "";
+
+    if (!sourceText) {
+      return res.status(400).json({ ok: false, error: "No OCR text available to normalize" });
+    }
+
+    const processingRecord = withOcrDefaults({
+      ...existingRecord,
+      normalizationStatus: "processing",
+      normalizationError: ""
+    });
+
+    const processingDocuments = [...currentDocuments];
+    processingDocuments[documentIndex] = processingRecord;
+
+    await docRef.update({
+      ocr: { status: currentOcr.status || "completed", documents: processingDocuments },
+      updatedAt: getNowIso()
+    });
+
+    try {
+      const normalizedText = normalizeOcrText(sourceText);
+
+      const updatedRecord = applyBestText(
+        withOcrDefaults({
+          ...existingRecord,
+          normalizedText,
+          normalizationStatus: "completed",
+          normalizationProcessedAt: getNowIso(),
+          normalizationError: ""
+        })
+      );
+
+      const finalDocuments = [...processingDocuments];
+      finalDocuments[documentIndex] = updatedRecord;
+
+      await docRef.update({
+        ocr: { status: currentOcr.status || "completed", documents: finalDocuments },
+        updatedAt: getNowIso()
+      });
+
+      return res.status(200).json({
+        ok: true,
+        message: "OCR normalization completed",
+        ocrDocument: {
+          sourceStoragePath: updatedRecord.sourceStoragePath,
+          normalizationStatus: updatedRecord.normalizationStatus,
+          normalizedText: updatedRecord.normalizedText,
+          normalizationError: updatedRecord.normalizationError,
+          bestText: updatedRecord.bestText,
+          bestTextSource: updatedRecord.bestTextSource
+        }
+      });
+    } catch (normalizationError) {
+      const failedRecord = withOcrDefaults({
+        ...existingRecord,
+        normalizationStatus: "failed",
+        normalizationProcessedAt: getNowIso(),
+        normalizationError: normalizationError.message || "Normalization failed"
+      });
+
+      const finalDocuments = [...processingDocuments];
+      finalDocuments[documentIndex] = failedRecord;
+
+      await docRef.update({
+        ocr: { status: currentOcr.status || "completed", documents: finalDocuments },
+        updatedAt: getNowIso()
+      });
+
+      return res.status(500).json({ ok: false, error: "OCR normalization failed" });
+    }
+  } catch (error) {
+    console.error("Error normalizing OCR text:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/ocr/ai-correct", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { sourceStoragePath } = req.body;
+
+    if (!isValidSlug(slug) || typeof sourceStoragePath !== "string" || !sourceStoragePath.trim()) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanSourceStoragePath = sourceStoragePath.trim();
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const currentOcr = product.ocr || getDefaultOcrBlock();
+    const currentDocuments = Array.isArray(currentOcr.documents) ? currentOcr.documents : [];
+
+    const documentIndex = currentDocuments.findIndex(
+      (ocrDoc) => ocrDoc.sourceStoragePath === cleanSourceStoragePath
+    );
+
+    if (documentIndex === -1) {
+      return res.status(404).json({ ok: false, error: "OCR record not found" });
+    }
+
+    const existingRecord = withOcrDefaults(currentDocuments[documentIndex]);
+    const sourceText =
+      (existingRecord.normalizedText && existingRecord.normalizedText.trim()) ||
+      (existingRecord.cleanedText && existingRecord.cleanedText.trim()) ||
+      (existingRecord.extractedText && existingRecord.extractedText.trim()) ||
+      "";
+
+    if (!sourceText) {
+      return res.status(400).json({ ok: false, error: "No OCR text available to AI-correct" });
+    }
+
+    const processingRecord = withOcrDefaults({
+      ...existingRecord,
+      aiCorrectionStatus: "processing",
+      aiCorrectionError: ""
+    });
+
+    const processingDocuments = [...currentDocuments];
+    processingDocuments[documentIndex] = processingRecord;
+
+    await docRef.update({
+      ocr: { status: currentOcr.status || "completed", documents: processingDocuments },
+      updatedAt: getNowIso()
+    });
+
+    try {
+      const aiCorrectedText = await runAiCorrection(sourceText);
+
+      const updatedRecord = applyBestText(
+        withOcrDefaults({
+          ...existingRecord,
+          aiCorrectedText,
+          aiCorrectionStatus: "completed",
+          aiCorrectionProcessedAt: getNowIso(),
+          aiCorrectionError: ""
+        })
+      );
+
+      const finalDocuments = [...processingDocuments];
+      finalDocuments[documentIndex] = updatedRecord;
+
+      await docRef.update({
+        ocr: { status: currentOcr.status || "completed", documents: finalDocuments },
+        updatedAt: getNowIso()
+      });
+
+      return res.status(200).json({
+        ok: true,
+        message: "AI OCR correction completed",
+        ocrDocument: {
+          sourceStoragePath: updatedRecord.sourceStoragePath,
+          aiCorrectionStatus: updatedRecord.aiCorrectionStatus,
+          aiCorrectedText: updatedRecord.aiCorrectedText,
+          aiCorrectionError: updatedRecord.aiCorrectionError,
+          bestText: updatedRecord.bestText,
+          bestTextSource: updatedRecord.bestTextSource
+        }
+      });
+    } catch (aiError) {
+      const failedRecord = withOcrDefaults({
+        ...existingRecord,
+        aiCorrectionStatus: "failed",
+        aiCorrectionProcessedAt: getNowIso(),
+        aiCorrectionError: aiError.message || "AI correction failed"
+      });
+
+      const finalDocuments = [...processingDocuments];
+      finalDocuments[documentIndex] = failedRecord;
+
+      await docRef.update({
+        ocr: { status: currentOcr.status || "completed", documents: finalDocuments },
+        updatedAt: getNowIso()
+      });
+
+      return res.status(500).json({ ok: false, error: "AI correction failed" });
+    }
+  } catch (error) {
+    console.error("Error AI-correcting OCR text:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`bhe-product-api listening on port ${PORT}`);
+});

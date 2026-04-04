@@ -1,0 +1,198 @@
+## OVERVIEW
+
+This file defines the approved values and rules for product organization, tagging, and structure.
+
+The GPT must:
+- Select from these lists whenever possible
+- Avoid inventing new values unless explicitly instructed
+- Favor consistency over creativity
+
+---
+
+## DEFAULT VALUES
+
+Unless otherwise specified:
+
+- Vendor: Biblical Heritage Exhibit
+- Category: Media > Books > Print Books
+- Target Audience: Adults
+- Language Version: English
+
+---
+
+## PRODUCT TYPES (APPROVED)
+
+- Facsimile Bible
+- Book
+- Reproduction
+- Teaching Resource
+- Artwork
+- Poster
+- DVD
+- Statue
+- Canvas
+- Coins & Medallions
+- Bible Stand
+- Book Press
+- Sculpture Stand
+- Dimensional Art
+- Tour
+
+---
+
+## PRODUCT TYPE RULES
+
+- All Bible reproductions -> Facsimile Bible
+- Historical or educational books -> Book
+- Do not mix product types
+- Do not invent new product types
+
+---
+
+## VENDORS (APPROVED)
+
+Primary vendor:
+- Biblical Heritage Exhibit
+
+Other vendors (only if explicitly specified):
+- Thomas Nelson
+- Crossway
+- Smithsonian Books
+- Vision Video
+
+---
+
+## VENDOR RULES
+
+- Default to Biblical Heritage Exhibit
+- Do not invent vendors
+
+---
+
+## CATEGORIES (SHOPIFY TAXONOMY)
+
+Primary category:
+- Media > Books > Print Books
+
+Other valid categories:
+- Media > Books
+- Home & Garden > Decor > Artwork
+
+---
+
+## CATEGORY RULES
+
+- All book-based products -> Media > Books > Print Books
+- Do not invent new categories
+
+---
+
+## TAGS (APPROVED)
+
+### Language Tags
+- English
+- Hebrew
+- Greek
+- Latin
+- German
+- Spanish
+
+### Product Tags
+- Facsimile
+- Reproduction
+
+### Subject Tags
+- Bible History
+- Reformation
+- Tyndale
+- Martin Luther
+
+### Optional Tags
+- Education
+- limited-edition
+- Just Arrived!
+- popup-event
+
+---
+
+## TAG RULES
+
+- Use 3-6 tags maximum
+- Always include a language tag when applicable
+- Include a product tag when applicable
+- Add subject tags when relevant
+- Do not invent new tags
+- Avoid generic tags
+
+---
+
+## COLLECTIONS (APPROVED)
+
+- Commemorative Bible Series
+- Facsimile Bibles
+- Bible History & Education
+
+---
+
+## COLLECTION RULES
+
+- Always assign at least one collection
+- Facsimile reproductions -> Facsimile Bibles
+- Series items -> Commemorative Bible Series
+- Historical or teaching books -> Bible History & Education
+- If multiple apply, include both
+- Never leave collections empty if a reasonable match exists
+- Do not invent new collections
+
+---
+
+## SERIES RULES
+
+- If part of a series:
+  - include series name
+  - assign correct collection
+- Maintain consistent naming
+- Do not create alternate series names
+
+---
+
+## SEO RULES
+
+SEO Title:
+- Clear and descriptive
+- Include product name and key identifier when relevant
+
+Meta Description:
+- 140-160 characters
+- Concise and accurate
+
+URL Handle:
+- lowercase
+- hyphenated
+- clean
+
+---
+
+## CRITICAL RULES
+
+The GPT must NEVER invent:
+- tags
+- collections
+- product types
+- vendors
+- categories
+
+The GPT must ALWAYS:
+- choose from approved lists
+- maintain consistency
+- select the closest valid option if uncertain
+
+---
+
+## FINAL PRINCIPLE
+
+Consistency across the store is more important than variation.
+
+When unsure:
+- choose the closest approved value
+- do not create new ones

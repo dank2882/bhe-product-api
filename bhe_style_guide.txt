@@ -1,0 +1,210 @@
+## OVERVIEW
+
+This guide defines the tone, voice, and writing standards for all product content, including:
+- product descriptions
+- SEO content
+- narration scripts
+- feature bullets
+
+All content should reflect a historically grounded, professional, and trustworthy voice appropriate for collectors, researchers, and serious buyers.
+
+---
+
+## CORE VOICE PRINCIPLES
+
+Content should be:
+- historically informed
+- clear and readable
+- respectful of the subject matter
+- confident, not exaggerated
+- professional, not casual
+
+---
+
+## TONE CHARACTERISTICS
+
+Preferred tone:
+- formal but approachable
+- educational but not academic-heavy
+- confident without sounding promotional
+- descriptive without being verbose
+
+Avoid:
+- overly casual language
+- slang or modern marketing phrases
+- exaggerated claims
+- salesy tone
+
+---
+
+## PRODUCT DESCRIPTION STYLE
+
+### STRUCTURE
+
+Descriptions should generally follow this flow:
+1. historical context
+2. significance of the work
+3. details of this specific edition
+4. physical qualities and craftsmanship
+5. use case / value to the buyer
+
+### WRITING GUIDELINES
+
+- Use full, complete sentences
+- Avoid short, choppy phrasing
+- Maintain logical flow between paragraphs
+- Prioritize clarity over cleverness
+
+### LANGUAGE STYLE
+
+Use:
+- "This edition..."
+- "This facsimile..."
+- "Originally..."
+- "Produced using..."
+
+Avoid:
+- "You'll love..."
+- "This amazing product..."
+- "Best ever..."
+
+---
+
+## NARRATION STYLE
+
+Narration should:
+- follow a smooth, flowing structure
+- feel slightly more storytelling-oriented than the description
+- maintain the same tone but with better pacing
+- sound natural when read aloud by AI
+
+### DIFFERENCE FROM PRODUCT DESCRIPTION
+
+- Narration = flow and storytelling
+- Description = clarity and structure
+
+They should:
+- communicate the same truth
+- but not use identical wording
+
+---
+
+## FEATURE BULLETS
+
+Bullets should:
+- be concise
+- highlight key value points
+- avoid full paragraphs
+- remain informative, not promotional
+
+Example style:
+- Faithful reproduction of the original 1526 New Testament
+- Printed in full color using high-resolution source imagery
+- Bound in a durable and attractive format suitable for display
+
+---
+
+## SEO STYLE
+
+### SEO TITLE
+- Clear and descriptive
+- Include key identifiers when relevant
+- Avoid keyword stuffing
+
+### META DESCRIPTION
+- 140-160 characters
+- Concise and informative
+- Reflect the product's purpose and significance
+- Not identical to product description
+
+---
+
+## POSITIONING LANGUAGE
+
+### Accessible Editions
+
+Use language like:
+- accessible format
+- practical and well-presented
+- designed for broader ownership
+
+Avoid:
+- cheap
+- budget
+- lower-tier
+
+### Collector Editions
+
+Use language like:
+- premium edition
+- collector-level reproduction
+- museum-quality presentation
+
+---
+
+## FORBIDDEN PATTERNS
+
+Do NOT use:
+- exaggerated claims
+- modern marketing hype
+- vague descriptors like incredible or amazing
+- filler language
+
+---
+
+## FACTUAL ACCURACY RULE
+
+When describing historical works:
+- Do not overstate certainty unless verified
+- Avoid speculative phrasing
+- Prefer neutral, verifiable wording
+
+Use:
+- described as
+- historically recognized as
+- associated with
+
+Avoid:
+- stating uncertain facts as absolute
+- unnecessary hedging when facts are established
+
+---
+
+## OUTPUT RULE
+
+The GPT must:
+- NOT include internal reasoning
+- NOT explain why it made decisions
+- NOT reference style rules, defaults, or internal logic
+- ONLY output final, production-ready content
+
+---
+
+## LENGTH CONTROL
+
+Descriptions should:
+- be thorough but not excessive
+- avoid repeating the same idea in multiple ways
+- stay focused on history, significance, and this edition
+
+---
+
+## CONSISTENCY RULE
+
+All products should feel like they come from:
+- the same voice
+- the same organization
+- the same standard
+
+Even when:
+- products differ
+- price points differ
+- audiences differ
+
+---
+
+## FINAL PRINCIPLE
+
+The goal is not to impress.
+
+The goal is to clearly communicate historical significance and product value with consistency and credibility.

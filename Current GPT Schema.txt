@@ -1,0 +1,1063 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BHE Product API",
+    "version": "1.0.0",
+    "description": "API for creating and managing Biblical Heritage Exhibit product records, assets, OCR processing, draft generation, product search, and cleanup."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-265001256563.us-west1.run.app"
+    }
+  ],
+  "paths": {
+    "/products": {
+      "get": {
+        "operationId": "listProducts",
+        "summary": "List product records",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product list returned"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProduct",
+        "summary": "Create a product",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product created"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "409": {
+            "description": "Product already exists"
+          }
+        }
+      }
+    },
+    "/products/search": {
+      "post": {
+        "operationId": "searchProducts",
+        "summary": "Search products by rough title, slug, historical figure, or description keywords",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchProductsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching products returned"
+          },
+          "400": {
+            "description": "Invalid search query"
+          }
+        }
+      }
+    },
+    "/products/{slug}": {
+      "get": {
+        "operationId": "getProduct",
+        "summary": "Get a product by slug",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product found"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProduct",
+        "summary": "Delete a product record permanently",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product deleted"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        }
+      }
+    },
+    "/products/{slug}/archive": {
+      "post": {
+        "operationId": "archiveProduct",
+        "summary": "Archive a product record",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product archived"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        }
+      }
+    },
+    "/products/{slug}/source-text": {
+      "get": {
+        "operationId": "getSourceText",
+        "summary": "Get combined source text for a product",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Source text returned"
+          }
+        }
+      }
+    },
+    "/products/{slug}/generate-draft": {
+      "post": {
+        "operationId": "generateDraft",
+        "summary": "Generate a draft from the product and best OCR text",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft generated"
+          },
+          "400": {
+            "description": "No source text available"
+          }
+        }
+      }
+    },
+    "/products/{slug}/draft/save": {
+      "post": {
+        "operationId": "saveDraft",
+        "summary": "Save generated draft content back into the product",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDraftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Draft saved"
+          }
+        }
+      }
+    },
+    "/products/{slug}/assets": {
+      "get": {
+        "operationId": "getProductAssets",
+        "summary": "Get product assets by type",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assets returned"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        }
+      }
+    },
+    "/products/{slug}/assets/download-url": {
+      "post": {
+        "operationId": "getAssetDownloadUrl",
+        "summary": "Get a signed download URL for an existing product asset",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetAssetDownloadUrlRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed download URL returned"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "404": {
+            "description": "Asset or product not found"
+          }
+        }
+      }
+    },
+    "/products/{slug}/assets/upload-url": {
+      "post": {
+        "operationId": "getAssetUploadUrl",
+        "summary": "Get a signed upload URL for a product asset",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetUploadUrlRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed upload URL returned"
+          }
+        }
+      }
+    },
+    "/products/{slug}/assets/register": {
+      "post": {
+        "operationId": "registerAsset",
+        "summary": "Register an uploaded asset on the product record",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterAssetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Asset registered"
+          }
+        }
+      }
+    },
+
+
+    "/products/{slug}/assets/import-openai-files": {
+      "post": {
+        "operationId": "importOpenAiFilesToProduct",
+        "summary": "Import chat-uploaded files into a product's registered asset storage",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportOpenAiFilesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Files imported successfully"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        }
+      }
+    },
+    "/products/{slug}/content/save": {
+      "post": {
+        "operationId": "saveProductContent",
+        "summary": "Save product content and metadata fields",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveProductContentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Content saved"
+          }
+        }
+      }
+    },
+    "/products/{slug}/ocr": {
+      "get": {
+        "operationId": "getOcr",
+        "summary": "Get OCR block for a product",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OCR block returned"
+          }
+        }
+      }
+    },
+    "/products/{slug}/ocr/start": {
+      "post": {
+        "operationId": "startOcr",
+        "summary": "Run OCR on a registered source asset",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartOcrRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OCR completed or started"
+          }
+        }
+      }
+    },
+    "/products/{slug}/ocr/register": {
+      "post": {
+        "operationId": "registerOcrResult",
+        "summary": "Register OCR result fields manually",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterOcrRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OCR result registered"
+          }
+        }
+      }
+    },
+    "/products/{slug}/ocr/cleanup": {
+      "post": {
+        "operationId": "cleanupOcr",
+        "summary": "Run cleanup on OCR text",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceStoragePathRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OCR cleanup completed"
+          }
+        }
+      }
+    },
+    "/products/{slug}/ocr/normalize": {
+      "post": {
+        "operationId": "normalizeOcr",
+        "summary": "Run normalization on OCR text",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceStoragePathRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OCR normalization completed"
+          }
+        }
+      }
+    },
+    "/products/{slug}/ocr/ai-correct": {
+      "post": {
+        "operationId": "aiCorrectOcr",
+        "summary": "Run AI correction on OCR text",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceStoragePathRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AI OCR correction completed"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateProductRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "title",
+          "productType"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "productType": {
+            "type": "string"
+          }
+        }
+      },
+      "GetAssetDownloadUrlRequest": {
+        "type": "object",
+        "required": [
+          "assetType",
+          "storagePath"
+        ],
+        "properties": {
+          "assetType": {
+            "type": "string",
+            "enum": [
+              "sourceFiles",
+              "imagesRaw",
+              "imagesEdited",
+              "exports"
+            ]
+          },
+          "storagePath": {
+            "type": "string"
+          }
+        }
+      },
+      "SearchProductsRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 10
+          }
+        }
+      },
+      "DraftPayload": {
+        "type": "object",
+        "required": [
+          "title",
+          "subtitle",
+          "shortDescription",
+          "mainDescription",
+          "featureBullets",
+          "seoTitle",
+          "metaDescription"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "shortDescription": {
+            "type": "string"
+          },
+          "mainDescription": {
+            "type": "string"
+          },
+          "featureBullets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "seoTitle": {
+            "type": "string"
+          },
+          "metaDescription": {
+            "type": "string"
+          }
+        }
+      },
+      "SaveDraftRequest": {
+        "type": "object",
+        "required": [
+          "draft"
+        ],
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/DraftPayload"
+          }
+        }
+      },
+      "GetUploadUrlRequest": {
+        "type": "object",
+        "required": [
+          "assetType",
+          "filename",
+          "contentType"
+        ],
+        "properties": {
+          "assetType": {
+            "type": "string",
+            "enum": [
+              "sourceFiles",
+              "imagesRaw",
+              "imagesEdited",
+              "exports"
+            ]
+          },
+          "filename": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          }
+        }
+      },
+      "RegisterAssetRequest": {
+        "type": "object",
+        "required": [
+          "assetType",
+          "filename",
+          "storagePath",
+          "contentType"
+        ],
+        "properties": {
+          "assetType": {
+            "type": "string",
+            "enum": [
+              "sourceFiles",
+              "imagesRaw",
+              "imagesEdited",
+              "exports"
+            ]
+          },
+          "filename": {
+            "type": "string"
+          },
+          "storagePath": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "subtype": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "ocrRequested": {
+            "type": "boolean"
+          }
+        }
+      },
+
+      "ImportOpenAiFilesRequest": {
+        "type": "object",
+        "required": [
+          "assetType",
+          "openaiFileIdRefs"
+        ],
+        "properties": {
+          "assetType": {
+            "type": "string",
+            "enum": [
+              "sourceFiles",
+              "imagesRaw",
+              "imagesEdited",
+              "exports"
+            ],
+            "description": "One of sourceFiles, imagesRaw, imagesEdited, exports"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "Purpose such as supporting-reference, source-document, media-reference"
+          },
+          "subtype": {
+            "type": "string",
+            "description": "Subtype such as narration-notes, final-script, markup, handwritten-notes"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional human note about the uploaded files"
+          },
+          "ocrRequested": {
+            "type": "boolean",
+            "description": "Whether OCR should be run after import"
+          },
+          "openaiFileIdRefs": {
+            "type": "array",
+            "description": "Up to 10 files from the conversation to import into the product record",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "mime_type": {
+                  "type": "string"
+                },
+                "download_link": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ]
+            }
+          }
+        }
+      },
+      "SaveProductContentRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "productType": {
+            "type": "string"
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "series": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": "string"
+          },
+          "isbn10": {
+            "type": "string"
+          },
+          "isbn13": {
+            "type": "string"
+          },
+          "binding": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "object",
+            "properties": {
+              "depthIn": {
+                "type": "number"
+              },
+              "heightIn": {
+                "type": "number"
+              },
+              "thicknessIn": {
+                "type": "number"
+              }
+            }
+          },
+          "weightLb": {
+            "type": "number"
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "retailPrice": {
+                "type": "number"
+              },
+              "storePrice": {
+                "type": "number"
+              },
+              "costPerItem": {
+                "type": "number"
+              }
+            }
+          },
+          "organization": {
+            "type": "object",
+            "properties": {
+              "collections": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "genre": {
+                "type": "string"
+              },
+              "targetAudience": {
+                "type": "string"
+              },
+              "vendor": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              }
+            }
+          },
+          "content": {
+            "type": "object",
+            "properties": {
+              "shortDescription": {
+                "type": "string"
+              },
+              "mainDescription": {
+                "type": "string"
+              },
+              "featureBullets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "seoTitle": {
+                "type": "string"
+              },
+              "metaDescription": {
+                "type": "string"
+              },
+              "urlHandle": {
+                "type": "string"
+              }
+            }
+          },
+          "mediaNotes": {
+            "type": "object",
+            "properties": {
+              "videoEmphasis": {
+                "type": "string"
+              },
+              "requiredPhotoVideoFeatures": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "photoLibraryUrl": {
+                "type": "string"
+              }
+            }
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "StartOcrRequest": {
+        "type": "object",
+        "required": [
+          "assetType",
+          "sourceStoragePath",
+          "sourceFilename",
+          "mimeType"
+        ],
+        "properties": {
+          "assetType": {
+            "type": "string",
+            "enum": [
+              "sourceFiles",
+              "imagesRaw",
+              "imagesEdited",
+              "exports"
+            ]
+          },
+          "sourceStoragePath": {
+            "type": "string"
+          },
+          "sourceFilename": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          }
+        }
+      },
+      "RegisterOcrRequest": {
+        "type": "object",
+        "required": [
+          "sourceStoragePath",
+          "rawOutputPath",
+          "textOutputPath",
+          "extractedText",
+          "pageCount",
+          "status",
+          "error"
+        ],
+        "properties": {
+          "sourceStoragePath": {
+            "type": "string"
+          },
+          "rawOutputPath": {
+            "type": "string"
+          },
+          "textOutputPath": {
+            "type": "string"
+          },
+          "extractedText": {
+            "type": "string"
+          },
+          "pageCount": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "processing",
+              "completed",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceStoragePathRequest": {
+        "type": "object",
+        "required": [
+          "sourceStoragePath"
+        ],
+        "properties": {
+          "sourceStoragePath": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
