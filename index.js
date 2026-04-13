@@ -2006,6 +2006,89 @@ app.post("/products/:slug/assets/register", async (req, res) => {
   }
 });
 
+app.post("/products/:slug/assets/unregister", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { assetType, storagePath, uploadedAt } = req.body;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    if (
+      typeof assetType !== "string" ||
+      typeof storagePath !== "string" ||
+      typeof uploadedAt !== "string" ||
+      !assetType.trim() ||
+      !storagePath.trim() ||
+      !uploadedAt.trim()
+    ) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanAssetType = assetType.trim();
+    const cleanStoragePath = storagePath.trim();
+    const cleanUploadedAt = uploadedAt.trim();
+    const assetFolder = getAssetFolder(cleanAssetType);
+
+    if (!isAllowedOcrAssetType(cleanAssetType) || !assetFolder) {
+      return res.status(400).json({ ok: false, error: "Invalid assetType" });
+    }
+
+    const expectedPrefix = `products/${slug}/${assetFolder}/`;
+
+    if (!cleanStoragePath.startsWith(expectedPrefix)) {
+      return res.status(400).json({ ok: false, error: "Invalid storagePath" });
+    }
+
+    if (Number.isNaN(Date.parse(cleanUploadedAt))) {
+      return res.status(400).json({ ok: false, error: "Invalid uploadedAt" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const assets = getSafeAssets(product);
+    const assetList = assets[cleanAssetType] || [];
+
+    const assetIndex = assetList.findIndex(
+      (asset) =>
+        asset &&
+        asset.storagePath === cleanStoragePath &&
+        asset.uploadedAt === cleanUploadedAt
+    );
+
+    if (assetIndex === -1) {
+      return res.status(404).json({ ok: false, error: "Asset record not found" });
+    }
+
+    const updatedAssetList = assetList.filter((_, index) => index !== assetIndex);
+
+    await docRef.update({
+      [`assets.${cleanAssetType}`]: updatedAssetList,
+      updatedAt: getNowIso()
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "Asset record unregistered",
+      removed: {
+        assetType: cleanAssetType,
+        storagePath: cleanStoragePath,
+        uploadedAt: cleanUploadedAt
+      }
+    });
+  } catch (error) {
+    console.error("Error unregistering asset:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
 app.post("/products/:slug/content/save", async (req, res) => {
   try {
     const { slug } = req.params;
@@ -2858,6 +2941,78 @@ app.post("/products/:slug/ocr/ai-correct", async (req, res) => {
     }
   } catch (error) {
     console.error("Error AI-correcting OCR text:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
+app.post("/products/:slug/ocr/human-review", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { sourceStoragePath, humanReviewedText } = req.body;
+
+    if (
+      !isValidSlug(slug) ||
+      typeof sourceStoragePath !== "string" ||
+      typeof humanReviewedText !== "string" ||
+      !sourceStoragePath.trim() ||
+      !humanReviewedText.trim()
+    ) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanSourceStoragePath = sourceStoragePath.trim();
+    const cleanHumanReviewedText = humanReviewedText.trim();
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+    const currentOcr = product.ocr || getDefaultOcrBlock();
+    const currentDocuments = Array.isArray(currentOcr.documents) ? currentOcr.documents : [];
+
+    const documentIndex = currentDocuments.findIndex(
+      (ocrDoc) => ocrDoc.sourceStoragePath === cleanSourceStoragePath
+    );
+
+    if (documentIndex === -1) {
+      return res.status(404).json({ ok: false, error: "OCR record not found" });
+    }
+
+    const existingRecord = withOcrDefaults(currentDocuments[documentIndex]);
+    const updatedRecord = applyBestText(
+      withOcrDefaults({
+        ...existingRecord,
+        humanReviewedText: cleanHumanReviewedText
+      })
+    );
+
+    const updatedDocuments = [...currentDocuments];
+    updatedDocuments[documentIndex] = updatedRecord;
+
+    await docRef.update({
+      ocr: {
+        status: currentOcr.status || computeOverallOcrStatus(updatedDocuments),
+        documents: updatedDocuments
+      },
+      updatedAt: getNowIso()
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "Human-reviewed OCR text saved",
+      ocrDocument: {
+        sourceStoragePath: updatedRecord.sourceStoragePath,
+        humanReviewedText: updatedRecord.humanReviewedText,
+        bestText: updatedRecord.bestText,
+        bestTextSource: updatedRecord.bestTextSource,
+        bestTextUpdatedAt: updatedRecord.bestTextUpdatedAt
+      }
+    });
+  } catch (error) {
+    console.error("Error saving human-reviewed OCR text:", error);
     return res.status(500).json({ ok: false, error: "Internal server error" });
   }
 });
