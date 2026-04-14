@@ -1,5 +1,6 @@
 const express = require("express");
 const multer = require("multer");
+const { createHash, randomUUID } = require("node:crypto");
 const { Firestore } = require("@google-cloud/firestore");
 const { Storage } = require("@google-cloud/storage");
 const { v1: DocumentAi } = require("@google-cloud/documentai");
@@ -22,6 +23,45 @@ const DOCUMENT_AI_PROCESSOR_ID = process.env.DOCUMENT_AI_PROCESSOR_ID || "";
 const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID || "location-map-985";
 const BUCKET_NAME = process.env.BUCKET_NAME || "bhe-product-assets";
 const PORT = process.env.PORT || 8080;
+const ALLOWED_INTAKE_PURPOSES = [
+  "source-document",
+  "product-photo",
+  "handwritten-note",
+  "supporting-reference"
+];
+const APPROVED_PRODUCT_TYPES = [
+  "Facsimile Bible",
+  "Book",
+  "Reproduction",
+  "Teaching Resource",
+  "Artwork",
+  "Poster",
+  "DVD",
+  "Statue",
+  "Canvas",
+  "Coins & Medallions",
+  "Bible Stand",
+  "Book Press",
+  "Sculpture Stand",
+  "Dimensional Art",
+  "Tour"
+];
+const CHAT_VISIBLE_IMAGES_NOT_ATTACHABLE_ERROR =
+  "The images were visible in chat, but no backend-uploaded asset references were available, so they could not be attached to the product record.";
+const SUPPORTED_ASSET_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/tiff",
+  "image/tif",
+  "image/gif",
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/bmp"
+]);
+const CHAT_VISIBLE_IMAGE_SOURCE = "chat_visible_image";
+const BACKEND_PERSISTED_ASSET_SOURCE = "backend_persisted_asset";
+const DEFAULT_ASSET_UPLOAD_SOURCE = "openai_file_ref";
 
 
 app.use((req, res, next) => {
@@ -64,6 +104,7 @@ const documentAiClient = new DocumentAi.DocumentProcessorServiceClient({
 });
 
 const productsCollection = db.collection("products");
+const assetLibraryCollection = db.collection("productAssetLibrary");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }
@@ -163,6 +204,17 @@ function getAssetArrayPath(assetType) {
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function createWorkflowError(message, statusCode = 400, details = {}) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.details = details;
+  return error;
+}
+
+function getErrorStatusCode(error, fallbackStatusCode = 500) {
+  return Number.isInteger(error?.statusCode) ? error.statusCode : fallbackStatusCode;
 }
 
 function getDefaultOcrBlock() {
@@ -413,6 +465,425 @@ function buildSourceTextPackage(product) {
   };
 }
 
+function getTextPreview(text, maxLength = 220) {
+  const cleanText =
+    typeof text === "string" ? text.replace(/\s+/g, " ").trim() : "";
+
+  if (!cleanText) {
+    return "";
+  }
+
+  if (cleanText.length <= maxLength) {
+    return cleanText;
+  }
+
+  return `${cleanText.slice(0, maxLength).trim()}...`;
+}
+
+function buildIntakeOverview(assetSummary) {
+  const overviewParts = [];
+  const purposeParts = Object.entries(assetSummary.byPurpose)
+    .filter(([, count]) => count > 0)
+    .map(([purpose, count]) => `${count} ${purpose}`);
+
+  if (assetSummary.totalAssets === 0) {
+    overviewParts.push("No registered assets were found for this product.");
+  } else if (purposeParts.length > 0) {
+    overviewParts.push(`Registered assets include ${purposeParts.join(", ")}.`);
+  } else {
+    overviewParts.push(`${assetSummary.totalAssets} registered assets are present.`);
+  }
+
+  if (assetSummary.ocrDocuments.withText > 0) {
+    overviewParts.push(
+      `Usable OCR text is available from ${assetSummary.ocrDocuments.withText} document${assetSummary.ocrDocuments.withText === 1 ? "" : "s"}.`
+    );
+  } else {
+    overviewParts.push("No usable OCR text is available yet.");
+  }
+
+  if (assetSummary.reviewRequiredCount > 0) {
+    overviewParts.push(
+      `${assetSummary.reviewRequiredCount} asset${assetSummary.reviewRequiredCount === 1 ? "" : "s"} ${assetSummary.reviewRequiredCount === 1 ? "is" : "are"} marked for human review.`
+    );
+  }
+
+  return overviewParts.join(" ");
+}
+
+function inferLikelyTitle(product, flattenedAssets, sourceTextPackage) {
+  if (typeof product.title === "string" && product.title.trim()) {
+    return {
+      title: product.title.trim(),
+      confidence: "high",
+      basis: ["Existing product title is already saved on the record."]
+    };
+  }
+
+  const preferredAsset =
+    flattenedAssets.find((asset) => asset.purpose === "source-document" && asset.filename) ||
+    flattenedAssets.find((asset) => asset.filename);
+
+  if (preferredAsset) {
+    return {
+      title: preferredAsset.filename.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim(),
+      confidence: "low",
+      basis: [`Derived from uploaded filename: ${preferredAsset.filename}.`]
+    };
+  }
+
+  const firstTextDocument = sourceTextPackage.documents[0];
+
+  if (firstTextDocument?.sourceFilename) {
+    return {
+      title: firstTextDocument.sourceFilename.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim(),
+      confidence: "low",
+      basis: [`Derived from OCR source filename: ${firstTextDocument.sourceFilename}.`]
+    };
+  }
+
+  return {
+    title: "",
+    confidence: "low",
+    basis: []
+  };
+}
+
+function inferLikelyProductType(product, evidenceText) {
+  if (typeof product.productType === "string" && product.productType.trim()) {
+    return {
+      productType: product.productType.trim(),
+      confidence: "high",
+      basis: ["Existing product type is already saved on the record."]
+    };
+  }
+
+  const normalizedText = typeof evidenceText === "string" ? evidenceText.toLowerCase() : "";
+
+  if (
+    normalizedText.includes("facsimile bible") ||
+    normalizedText.includes("bible facsimile") ||
+    (normalizedText.includes("facsimile") && normalizedText.includes("bible")) ||
+    (normalizedText.includes("reproduction") && normalizedText.includes("bible"))
+  ) {
+    return {
+      productType: "Facsimile Bible",
+      confidence: "medium",
+      basis: ["Inferred from text evidence mentioning a facsimile or reproduction Bible."]
+    };
+  }
+
+  const rules = [
+    { productType: "Teaching Resource", patterns: [/teaching resource/, /study guide/, /curriculum/] },
+    { productType: "DVD", patterns: [/\bdvd\b/, /\bvideo series\b/] },
+    { productType: "Poster", patterns: [/\bposter\b/] },
+    { productType: "Canvas", patterns: [/\bcanvas\b/] },
+    { productType: "Statue", patterns: [/\bstatue\b/] },
+    { productType: "Coins & Medallions", patterns: [/\bmedallion\b/, /\bcoin\b/] },
+    { productType: "Bible Stand", patterns: [/\bbible stand\b/] },
+    { productType: "Book Press", patterns: [/\bbook press\b/] },
+    { productType: "Sculpture Stand", patterns: [/\bsculpture stand\b/] },
+    { productType: "Dimensional Art", patterns: [/\bdimensional art\b/] },
+    { productType: "Artwork", patterns: [/\bartwork\b/] },
+    { productType: "Tour", patterns: [/\btour\b/] },
+    { productType: "Book", patterns: [/\bpaperback\b/, /\bhardcover\b/, /\bbook\b/] }
+  ];
+
+  const match = rules.find((rule) => rule.patterns.some((pattern) => pattern.test(normalizedText)));
+
+  if (match && APPROVED_PRODUCT_TYPES.includes(match.productType)) {
+    return {
+      productType: match.productType,
+      confidence: "medium",
+      basis: [`Inferred from text evidence mentioning ${match.productType.toLowerCase()}.`]
+    };
+  }
+
+  return {
+    productType: "",
+    confidence: "low",
+    basis: []
+  };
+}
+
+function extractImportantFacts(product, flattenedAssets, sourceTextPackage, likelyProduct) {
+  const facts = [];
+  const evidenceText = [
+    sourceTextPackage.combinedText,
+    ...flattenedAssets.map((asset) => asset.notes)
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (likelyProduct.title) {
+    facts.push(`Likely title: ${likelyProduct.title}`);
+  }
+
+  if (likelyProduct.productType) {
+    facts.push(`Likely product type: ${likelyProduct.productType}`);
+  }
+
+  if (Array.isArray(product.authors) && product.authors.length > 0) {
+    facts.push(`Authors on record: ${product.authors.join(", ")}`);
+  }
+
+  if (typeof product.series === "string" && product.series.trim()) {
+    facts.push(`Series on record: ${product.series.trim()}`);
+  }
+
+  if (typeof product.language === "string" && product.language.trim()) {
+    facts.push(`Language on record: ${product.language.trim()}`);
+  }
+
+  if (typeof product.isbn13 === "string" && product.isbn13.trim()) {
+    facts.push(`ISBN-13 on record: ${product.isbn13.trim()}`);
+  } else if (typeof product.isbn10 === "string" && product.isbn10.trim()) {
+    facts.push(`ISBN-10 on record: ${product.isbn10.trim()}`);
+  }
+
+  const detectedIsbns = Array.from(
+    new Set(
+      (evidenceText.match(/\b(?:97[89][-\s]?)?[0-9][0-9\-\s]{8,20}[0-9Xx]\b/g) || [])
+        .map((item) => item.replace(/\s+/g, " ").trim())
+        .filter((item) => item.replace(/[^0-9Xx]/g, "").length >= 10)
+    )
+  ).slice(0, 3);
+
+  detectedIsbns.forEach((isbn) => {
+    facts.push(`ISBN-like text found in source evidence: ${isbn}`);
+  });
+
+  flattenedAssets
+    .filter((asset) => asset.notes)
+    .slice(0, 3)
+    .forEach((asset) => {
+      facts.push(`Asset note on ${asset.filename || asset.storagePath}: ${getTextPreview(asset.notes, 140)}`);
+    });
+
+  if (sourceTextPackage.documents.length > 0) {
+    facts.push(
+      `OCR text is available from ${sourceTextPackage.documents.length} document${sourceTextPackage.documents.length === 1 ? "" : "s"}.`
+    );
+  }
+
+  return Array.from(new Set(facts)).slice(0, 10);
+}
+
+function buildIntakeAnalysis(product = {}) {
+  const flattenedAssets = getFlattenedProductAssets(product);
+  const ocrDocuments = Array.isArray(product.ocr?.documents)
+    ? product.ocr.documents.map((doc) => withOcrDefaults(doc))
+    : [];
+  const sourceTextPackage = buildSourceTextPackage(product);
+  const ocrByStoragePath = new Map(
+    ocrDocuments.map((doc) => [doc.sourceStoragePath, doc])
+  );
+
+  const groupedAssets = {
+    "source-document": [],
+    "product-photo": [],
+    "handwritten-note": [],
+    "supporting-reference": [],
+    unspecified: []
+  };
+
+  flattenedAssets.forEach((asset) => {
+    const matchingOcr = ocrByStoragePath.get(asset.storagePath);
+    const groupedKey = asset.purpose || "unspecified";
+
+    groupedAssets[groupedKey].push({
+      assetType: asset.assetType,
+      filename: asset.filename,
+      storagePath: asset.storagePath,
+      contentType: asset.contentType,
+      uploadedAt: asset.uploadedAt,
+      purpose: asset.purpose,
+      subtype: asset.subtype,
+      notes: asset.notes,
+      ocrRequested: asset.ocrRequested,
+      reviewRequired: asset.reviewRequired,
+      ocr: matchingOcr
+        ? {
+            status: matchingOcr.status,
+            bestTextSource: matchingOcr.bestTextSource,
+            hasBestText: Boolean(matchingOcr.bestText && matchingOcr.bestText.trim()),
+            preview: getTextPreview(matchingOcr.bestText)
+          }
+        : null
+    });
+  });
+
+  const assetSummary = {
+    totalAssets: flattenedAssets.length,
+    byAssetType: {
+      sourceFiles: flattenedAssets.filter((asset) => asset.assetType === "sourceFiles").length,
+      imagesRaw: flattenedAssets.filter((asset) => asset.assetType === "imagesRaw").length,
+      imagesEdited: flattenedAssets.filter((asset) => asset.assetType === "imagesEdited").length,
+      exports: flattenedAssets.filter((asset) => asset.assetType === "exports").length
+    },
+    byPurpose: {
+      "source-document": flattenedAssets.filter((asset) => asset.purpose === "source-document").length,
+      "product-photo": flattenedAssets.filter((asset) => asset.purpose === "product-photo").length,
+      "handwritten-note": flattenedAssets.filter((asset) => asset.purpose === "handwritten-note").length,
+      "supporting-reference": flattenedAssets.filter((asset) => asset.purpose === "supporting-reference").length,
+      unspecified: flattenedAssets.filter((asset) => !asset.purpose).length
+    },
+    ocrDocuments: {
+      total: ocrDocuments.length,
+      withText: sourceTextPackage.documents.length,
+      processing: ocrDocuments.filter((doc) => doc.status === "processing").length,
+      failed: ocrDocuments.filter((doc) => doc.status === "failed").length
+    },
+    reviewRequiredCount: flattenedAssets.filter((asset) => asset.reviewRequired).length
+  };
+  assetSummary.overview = buildIntakeOverview(assetSummary);
+
+  const evidenceText = [
+    sourceTextPackage.combinedText,
+    ...flattenedAssets.map((asset) => asset.notes),
+    product.title || "",
+    product.subtitle || "",
+    product.productType || "",
+    product.content?.shortDescription || "",
+    product.content?.mainDescription || ""
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const titleGuess = inferLikelyTitle(product, flattenedAssets, sourceTextPackage);
+  const productTypeGuess = inferLikelyProductType(product, evidenceText);
+
+  const likelyProduct = {
+    title: titleGuess.title,
+    productType: productTypeGuess.productType,
+    confidence:
+      titleGuess.confidence === "high" || productTypeGuess.confidence === "high"
+        ? "high"
+        : titleGuess.confidence === "medium" || productTypeGuess.confidence === "medium"
+          ? "medium"
+          : "low",
+    basis: [...titleGuess.basis, ...productTypeGuess.basis]
+  };
+
+  const importantFacts = extractImportantFacts(product, flattenedAssets, sourceTextPackage, likelyProduct);
+  const uncertainties = [];
+  const openQuestions = [];
+  const reviewReasons = [];
+  const priorityAssets = [];
+
+  if (flattenedAssets.length === 0) {
+    uncertainties.push("No registered assets are available yet, so the intake analysis has very little evidence to work with.");
+  }
+
+  if (sourceTextPackage.documents.length === 0) {
+    uncertainties.push("No usable OCR text is available yet, so this analysis depends on asset metadata and saved product fields.");
+  }
+
+  if (flattenedAssets.some((asset) => asset.purpose === "product-photo")) {
+    uncertainties.push("V1 does not inspect image content directly; product-photo analysis depends on filenames, notes, and OCR text only.");
+  }
+
+  if (!likelyProduct.title) {
+    uncertainties.push("A likely title could not be identified confidently from the current intake evidence.");
+    openQuestions.push("What is the final product title?");
+  }
+
+  if (!likelyProduct.productType) {
+    uncertainties.push("A likely approved product type could not be identified confidently from the current intake evidence.");
+    openQuestions.push("Which approved product type best fits this item?");
+  }
+
+  if (assetSummary.byPurpose.unspecified > 0) {
+    uncertainties.push("Some assets still have no intake purpose assigned.");
+    openQuestions.push("Should any unassigned assets be labeled as source-document, product-photo, handwritten-note, or supporting-reference?");
+  }
+
+  if (assetSummary.ocrDocuments.processing > 0) {
+    uncertainties.push("Some OCR work is still processing, so text findings may expand after OCR completes.");
+  }
+
+  if (assetSummary.ocrDocuments.failed > 0) {
+    uncertainties.push("Some OCR documents failed, so the available text evidence may be incomplete.");
+    reviewReasons.push("One or more OCR documents failed and should be checked manually.");
+  }
+
+  flattenedAssets
+    .filter((asset) => asset.reviewRequired)
+    .slice(0, 5)
+    .forEach((asset) => {
+      priorityAssets.push({
+        filename: asset.filename,
+        purpose: asset.purpose || "unspecified",
+        reason: asset.purpose === "handwritten-note" ? "Handwritten-note default review requirement." : "Marked reviewRequired on the asset."
+      });
+    });
+
+  if (flattenedAssets.some((asset) => asset.reviewRequired)) {
+    reviewReasons.push("At least one asset is marked reviewRequired.");
+  }
+
+  if (flattenedAssets.some((asset) => asset.purpose === "handwritten-note")) {
+    reviewReasons.push("Handwritten-note assets usually need human verification even when OCR text is available.");
+  }
+
+  if (ocrDocuments.some((doc) => doc.bestText && doc.bestText.trim() && doc.bestTextSource !== "humanReviewedText")) {
+    reviewReasons.push("OCR text exists, but none of the usable text has been human-reviewed yet.");
+  }
+
+  if (assetSummary.byPurpose["source-document"] === 0 && assetSummary.ocrDocuments.withText === 0) {
+    openQuestions.push("Is there a canonical source document or reference file that should be added for intake analysis?");
+  }
+
+  if (
+    flattenedAssets.some(
+      (asset) => asset.purpose === "supporting-reference" && !asset.ocrRequested && !asset.notes
+    )
+  ) {
+    openQuestions.push("Do any supporting-reference assets need OCR or notes so their content can be used in analysis?");
+  }
+
+  if (
+    flattenedAssets.some(
+      (asset) => asset.purpose === "product-photo" && !asset.notes
+    )
+  ) {
+    openQuestions.push("Which product-photo assets are final keeper shots versus rough intake/reference photos?");
+  }
+
+  return {
+    slug: product.slug || "",
+    assetSummary,
+    groupedAssets,
+    textFindings: {
+      sourceTextAvailable: Boolean(sourceTextPackage.combinedText),
+      combinedTextLength: sourceTextPackage.combinedText.length,
+      documents: sourceTextPackage.documents.map((doc) => ({
+        sourceFilename: doc.sourceFilename,
+        sourceStoragePath: doc.sourceStoragePath,
+        bestTextSource: doc.bestTextSource,
+        bestTextUpdatedAt: doc.bestTextUpdatedAt,
+        preview: getTextPreview(doc.bestText)
+      })),
+      noteEntries: flattenedAssets
+        .filter((asset) => asset.notes)
+        .map((asset) => ({
+          filename: asset.filename,
+          purpose: asset.purpose || "unspecified",
+          notePreview: getTextPreview(asset.notes)
+        }))
+    },
+    likelyProduct,
+    importantFacts,
+    uncertainties,
+    reviewRecommendations: {
+      humanReviewRecommended: reviewReasons.length > 0,
+      reasons: Array.from(new Set(reviewReasons)),
+      priorityAssets
+    },
+    openQuestions: Array.from(new Set(openQuestions))
+  };
+}
+
 function buildDraftPrompt(product, sourceTextPackage) {
   const payload = {
     product: {
@@ -524,6 +995,88 @@ function sanitizeOptionalBoolean(value) {
   return value;
 }
 
+function sanitizeOptionalIntakePurpose(value) {
+  const cleanPurpose = sanitizeOptionalString(value);
+
+  if (!cleanPurpose) {
+    return "";
+  }
+
+  if (!ALLOWED_INTAKE_PURPOSES.includes(cleanPurpose)) {
+    throw new Error("Invalid purpose");
+  }
+
+  return cleanPurpose;
+}
+
+function parseOptionalBooleanLike(value) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const cleanValue = value.trim().toLowerCase();
+
+    if (!cleanValue) {
+      return undefined;
+    }
+
+    if (["true", "1", "yes"].includes(cleanValue)) {
+      return true;
+    }
+
+    if (["false", "0", "no"].includes(cleanValue)) {
+      return false;
+    }
+  }
+
+  throw new Error("Invalid optional boolean");
+}
+
+function getDefaultOcrRequestedForPurpose(purpose) {
+  if (purpose === "source-document" || purpose === "handwritten-note") {
+    return true;
+  }
+
+  return false;
+}
+
+function getDefaultReviewRequiredForPurpose(purpose) {
+  return purpose === "handwritten-note";
+}
+
+function resolveAssetIntakeMetadata({
+  purpose,
+  subtype,
+  notes,
+  ocrRequested,
+  reviewRequired
+}) {
+  const cleanPurpose = sanitizeOptionalIntakePurpose(purpose);
+  const cleanSubtype = sanitizeOptionalString(subtype);
+  const cleanNotes = sanitizeOptionalString(notes);
+  const parsedOcrRequested = parseOptionalBooleanLike(ocrRequested);
+  const parsedReviewRequired = parseOptionalBooleanLike(reviewRequired);
+
+  return {
+    purpose: cleanPurpose,
+    subtype: cleanSubtype,
+    notes: cleanNotes,
+    ocrRequested:
+      parsedOcrRequested !== undefined
+        ? parsedOcrRequested
+        : getDefaultOcrRequestedForPurpose(cleanPurpose),
+    reviewRequired:
+      parsedReviewRequired !== undefined
+        ? parsedReviewRequired
+        : getDefaultReviewRequiredForPurpose(cleanPurpose)
+  };
+}
+
 function buildAssetRecord({
   filename,
   storagePath,
@@ -531,7 +1084,8 @@ function buildAssetRecord({
   purpose,
   subtype,
   notes,
-  ocrRequested
+  ocrRequested,
+  reviewRequired
 }) {
   return {
     filename,
@@ -541,8 +1095,77 @@ function buildAssetRecord({
     purpose,
     subtype,
     notes,
-    ocrRequested
+    ocrRequested,
+    reviewRequired
   };
+}
+
+function normalizeStoredAssetRecord(asset = {}, assetType = "") {
+  const purpose =
+    typeof asset.purpose === "string" && ALLOWED_INTAKE_PURPOSES.includes(asset.purpose.trim())
+      ? asset.purpose.trim()
+      : "";
+
+  let ocrRequested = getDefaultOcrRequestedForPurpose(purpose);
+  let reviewRequired = getDefaultReviewRequiredForPurpose(purpose);
+
+  try {
+    const parsedOcrRequested = parseOptionalBooleanLike(asset.ocrRequested);
+    if (parsedOcrRequested !== undefined) {
+      ocrRequested = parsedOcrRequested;
+    }
+  } catch (error) {
+    ocrRequested = getDefaultOcrRequestedForPurpose(purpose);
+  }
+
+  try {
+    const parsedReviewRequired = parseOptionalBooleanLike(asset.reviewRequired);
+    if (parsedReviewRequired !== undefined) {
+      reviewRequired = parsedReviewRequired;
+    }
+  } catch (error) {
+    reviewRequired = getDefaultReviewRequiredForPurpose(purpose);
+  }
+
+  return {
+    assetType,
+    assetId: typeof asset.assetId === "string" ? asset.assetId.trim() : "",
+    filename: typeof asset.filename === "string" ? asset.filename.trim() : "",
+    storagePath: typeof asset.storagePath === "string" ? asset.storagePath.trim() : "",
+    storageKey:
+      typeof asset.storageKey === "string" && asset.storageKey.trim()
+        ? asset.storageKey.trim()
+        : typeof asset.storagePath === "string"
+          ? asset.storagePath.trim()
+          : "",
+    contentType: typeof asset.contentType === "string" ? asset.contentType.trim() : "",
+    mimeType:
+      typeof asset.mimeType === "string" && asset.mimeType.trim()
+        ? asset.mimeType.trim()
+        : typeof asset.contentType === "string"
+          ? asset.contentType.trim()
+          : "",
+    canonicalUrl: typeof asset.canonicalUrl === "string" ? asset.canonicalUrl.trim() : "",
+    byteSize: typeof asset.byteSize === "number" ? asset.byteSize : 0,
+    checksumSha256:
+      typeof asset.checksumSha256 === "string" ? asset.checksumSha256.trim() : "",
+    uploadedAt: typeof asset.uploadedAt === "string" ? asset.uploadedAt.trim() : "",
+    attachedAt: typeof asset.attachedAt === "string" ? asset.attachedAt.trim() : "",
+    purpose,
+    subtype: typeof asset.subtype === "string" ? asset.subtype.trim() : "",
+    notes: typeof asset.notes === "string" ? asset.notes.trim() : "",
+    assetRole: typeof asset.assetRole === "string" ? asset.assetRole.trim() : "",
+    ocrRequested,
+    reviewRequired
+  };
+}
+
+function getFlattenedProductAssets(product = {}) {
+  const assets = getSafeAssets(product);
+
+  return Object.entries(assets).flatMap(([assetType, items]) =>
+    items.map((item) => normalizeStoredAssetRecord(item, assetType))
+  );
 }
 
 function sanitizeDraft(draft, product) {
@@ -876,6 +1499,456 @@ function sanitizeFilenameForStorage(filename) {
   return replaced || `uploaded-${Date.now()}`;
 }
 
+function normalizeAssetMimeType(mimeType) {
+  if (typeof mimeType !== "string" || !mimeType.trim()) {
+    return "application/octet-stream";
+  }
+
+  const cleanMimeType = mimeType.trim().toLowerCase();
+
+  if (cleanMimeType === "image/jpg") {
+    return "image/jpeg";
+  }
+
+  if (cleanMimeType === "image/tif") {
+    return "image/tiff";
+  }
+
+  return cleanMimeType;
+}
+
+function ensureSupportedAssetMimeType(mimeType) {
+  const normalizedMimeType = normalizeAssetMimeType(mimeType);
+
+  if (!SUPPORTED_ASSET_MIME_TYPES.has(normalizedMimeType)) {
+    throw createWorkflowError(
+      `Unsupported file type: ${normalizedMimeType}. Supported types include JPG, PNG, WEBP, TIFF, GIF, BMP, and PDF.`,
+      400,
+      { mimeType: normalizedMimeType }
+    );
+  }
+
+  return normalizedMimeType;
+}
+
+function buildCanonicalAssetUrl(storageKey, bucketName = BUCKET_NAME) {
+  return `gs://${bucketName}/${storageKey}`;
+}
+
+function buildPersistedAssetRecord({
+  assetId,
+  slug,
+  filename,
+  mimeType,
+  storageKey,
+  canonicalUrl,
+  byteSize,
+  checksumSha256,
+  uploadSource,
+  uploadState,
+  intendedAssetType,
+  purpose,
+  subtype,
+  notes,
+  ocrRequested,
+  reviewRequired,
+  sourceFileRef
+}) {
+  const now = getNowIso();
+
+  return {
+    assetId,
+    slug,
+    filename,
+    mimeType,
+    storageKey,
+    canonicalUrl,
+    byteSize: typeof byteSize === "number" ? byteSize : 0,
+    checksumSha256: checksumSha256 || "",
+    uploadSource: uploadSource || DEFAULT_ASSET_UPLOAD_SOURCE,
+    uploadState: uploadState || "persisted",
+    intendedAssetType: intendedAssetType || "",
+    purpose: purpose || "",
+    subtype: subtype || "",
+    notes: notes || "",
+    ocrRequested: Boolean(ocrRequested),
+    reviewRequired: Boolean(reviewRequired),
+    sourceFileRef: isPlainObject(sourceFileRef) ? sourceFileRef : {},
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function normalizePersistedAssetRecord(record = {}) {
+  return {
+    assetId: typeof record.assetId === "string" ? record.assetId.trim() : "",
+    slug: typeof record.slug === "string" ? record.slug.trim() : "",
+    filename: typeof record.filename === "string" ? record.filename.trim() : "",
+    mimeType: normalizeAssetMimeType(record.mimeType),
+    storageKey: typeof record.storageKey === "string" ? record.storageKey.trim() : "",
+    canonicalUrl: typeof record.canonicalUrl === "string" ? record.canonicalUrl.trim() : "",
+    byteSize: typeof record.byteSize === "number" ? record.byteSize : 0,
+    checksumSha256:
+      typeof record.checksumSha256 === "string" ? record.checksumSha256.trim() : "",
+    uploadSource: typeof record.uploadSource === "string" ? record.uploadSource.trim() : "",
+    uploadState: typeof record.uploadState === "string" ? record.uploadState.trim() : "",
+    intendedAssetType:
+      typeof record.intendedAssetType === "string" ? record.intendedAssetType.trim() : "",
+    purpose: typeof record.purpose === "string" ? record.purpose.trim() : "",
+    subtype: typeof record.subtype === "string" ? record.subtype.trim() : "",
+    notes: typeof record.notes === "string" ? record.notes.trim() : "",
+    ocrRequested: Boolean(record.ocrRequested),
+    reviewRequired: Boolean(record.reviewRequired),
+    sourceFileRef: isPlainObject(record.sourceFileRef) ? record.sourceFileRef : {},
+    createdAt: typeof record.createdAt === "string" ? record.createdAt.trim() : "",
+    updatedAt: typeof record.updatedAt === "string" ? record.updatedAt.trim() : ""
+  };
+}
+
+function buildProductAssetAttachment({
+  persistedAsset,
+  assetType,
+  assetRole,
+  purpose,
+  subtype,
+  notes,
+  ocrRequested,
+  reviewRequired
+}) {
+  const normalizedAsset = normalizePersistedAssetRecord(persistedAsset);
+  const attachedAt = getNowIso();
+  const resolvedPurpose = typeof purpose === "string" && purpose.trim()
+    ? purpose.trim()
+    : normalizedAsset.purpose;
+  const resolvedSubtype = typeof subtype === "string" ? subtype.trim() : normalizedAsset.subtype;
+  const resolvedNotes = typeof notes === "string" ? notes.trim() : normalizedAsset.notes;
+
+  return {
+    assetId: normalizedAsset.assetId,
+    filename: normalizedAsset.filename,
+    storagePath: normalizedAsset.storageKey,
+    storageKey: normalizedAsset.storageKey,
+    canonicalUrl: normalizedAsset.canonicalUrl,
+    contentType: normalizedAsset.mimeType,
+    mimeType: normalizedAsset.mimeType,
+    byteSize: normalizedAsset.byteSize,
+    checksumSha256: normalizedAsset.checksumSha256,
+    uploadedAt: normalizedAsset.createdAt || attachedAt,
+    attachedAt,
+    purpose: resolvedPurpose,
+    subtype: resolvedSubtype,
+    notes: resolvedNotes,
+    ocrRequested:
+      ocrRequested !== undefined ? Boolean(ocrRequested) : Boolean(normalizedAsset.ocrRequested),
+    reviewRequired:
+      reviewRequired !== undefined
+        ? Boolean(reviewRequired)
+        : Boolean(normalizedAsset.reviewRequired),
+    assetRole: typeof assetRole === "string" ? assetRole.trim() : "",
+    sourceType: BACKEND_PERSISTED_ASSET_SOURCE,
+    assetType
+  };
+}
+
+function getAssetWorkflowDependencies(overrides = {}) {
+  return {
+    productsCollection,
+    assetLibraryCollection,
+    storage,
+    bucketName: BUCKET_NAME,
+    fetchImpl: fetch,
+    ...overrides
+  };
+}
+
+async function getRequiredProductDoc(products, slug) {
+  const docRef = products.doc(slug);
+  const doc = await docRef.get();
+
+  if (!doc.exists) {
+    throw createWorkflowError("Product not found", 404, { slug });
+  }
+
+  return {
+    docRef,
+    product: doc.data() || {}
+  };
+}
+
+async function getRequiredPersistedAsset(assetCollection, assetId) {
+  const docRef = assetCollection.doc(assetId);
+  const doc = await docRef.get();
+
+  if (!doc.exists) {
+    throw createWorkflowError(`Persisted asset not found: ${assetId}`, 404, { assetId });
+  }
+
+  return {
+    docRef,
+    asset: normalizePersistedAssetRecord(doc.data() || {})
+  };
+}
+
+async function analyzeUploadedImages({
+  images,
+  extractedData,
+  summary,
+  ocrText
+}) {
+  if (!Array.isArray(images) || images.length === 0) {
+    throw createWorkflowError("At least one chat-visible image is required for analysis", 400);
+  }
+
+  const normalizedImages = images.map((image, index) => {
+    const fallbackId = `chat-image-${index + 1}`;
+    const mimeType = normalizeAssetMimeType(image?.mimeType || image?.mime_type || "");
+
+    return {
+      chatImageId:
+        typeof image?.chatImageId === "string" && image.chatImageId.trim()
+          ? image.chatImageId.trim()
+          : typeof image?.chat_image_id === "string" && image.chat_image_id.trim()
+            ? image.chat_image_id.trim()
+            : fallbackId,
+      filename:
+        typeof image?.filename === "string" && image.filename.trim()
+          ? image.filename.trim()
+          : typeof image?.name === "string" && image.name.trim()
+            ? image.name.trim()
+            : "",
+      mimeType,
+      sourceType: CHAT_VISIBLE_IMAGE_SOURCE
+    };
+  });
+
+  return {
+    lifecycle: "analysis_only",
+    imageCount: normalizedImages.length,
+    images: normalizedImages,
+    summary: typeof summary === "string" ? summary.trim() : "",
+    ocrText: typeof ocrText === "string" ? ocrText : "",
+    extractedData: isPlainObject(extractedData) ? extractedData : {},
+    persistedAssets: []
+  };
+}
+
+async function uploadAssetsToStorage(
+  {
+    slug,
+    assetType,
+    purpose,
+    subtype,
+    notes,
+    ocrRequested,
+    reviewRequired,
+    openaiFileIdRefs
+  },
+  deps = getAssetWorkflowDependencies()
+) {
+  if (!isValidSlug(slug)) {
+    throw createWorkflowError("Invalid slug", 400, { slug });
+  }
+
+  if (typeof assetType !== "string" || !assetType.trim()) {
+    throw createWorkflowError("Missing or invalid assetType", 400);
+  }
+
+  const cleanAssetType = assetType.trim();
+  const assetFolder = getAssetFolder(cleanAssetType);
+
+  if (!assetFolder) {
+    throw createWorkflowError("Invalid assetType", 400, { assetType: cleanAssetType });
+  }
+
+  if (!Array.isArray(openaiFileIdRefs) || openaiFileIdRefs.length === 0) {
+    throw createWorkflowError(
+      "No backend-uploadable file references were provided. Chat-visible images must be uploaded into backend storage before they can be attached.",
+      400
+    );
+  }
+
+  const intakeMetadata = resolveAssetIntakeMetadata({
+    purpose,
+    subtype,
+    notes,
+    ocrRequested,
+    reviewRequired
+  });
+
+  await getRequiredProductDoc(deps.productsCollection, slug);
+
+  const bucket = deps.storage.bucket(deps.bucketName);
+  const persistedAssets = [];
+
+  for (const fileRef of openaiFileIdRefs) {
+    const downloadLink =
+      typeof fileRef?.download_link === "string" ? fileRef.download_link.trim() : "";
+
+    if (!downloadLink) {
+      throw createWorkflowError(
+        "The chat-visible image did not include a backend-downloadable file reference, so it could not be uploaded into backend asset storage.",
+        400,
+        { fileRef }
+      );
+    }
+
+    const originalName =
+      typeof fileRef?.name === "string" && fileRef.name.trim()
+        ? fileRef.name.trim()
+        : `uploaded-${Date.now()}`;
+    const filename = sanitizeFilenameForStorage(originalName);
+    const mimeType = ensureSupportedAssetMimeType(fileRef?.mime_type || fileRef?.mimeType || "");
+    const assetId = randomUUID();
+    const storageKey = `products/${slug}/asset-library/${assetId}-${filename}`;
+    const response = await deps.fetchImpl(downloadLink);
+
+    if (!response.ok) {
+      throw createWorkflowError(
+        `Failed to download uploaded file into backend storage: ${originalName}`,
+        400,
+        { filename: originalName }
+      );
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const checksumSha256 = createHash("sha256").update(buffer).digest("hex");
+    const byteSize = buffer.byteLength;
+
+    await bucket.file(storageKey).save(buffer, { contentType: mimeType });
+
+    const persistedAsset = buildPersistedAssetRecord({
+      assetId,
+      slug,
+      filename,
+      mimeType,
+      storageKey,
+      canonicalUrl: buildCanonicalAssetUrl(storageKey, deps.bucketName),
+      byteSize,
+      checksumSha256,
+      uploadSource: DEFAULT_ASSET_UPLOAD_SOURCE,
+      uploadState: "persisted",
+      intendedAssetType: cleanAssetType,
+      purpose: intakeMetadata.purpose,
+      subtype: intakeMetadata.subtype,
+      notes: intakeMetadata.notes,
+      ocrRequested: intakeMetadata.ocrRequested,
+      reviewRequired: intakeMetadata.reviewRequired,
+      sourceFileRef: {
+        sourceName: originalName,
+        mimeType,
+        downloadLinkAvailable: true
+      }
+    });
+
+    await deps.assetLibraryCollection.doc(assetId).set(persistedAsset);
+    persistedAssets.push(normalizePersistedAssetRecord(persistedAsset));
+  }
+
+  return {
+    slug,
+    uploadedCount: persistedAssets.length,
+    persistedAssets
+  };
+}
+
+async function attachAssetsToProduct(
+  {
+    slug,
+    assetIds,
+    assetType,
+    assetRole,
+    purpose,
+    subtype,
+    notes,
+    ocrRequested,
+    reviewRequired,
+    chatVisibleImages,
+    openaiFileIdRefs
+  },
+  deps = getAssetWorkflowDependencies()
+) {
+  if (!Array.isArray(assetIds) || assetIds.length === 0) {
+    const attemptedChatVisibleAttach =
+      (Array.isArray(chatVisibleImages) && chatVisibleImages.length > 0) ||
+      (Array.isArray(openaiFileIdRefs) && openaiFileIdRefs.length > 0);
+
+    throw createWorkflowError(
+      attemptedChatVisibleAttach
+        ? CHAT_VISIBLE_IMAGES_NOT_ATTACHABLE_ERROR
+        : "Attach failed because one or more backend asset IDs are required.",
+      400
+    );
+  }
+
+  if (!isValidSlug(slug)) {
+    throw createWorkflowError("Invalid slug", 400, { slug });
+  }
+
+  const { docRef, product } = await getRequiredProductDoc(deps.productsCollection, slug);
+  const assets = getSafeAssets(product);
+  const attachedAssets = [];
+  const duplicateAssetIds = [];
+
+  for (const rawAssetId of assetIds) {
+    const cleanAssetId =
+      typeof rawAssetId === "string" && rawAssetId.trim() ? rawAssetId.trim() : "";
+
+    if (!cleanAssetId) {
+      throw createWorkflowError("Attach failed because one or more asset IDs were empty.", 400);
+    }
+
+    const { asset } = await getRequiredPersistedAsset(deps.assetLibraryCollection, cleanAssetId);
+    const resolvedAssetType =
+      typeof assetType === "string" && assetType.trim()
+        ? assetType.trim()
+        : asset.intendedAssetType;
+    const assetArrayPath = getAssetArrayPath(resolvedAssetType);
+
+    if (!assetArrayPath) {
+      throw createWorkflowError(
+        `Persisted asset ${cleanAssetId} is missing a valid target assetType.`,
+        400,
+        { assetId: cleanAssetId }
+      );
+    }
+
+    const assetList = Array.isArray(assets[resolvedAssetType]) ? assets[resolvedAssetType] : [];
+    const alreadyAttached = assetList.some((item) => item?.assetId === cleanAssetId);
+
+    if (alreadyAttached) {
+      duplicateAssetIds.push(cleanAssetId);
+      continue;
+    }
+
+    const attachment = buildProductAssetAttachment({
+      persistedAsset: asset,
+      assetType: resolvedAssetType,
+      assetRole,
+      purpose,
+      subtype,
+      notes,
+      ocrRequested,
+      reviewRequired
+    });
+
+    assets[resolvedAssetType] = assetList.concat(attachment);
+    attachedAssets.push(attachment);
+  }
+
+  await docRef.update({
+    assets,
+    updatedAt: getNowIso()
+  });
+
+  return {
+    slug,
+    attachedCount: attachedAssets.length,
+    duplicateAssetIds,
+    attachedAssets
+  };
+}
+
 async function importConversationFilesToProduct({
   slug,
   assetType,
@@ -883,6 +1956,7 @@ async function importConversationFilesToProduct({
   subtype,
   notes,
   ocrRequested,
+  reviewRequired,
   openaiFileIdRefs
 }) {
   const cleanAssetType = assetType.trim();
@@ -900,10 +1974,13 @@ async function importConversationFilesToProduct({
     throw new Error("Product not found");
   }
 
-  const cleanPurpose = sanitizeOptionalString(purpose);
-  const cleanSubtype = sanitizeOptionalString(subtype);
-  const cleanNotes = sanitizeOptionalString(notes);
-  const cleanOcrRequested = sanitizeOptionalBoolean(ocrRequested);
+  const intakeMetadata = resolveAssetIntakeMetadata({
+    purpose,
+    subtype,
+    notes,
+    ocrRequested,
+    reviewRequired
+  });
 
   const bucket = storage.bucket(BUCKET_NAME);
   const importedAssets = [];
@@ -945,10 +2022,11 @@ async function importConversationFilesToProduct({
       filename: safeFilename,
       storagePath,
       contentType: mimeType,
-      purpose: cleanPurpose,
-      subtype: cleanSubtype,
-      notes: cleanNotes,
-      ocrRequested: cleanOcrRequested
+      purpose: intakeMetadata.purpose,
+      subtype: intakeMetadata.subtype,
+      notes: intakeMetadata.notes,
+      ocrRequested: intakeMetadata.ocrRequested,
+      reviewRequired: intakeMetadata.reviewRequired
     });
 
     await docRef.update({
@@ -958,7 +2036,7 @@ async function importConversationFilesToProduct({
 
     importedAssets.push(assetRecord);
 
-    if (cleanOcrRequested && isAllowedOcrAssetType(cleanAssetType)) {
+    if (intakeMetadata.ocrRequested && isAllowedOcrAssetType(cleanAssetType)) {
       const ocrMode = getOcrModeForMimeType(mimeType);
       const rawOutputPath = getRawOcrOutputPath(slug, safeFilename);
       const textOutputPath = getTextOcrOutputPath(slug, safeFilename);
@@ -1068,7 +2146,7 @@ async function importConversationFilesToProduct({
     slug,
     importedCount: importedAssets.length,
     importedAssets,
-    ocrRequested: cleanOcrRequested,
+    ocrRequested: intakeMetadata.ocrRequested,
     ocrResults
   };
 }
@@ -1266,6 +2344,67 @@ app.get("/products/:slug/assets", async (req, res) => {
   }
 });
 
+app.post("/images/analyze-uploaded-images", async (req, res) => {
+  try {
+    const analysis = await analyzeUploadedImages(req.body || {});
+    return res.status(200).json({ ok: true, analysis });
+  } catch (error) {
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Image analysis failed" });
+  }
+});
+
+app.post("/products/:slug/assets/upload-openai-files", async (req, res) => {
+  try {
+    const result = await uploadAssetsToStorage(
+      {
+        slug: req.params.slug,
+        ...req.body
+      },
+      getAssetWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message:
+        "Files were uploaded into backend asset storage. Attach them to the product with their assetIds in a separate step.",
+      ...result
+    });
+  } catch (error) {
+    console.error("Error uploading assets to storage:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Upload failed" });
+  }
+});
+
+app.post("/products/:slug/assets/attach", async (req, res) => {
+  try {
+    const result = await attachAssetsToProduct(
+      {
+        slug: req.params.slug,
+        ...req.body
+      },
+      getAssetWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message:
+        result.attachedCount > 0
+          ? "Backend-persisted assets were attached to the product record."
+          : "No new assets were attached because all provided assetIds were already attached.",
+      ...result
+    });
+  } catch (error) {
+    console.error("Error attaching assets to product:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Attach failed" });
+  }
+});
+
 app.post("/products/:slug/assets/upload", upload.single("file"), async (req, res) => {
   try {
     const { slug } = req.params;
@@ -1274,7 +2413,8 @@ app.post("/products/:slug/assets/upload", upload.single("file"), async (req, res
       purpose,
       subtype,
       notes,
-      ocrRequested = "false"
+      ocrRequested,
+      reviewRequired
     } = req.body;
 
     if (!isValidSlug(slug)) {
@@ -1304,19 +2444,16 @@ app.post("/products/:slug/assets/upload", upload.single("file"), async (req, res
       return res.status(404).json({ ok: false, error: "Product not found" });
     }
 
-    let cleanPurpose = "";
-    let cleanSubtype = "";
-    let cleanNotes = "";
-    let cleanOcrRequested = false;
+    let intakeMetadata = null;
 
     try {
-      cleanPurpose = sanitizeOptionalString(purpose);
-      cleanSubtype = sanitizeOptionalString(subtype);
-      cleanNotes = sanitizeOptionalString(notes);
-      cleanOcrRequested =
-        ocrRequested === true ||
-        ocrRequested === "true" ||
-        ocrRequested === "1";
+      intakeMetadata = resolveAssetIntakeMetadata({
+        purpose,
+        subtype,
+        notes,
+        ocrRequested,
+        reviewRequired
+      });
     } catch (validationError) {
       return res.status(400).json({ ok: false, error: validationError.message });
     }
@@ -1339,10 +2476,11 @@ app.post("/products/:slug/assets/upload", upload.single("file"), async (req, res
       filename: safeFilename,
       storagePath,
       contentType: mimeType,
-      purpose: cleanPurpose,
-      subtype: cleanSubtype,
-      notes: cleanNotes,
-      ocrRequested: cleanOcrRequested
+      purpose: intakeMetadata.purpose,
+      subtype: intakeMetadata.subtype,
+      notes: intakeMetadata.notes,
+      ocrRequested: intakeMetadata.ocrRequested,
+      reviewRequired: intakeMetadata.reviewRequired
     });
 
     await docRef.update({
@@ -1352,7 +2490,7 @@ app.post("/products/:slug/assets/upload", upload.single("file"), async (req, res
 
     let ocr = null;
 
-    if (cleanOcrRequested && isAllowedOcrAssetType(cleanAssetType)) {
+    if (intakeMetadata.ocrRequested && isAllowedOcrAssetType(cleanAssetType)) {
       try {
         const ocrMode = getOcrModeForMimeType(mimeType);
         const rawOutputPath = getRawOcrOutputPath(slug, safeFilename);
@@ -1486,7 +2624,8 @@ app.post("/products/:slug/assets/upload-from-url", async (req, res) => {
       purpose,
       subtype,
       notes,
-      ocrRequested = false
+      ocrRequested,
+      reviewRequired
     } = req.body;
 
     if (!isValidSlug(slug)) {
@@ -1523,16 +2662,16 @@ if (!/^https?:\/\//i.test(cleanFileUrl)) {
       return res.status(404).json({ ok: false, error: "Product not found" });
     }
 
-    let cleanPurpose = "";
-    let cleanSubtype = "";
-    let cleanNotes = "";
-    let cleanOcrRequested = false;
+    let intakeMetadata = null;
 
     try {
-      cleanPurpose = sanitizeOptionalString(purpose);
-      cleanSubtype = sanitizeOptionalString(subtype);
-      cleanNotes = sanitizeOptionalString(notes);
-      cleanOcrRequested = sanitizeOptionalBoolean(ocrRequested);
+      intakeMetadata = resolveAssetIntakeMetadata({
+        purpose,
+        subtype,
+        notes,
+        ocrRequested,
+        reviewRequired
+      });
     } catch (validationError) {
       return res.status(400).json({ ok: false, error: validationError.message });
     }
@@ -1563,10 +2702,11 @@ if (!/^https?:\/\//i.test(cleanFileUrl)) {
       filename: safeFilename,
       storagePath,
       contentType,
-      purpose: cleanPurpose,
-      subtype: cleanSubtype,
-      notes: cleanNotes,
-      ocrRequested: cleanOcrRequested
+      purpose: intakeMetadata.purpose,
+      subtype: intakeMetadata.subtype,
+      notes: intakeMetadata.notes,
+      ocrRequested: intakeMetadata.ocrRequested,
+      reviewRequired: intakeMetadata.reviewRequired
     });
 
     await docRef.update({
@@ -1588,44 +2728,25 @@ if (!/^https?:\/\//i.test(cleanFileUrl)) {
 
 app.post("/products/:slug/assets/import-openai-files", async (req, res) => {
   try {
-    const { slug } = req.params;
-    const {
-      assetType,
-      purpose,
-      subtype,
-      notes,
-      ocrRequested = false,
-      openaiFileIdRefs
-    } = req.body;
+    const result = await uploadAssetsToStorage(
+      {
+        slug: req.params.slug,
+        ...req.body
+      },
+      getAssetWorkflowDependencies()
+    );
 
-    if (!isValidSlug(slug)) {
-      return res.status(400).json({ ok: false, error: "Invalid slug" });
-    }
-
-    if (typeof assetType !== "string" || !assetType.trim()) {
-      return res.status(400).json({ ok: false, error: "Missing or invalid assetType" });
-    }
-
-    if (!Array.isArray(openaiFileIdRefs) || openaiFileIdRefs.length === 0) {
-      return res.status(400).json({ ok: false, error: "No uploaded files were provided" });
-    }
-
-    const result = await importConversationFilesToProduct({
-      slug,
-      assetType,
-      purpose,
-      subtype,
-      notes,
-      ocrRequested,
-      openaiFileIdRefs
+    return res.status(200).json({
+      ok: true,
+      message:
+        "Files were uploaded into backend asset storage. Attach them to the product with their assetIds in a separate step.",
+      ...result
     });
-
-    return res.status(200).json({ ok: true, ...result });
   } catch (error) {
     console.error("Error importing OpenAI files:", error);
-    const message = error.message || "Import failed";
-    const statusCode = message === "Product not found" ? 404 : 500;
-    return res.status(statusCode).json({ ok: false, error: message });
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Import failed" });
   }
 });
 
@@ -1776,6 +2897,42 @@ app.get("/products/:slug/source-text", async (req, res) => {
   }
 });
 
+app.post("/products/:slug/intake/analyze", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data() || {};
+    const analysis = buildIntakeAnalysis({ ...product, slug: product.slug || slug });
+
+    return res.status(200).json({
+      ok: true,
+      slug,
+      assetSummary: analysis.assetSummary,
+      groupedAssets: analysis.groupedAssets,
+      textFindings: analysis.textFindings,
+      likelyProduct: analysis.likelyProduct,
+      importantFacts: analysis.importantFacts,
+      uncertainties: analysis.uncertainties,
+      reviewRecommendations: analysis.reviewRecommendations,
+      openQuestions: analysis.openQuestions
+    });
+  } catch (error) {
+    console.error("Error analyzing intake:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
 app.post("/products/:slug/generate-draft", async (req, res) => {
   try {
     const { slug } = req.params;
@@ -1921,7 +3078,8 @@ app.post("/products/:slug/assets/register", async (req, res) => {
       purpose,
       subtype,
       notes,
-      ocrRequested
+      ocrRequested,
+      reviewRequired
     } = req.body;
 
     if (!isValidSlug(slug)) {
@@ -1963,16 +3121,16 @@ app.post("/products/:slug/assets/register", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Invalid storagePath" });
     }
 
-    let cleanPurpose = "";
-    let cleanSubtype = "";
-    let cleanNotes = "";
-    let cleanOcrRequested = false;
+    let intakeMetadata = null;
 
     try {
-      cleanPurpose = sanitizeOptionalString(purpose);
-      cleanSubtype = sanitizeOptionalString(subtype);
-      cleanNotes = sanitizeOptionalString(notes);
-      cleanOcrRequested = sanitizeOptionalBoolean(ocrRequested);
+      intakeMetadata = resolveAssetIntakeMetadata({
+        purpose,
+        subtype,
+        notes,
+        ocrRequested,
+        reviewRequired
+      });
     } catch (validationError) {
       return res.status(400).json({ ok: false, error: validationError.message });
     }
@@ -1988,10 +3146,11 @@ app.post("/products/:slug/assets/register", async (req, res) => {
       filename: cleanFilename,
       storagePath: cleanStoragePath,
       contentType: cleanContentType,
-      purpose: cleanPurpose,
-      subtype: cleanSubtype,
-      notes: cleanNotes,
-      ocrRequested: cleanOcrRequested
+      purpose: intakeMetadata.purpose,
+      subtype: intakeMetadata.subtype,
+      notes: intakeMetadata.notes,
+      ocrRequested: intakeMetadata.ocrRequested,
+      reviewRequired: intakeMetadata.reviewRequired
     });
 
     await docRef.update({
@@ -2617,6 +3776,77 @@ app.post("/products/:slug/ocr/register", async (req, res) => {
   }
 });
 
+app.post("/products/:slug/ocr/remove-document", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { sourceStoragePath } = req.body;
+
+    if (!isValidSlug(slug)) {
+      return res.status(400).json({ ok: false, error: "Invalid slug" });
+    }
+
+    if (typeof sourceStoragePath !== "string" || !sourceStoragePath.trim()) {
+      return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
+    }
+
+    const cleanSourceStoragePath = sourceStoragePath.trim();
+    const docRef = productsCollection.doc(slug);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Product not found" });
+    }
+
+    const product = doc.data();
+
+    if (!product.ocr || !Array.isArray(product.ocr.documents)) {
+      return res.status(404).json({ ok: false, error: "OCR record not found" });
+    }
+
+    const currentDocuments = product.ocr.documents;
+    const documentIndex = currentDocuments.findIndex(
+      (ocrDoc) => ocrDoc.sourceStoragePath === cleanSourceStoragePath
+    );
+
+    if (documentIndex === -1) {
+      return res.status(404).json({ ok: false, error: "OCR record not found" });
+    }
+
+    const updatedDocuments = currentDocuments.filter((_, index) => index !== documentIndex);
+    let overallStatus = "not_started";
+
+    if (updatedDocuments.some((ocrDoc) => ocrDoc.status === "processing")) {
+      overallStatus = "processing";
+    } else if (updatedDocuments.some((ocrDoc) => ocrDoc.status === "failed")) {
+      overallStatus = "failed";
+    } else if (updatedDocuments.some((ocrDoc) => ocrDoc.status === "completed")) {
+      overallStatus = "completed";
+    }
+
+    const updatedOcr = {
+      status: overallStatus,
+      documents: updatedDocuments
+    };
+
+    await docRef.update({
+      ocr: updatedOcr,
+      updatedAt: getNowIso()
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "OCR document removed",
+      removed: {
+        sourceStoragePath: cleanSourceStoragePath
+      },
+      ocr: updatedOcr
+    });
+  } catch (error) {
+    console.error("Error removing OCR document:", error);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
 app.post("/products/:slug/ocr/cleanup", async (req, res) => {
   try {
     const { slug } = req.params;
@@ -3017,6 +4247,23 @@ app.post("/products/:slug/ocr/human-review", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`bhe-product-api listening on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`bhe-product-api listening on port ${PORT}`);
+  });
+}
+
+module.exports = {
+  app,
+  CHAT_VISIBLE_IMAGES_NOT_ATTACHABLE_ERROR,
+  analyzeUploadedImages,
+  attachAssetsToProduct,
+  buildCanonicalAssetUrl,
+  buildPersistedAssetRecord,
+  buildProductAssetAttachment,
+  createWorkflowError,
+  getAssetWorkflowDependencies,
+  normalizePersistedAssetRecord,
+  normalizeStoredAssetRecord,
+  uploadAssetsToStorage
+};

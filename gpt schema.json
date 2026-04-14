@@ -3,7 +3,7 @@
   "info": {
     "title": "BHE Product API",
     "version": "1.0.0",
-    "description": "API for creating and managing Biblical Heritage Exhibit product records, assets, OCR processing, draft generation, product search, and cleanup."
+    "description": "API for creating and managing Biblical Heritage Exhibit product records, assets, OCR processing, draft generation, product search, cleanup, and explicit backend asset persistence workflows."
   },
   "servers": [
     {
@@ -171,6 +171,33 @@
         "responses": {
           "200": {
             "description": "Source text returned"
+          }
+        }
+      }
+    },
+    "/products/{slug}/intake/analyze": {
+      "post": {
+        "operationId": "analyzeIntake",
+        "summary": "Analyze registered intake materials for a product without saving inferred changes",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Intake analysis returned"
+          },
+          "400": {
+            "description": "Invalid slug"
+          },
+          "404": {
+            "description": "Product not found"
           }
         }
       }
@@ -356,7 +383,7 @@
     "/products/{slug}/assets/import-openai-files": {
       "post": {
         "operationId": "importOpenAiFilesToProduct",
-        "summary": "Import chat-uploaded files into a product's registered asset storage",
+        "summary": "Legacy alias for uploading chat file references into backend-managed asset storage",
         "parameters": [
           {
             "name": "slug",
@@ -387,7 +414,8 @@
           "404": {
             "description": "Product not found"
           }
-        }
+        },
+        "deprecated": true
       }
     },
     "/products/{slug}/content/save": {
@@ -500,6 +528,43 @@
         "responses": {
           "200": {
             "description": "OCR result registered"
+          }
+        }
+      }
+    },
+    "/products/{slug}/ocr/remove-document": {
+      "post": {
+        "operationId": "removeOcrDocument",
+        "summary": "Remove a single OCR document record from the product and recalculate overall OCR status",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveOcrDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OCR document removed"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "404": {
+            "description": "Product or OCR document not found"
           }
         }
       }
@@ -670,6 +735,104 @@
           }
         }
       }
+    },
+    "/images/analyze-uploaded-images": {
+      "post": {
+        "operationId": "analyzeUploadedImages",
+        "summary": "Normalize analysis extracted from chat-visible images without persisting backend asset records",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzeUploadedImagesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Image analysis normalized"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        }
+      }
+    },
+    "/products/{slug}/assets/upload-openai-files": {
+      "post": {
+        "operationId": "uploadAssetsToStorage",
+        "summary": "Upload conversation file refs into backend-managed asset storage; requires openaiFileIdRefs from the ChatGPT action payload",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadAssetsToStorageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Files persisted to backend storage"
+          },
+          "400": {
+            "description": "Invalid request or unsupported file type"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        }
+      }
+    },
+    "/products/{slug}/assets/attach": {
+      "post": {
+        "operationId": "attachAssetsToProduct",
+        "summary": "Attach backend-persisted assetIds to an existing product; never use raw chat-visible images here",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachAssetsToProductRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Persisted assets attached to the product"
+          },
+          "400": {
+            "description": "Missing backend asset references or invalid request"
+          },
+          "404": {
+            "description": "Product or persisted asset not found"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -833,7 +996,13 @@
             "type": "string"
           },
           "purpose": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "source-document",
+              "product-photo",
+              "handwritten-note",
+              "supporting-reference"
+            ]
           },
           "subtype": {
             "type": "string"
@@ -842,7 +1011,12 @@
             "type": "string"
           },
           "ocrRequested": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Optional override. Defaults by purpose when omitted."
+          },
+          "reviewRequired": {
+            "type": "boolean",
+            "description": "Optional override. Defaults to true for handwritten-note and false otherwise."
           }
         }
       },
@@ -865,7 +1039,13 @@
           },
           "purpose": {
             "type": "string",
-            "description": "Purpose such as supporting-reference, source-document, media-reference"
+            "enum": [
+              "source-document",
+              "product-photo",
+              "handwritten-note",
+              "supporting-reference"
+            ],
+            "description": "Controls intake defaults such as OCR and reviewRequired"
           },
           "subtype": {
             "type": "string",
@@ -877,30 +1057,17 @@
           },
           "ocrRequested": {
             "type": "boolean",
-            "description": "Whether OCR should be run after import"
+            "description": "Optional override. Defaults by purpose when omitted."
+          },
+          "reviewRequired": {
+            "type": "boolean",
+            "description": "Optional override. Defaults to true for handwritten-note and false otherwise."
           },
           "openaiFileIdRefs": {
             "type": "array",
-            "description": "Up to 10 files from the conversation to import into the product record",
+            "description": "Legacy alias. This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads. At runtime the action may receive objects containing fields such as id, name, mime_type, and download_link.",
             "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "id": {
-                  "type": "string"
-                },
-                "mime_type": {
-                  "type": "string"
-                },
-                "download_link": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "id"
-              ]
+              "type": "string"
             }
           }
         }
@@ -1118,7 +1285,18 @@
           }
         }
       },
-   "SourceStoragePathRequest": {
+      "RemoveOcrDocumentRequest": {
+        "type": "object",
+        "required": [
+          "sourceStoragePath"
+        ],
+        "properties": {
+          "sourceStoragePath": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceStoragePathRequest": {
         "type": "object",
         "required": [
           "sourceStoragePath"
@@ -1168,6 +1346,205 @@
           "humanReviewedText": {
             "type": "string",
             "description": "Final reviewed OCR text to save as humanReviewedText"
+          }
+        }
+      },
+      "ChatVisibleImageDescriptor": {
+        "type": "object",
+        "properties": {
+          "chatImageId": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          }
+        }
+      },
+      "AnalyzeUploadedImagesRequest": {
+        "type": "object",
+        "required": [
+          "images"
+        ],
+        "properties": {
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatVisibleImageDescriptor"
+            }
+          },
+          "summary": {
+            "type": "string"
+          },
+          "ocrText": {
+            "type": "string"
+          },
+          "extractedData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PersistedAsset": {
+        "type": "object",
+        "required": [
+          "assetId",
+          "filename",
+          "mimeType",
+          "storageKey",
+          "canonicalUrl"
+        ],
+        "properties": {
+          "assetId": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "storageKey": {
+            "type": "string"
+          },
+          "canonicalUrl": {
+            "type": "string"
+          },
+          "byteSize": {
+            "type": "number"
+          },
+          "checksumSha256": {
+            "type": "string"
+          },
+          "intendedAssetType": {
+            "type": "string",
+            "enum": [
+              "sourceFiles",
+              "imagesRaw",
+              "imagesEdited",
+              "exports"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "source-document",
+              "product-photo",
+              "handwritten-note",
+              "supporting-reference"
+            ]
+          },
+          "subtype": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "ocrRequested": {
+            "type": "boolean"
+          },
+          "reviewRequired": {
+            "type": "boolean"
+          },
+          "uploadState": {
+            "type": "string"
+          }
+        }
+      },
+      "UploadAssetsToStorageRequest": {
+        "type": "object",
+        "required": [
+          "assetType",
+          "openaiFileIdRefs"
+        ],
+        "properties": {
+          "assetType": {
+            "type": "string",
+            "enum": [
+              "sourceFiles",
+              "imagesRaw",
+              "imagesEdited",
+              "exports"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "source-document",
+              "product-photo",
+              "handwritten-note",
+              "supporting-reference"
+            ]
+          },
+          "subtype": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "ocrRequested": {
+            "type": "boolean"
+          },
+          "reviewRequired": {
+            "type": "boolean"
+          },
+          "openaiFileIdRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads. At runtime the action may receive objects containing fields such as id, name, mime_type, and download_link. If openaiFileIdRefs is absent, chat-visible images alone cannot be persisted."
+          }
+        }
+      },
+      "AttachAssetsToProductRequest": {
+        "type": "object",
+        "required": [
+          "assetIds"
+        ],
+        "properties": {
+          "assetIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "Backend-issued assetIds returned by uploadAssetsToStorage. Do not pass chat-visible images, filenames, or raw OpenAI file refs here."
+          },
+          "assetType": {
+            "type": "string",
+            "enum": [
+              "sourceFiles",
+              "imagesRaw",
+              "imagesEdited",
+              "exports"
+            ],
+            "description": "Optional override. When omitted, the persisted asset intendedAssetType is used."
+          },
+          "assetRole": {
+            "type": "string",
+            "enum": [
+              "source_note",
+              "reference_scan",
+              "gallery_image"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "source-document",
+              "product-photo",
+              "handwritten-note",
+              "supporting-reference"
+            ]
+          },
+          "subtype": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
           }
         }
       }

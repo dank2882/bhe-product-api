@@ -4,7 +4,11 @@
   "description": "BHE product API for Cloud Run",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "check": "node --check index.js",
+    "test": "node --test",
+    "deploy": "gcloud run deploy bhe-product-api --source . --region us-west1 --project location-map-985",
+    "deploy:describe": "gcloud run services describe bhe-product-api --region us-west1 --project location-map-985"
   },
   "dependencies": {
     "@google-cloud/documentai": "^9.6.0",
