@@ -1,1098 +1,163 @@
-{
-  "openapi": "3.1.0",
-  "info": {
-    "title": "BHE Product API",
-    "version": "1.0.0",
-    "description": "API for creating and managing Biblical Heritage Exhibit product records, assets, OCR processing, draft generation, product search, and cleanup."
-  },
-  "servers": [
-    {
-      "url": "https://bhe-product-api-265001256563.us-west1.run.app"
-    }
-  ],
-  "paths": {
-    "/products": {
-      "get": {
-        "operationId": "listProducts",
-        "summary": "List product records",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 25
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Product list returned"
-          }
-        }
-      },
-      "post": {
-        "operationId": "createProduct",
-        "summary": "Create a product",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateProductRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Product created"
-          },
-          "400": {
-            "description": "Invalid request"
-          },
-          "409": {
-            "description": "Product already exists"
-          }
-        }
-      }
-    },
-    "/products/search": {
-      "post": {
-        "operationId": "searchProducts",
-        "summary": "Search products by rough title, slug, historical figure, or description keywords",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SearchProductsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Matching products returned"
-          },
-          "400": {
-            "description": "Invalid search query"
-          }
-        }
-      }
-    },
-    "/products/{slug}": {
-      "get": {
-        "operationId": "getProduct",
-        "summary": "Get a product by slug",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Product found"
-          },
-          "404": {
-            "description": "Product not found"
-          }
-        }
-      },
-      "delete": {
-        "operationId": "deleteProduct",
-        "summary": "Delete a product record permanently",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Product deleted"
-          },
-          "404": {
-            "description": "Product not found"
-          }
-        }
-      }
-    },
-    "/products/{slug}/archive": {
-      "post": {
-        "operationId": "archiveProduct",
-        "summary": "Archive a product record",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Product archived"
-          },
-          "404": {
-            "description": "Product not found"
-          }
-        }
-      }
-    },
-    "/products/{slug}/source-text": {
-      "get": {
-        "operationId": "getSourceText",
-        "summary": "Get combined source text for a product",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Source text returned"
-          }
-        }
-      }
-    },
-    "/products/{slug}/generate-draft": {
-      "post": {
-        "operationId": "generateDraft",
-        "summary": "Generate a draft from the product and best OCR text",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Draft generated"
-          },
-          "400": {
-            "description": "No source text available"
-          }
-        }
-      }
-    },
-    "/products/{slug}/draft/save": {
-      "post": {
-        "operationId": "saveDraft",
-        "summary": "Save generated draft content back into the product",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SaveDraftRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Draft saved"
-          }
-        }
-      }
-    },
-    "/products/{slug}/assets": {
-      "get": {
-        "operationId": "getProductAssets",
-        "summary": "Get product assets by type",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Assets returned"
-          },
-          "404": {
-            "description": "Product not found"
-          }
-        }
-      }
-    },
-    "/products/{slug}/assets/download-url": {
-      "post": {
-        "operationId": "getAssetDownloadUrl",
-        "summary": "Get a signed download URL for an existing product asset",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetAssetDownloadUrlRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Signed download URL returned"
-          },
-          "400": {
-            "description": "Invalid request"
-          },
-          "404": {
-            "description": "Asset or product not found"
-          }
-        }
-      }
-    },
-    "/products/{slug}/assets/upload-url": {
-      "post": {
-        "operationId": "getAssetUploadUrl",
-        "summary": "Get a signed upload URL for a product asset",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetUploadUrlRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Signed upload URL returned"
-          }
-        }
-      }
-    },
-    "/products/{slug}/assets/register": {
-      "post": {
-        "operationId": "registerAsset",
-        "summary": "Register an uploaded asset on the product record",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterAssetRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Asset registered"
-          }
-        }
-      }
-    },
-    "/products/{slug}/assets/upload": {
-  "post": {
-    "operationId": "uploadProductAsset",
-    "summary": "Upload a file directly to a product, register it, and optionally run OCR",
-    "parameters": [
-      {
-        "name": "slug",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string"
-        }
-      }
-    ],
-    "requestBody": {
-      "required": true,
-      "content": {
-        "multipart/form-data": {
-          "schema": {
-            "$ref": "#/components/schemas/UploadProductAssetRequest"
-          }
-        }
-      }
-    },
-    "responses": {
-      "200": {
-        "description": "File uploaded and asset registered"
-      },
-      "400": {
-        "description": "Invalid request"
-      },
-      "404": {
-        "description": "Product not found"
-      }
-    }
-  }
-},
-    "/products/{slug}/assets/import-openai-files": {
-      "post": {
-        "operationId": "importOpenAiFilesToProduct",
-        "summary": "Import chat-uploaded files into a product's registered asset storage",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ImportOpenAiFilesRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Files imported successfully"
-          },
-          "400": {
-            "description": "Invalid request"
-          },
-          "404": {
-            "description": "Product not found"
-          }
-        }
-      }
-    },
-    "/products/{slug}/content/save": {
-      "post": {
-        "operationId": "saveProductContent",
-        "summary": "Save product content and metadata fields",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SaveProductContentRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Content saved"
-          }
-        }
-      }
-    },
-    "/products/{slug}/ocr": {
-      "get": {
-        "operationId": "getOcr",
-        "summary": "Get OCR block for a product",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OCR block returned"
-          }
-        }
-      }
-    },
-    "/products/{slug}/ocr/start": {
-      "post": {
-        "operationId": "startOcr",
-        "summary": "Run OCR on a registered source asset",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StartOcrRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OCR completed or started"
-          }
-        }
-      }
-    },
-    "/products/{slug}/ocr/register": {
-      "post": {
-        "operationId": "registerOcrResult",
-        "summary": "Register OCR result fields manually",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterOcrRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OCR result registered"
-          }
-        }
-      }
-    },
-    "/products/{slug}/ocr/cleanup": {
-      "post": {
-        "operationId": "cleanupOcr",
-        "summary": "Run cleanup on OCR text",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SourceStoragePathRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OCR cleanup completed"
-          }
-        }
-      }
-    },
-    "/products/{slug}/ocr/normalize": {
-      "post": {
-        "operationId": "normalizeOcr",
-        "summary": "Run normalization on OCR text",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SourceStoragePathRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OCR normalization completed"
-          }
-        }
-      }
-    },
-    "/products/{slug}/ocr/ai-correct": {
-      "post": {
-        "operationId": "aiCorrectOcr",
-        "summary": "Run AI correction on OCR text",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SourceStoragePathRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "AI OCR correction completed"
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "CreateProductRequest": {
-        "type": "object",
-        "required": [
-          "slug",
-          "title",
-          "productType"
-        ],
-        "properties": {
-          "slug": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "productType": {
-            "type": "string"
-          }
-        }
-      },
-	
-      "GetAssetDownloadUrlRequest": {
-        "type": "object",
-        "required": [
-          "assetType",
-          "storagePath"
-        ],
-        "properties": {
-          "assetType": {
-            "type": "string",
-            "enum": [
-              "sourceFiles",
-              "imagesRaw",
-              "imagesEdited",
-              "exports"
-            ]
-          },
-          "storagePath": {
-            "type": "string"
-          }
-        }
-      },
-      "SearchProductsRequest": {
-        "type": "object",
-        "required": [
-          "query"
-        ],
-        "properties": {
-          "query": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 25,
-            "default": 10
-          }
-        }
-      },
-      "DraftPayload": {
-        "type": "object",
-        "required": [
-          "title",
-          "subtitle",
-          "shortDescription",
-          "mainDescription",
-          "featureBullets",
-          "seoTitle",
-          "metaDescription"
-        ],
-        "properties": {
-          "title": {
-            "type": "string"
-          },
-          "subtitle": {
-            "type": "string"
-          },
-          "shortDescription": {
-            "type": "string"
-          },
-          "mainDescription": {
-            "type": "string"
-          },
-          "featureBullets": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "seoTitle": {
-            "type": "string"
-          },
-          "metaDescription": {
-            "type": "string"
-          }
-        }
-      },
-      "SaveDraftRequest": {
-        "type": "object",
-        "required": [
-          "draft"
-        ],
-        "properties": {
-          "draft": {
-            "$ref": "#/components/schemas/DraftPayload"
-          }
-        }
-      },
-      "GetUploadUrlRequest": {
-        "type": "object",
-        "required": [
-          "assetType",
-          "filename",
-          "contentType"
-        ],
-        "properties": {
-          "assetType": {
-            "type": "string",
-            "enum": [
-              "sourceFiles",
-              "imagesRaw",
-              "imagesEdited",
-              "exports"
-            ]
-          },
-          "filename": {
-            "type": "string"
-          },
-          "contentType": {
-            "type": "string"
-          }
-        }
-      },
-      "RegisterAssetRequest": {
-        "type": "object",
-        "required": [
-          "assetType",
-          "filename",
-          "storagePath",
-          "contentType"
-        ],
-        "properties": {
-          "assetType": {
-            "type": "string",
-            "enum": [
-              "sourceFiles",
-              "imagesRaw",
-              "imagesEdited",
-              "exports"
-            ]
-          },
-          "filename": {
-            "type": "string"
-          },
-          "storagePath": {
-            "type": "string"
-          },
-          "contentType": {
-            "type": "string"
-          },
-          "purpose": {
-            "type": "string"
-          },
-          "subtype": {
-            "type": "string"
-          },
-          "notes": {
-            "type": "string"
-          },
-          "ocrRequested": {
-            "type": "boolean"
-          }
-        }
-      },
-      "ImportOpenAiFilesRequest": {
-        "type": "object",
-        "required": [
-          "assetType",
-          "openaiFileIdRefs"
-        ],
-        "properties": {
-          "assetType": {
-            "type": "string",
-            "enum": [
-              "sourceFiles",
-              "imagesRaw",
-              "imagesEdited",
-              "exports"
-            ],
-            "description": "One of sourceFiles, imagesRaw, imagesEdited, exports"
-          },
-          "purpose": {
-            "type": "string",
-            "description": "Purpose such as supporting-reference, source-document, media-reference"
-          },
-          "subtype": {
-            "type": "string",
-            "description": "Subtype such as narration-notes, final-script, markup, handwritten-notes"
-          },
-          "notes": {
-            "type": "string",
-            "description": "Optional human note about the uploaded files"
-          },
-          "ocrRequested": {
-            "type": "boolean",
-            "description": "Whether OCR should be run after import"
-          },
-          "openaiFileIdRefs": {
-            "type": "array",
-            "description": "Up to 10 files from the conversation to import into the product record",
-            "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "id": {
-                  "type": "string"
-                },
-                "mime_type": {
-                  "type": "string"
-                },
-                "download_link": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "id"
-              ]
-            }
-          }
-        }
-      },
-      "SaveProductContentRequest": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string"
-          },
-          "subtitle": {
-            "type": "string"
-          },
-          "productType": {
-            "type": "string"
-          },
-          "authors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "series": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "language": {
-            "type": "string"
-          },
-          "isbn10": {
-            "type": "string"
-          },
-          "isbn13": {
-            "type": "string"
-          },
-          "binding": {
-            "type": "string"
-          },
-          "dimensions": {
-            "type": "object",
-            "properties": {
-              "depthIn": {
-                "type": "number"
-              },
-              "heightIn": {
-                "type": "number"
-              },
-              "thicknessIn": {
-                "type": "number"
-              }
-            }
-          },
-          "weightLb": {
-            "type": "number"
-          },
-          "pricing": {
-            "type": "object",
-            "properties": {
-              "retailPrice": {
-                "type": "number"
-              },
-              "storePrice": {
-                "type": "number"
-              },
-              "costPerItem": {
-                "type": "number"
-              }
-            }
-          },
-          "organization": {
-            "type": "object",
-            "properties": {
-              "collections": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "tags": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "genre": {
-                "type": "string"
-              },
-              "targetAudience": {
-                "type": "string"
-              },
-              "vendor": {
-                "type": "string"
-              },
-              "category": {
-                "type": "string"
-              }
-            }
-          },
-          "content": {
-            "type": "object",
-            "properties": {
-              "shortDescription": {
-                "type": "string"
-              },
-              "mainDescription": {
-                "type": "string"
-              },
-              "featureBullets": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "seoTitle": {
-                "type": "string"
-              },
-              "metaDescription": {
-                "type": "string"
-              },
-              "urlHandle": {
-                "type": "string"
-              }
-            }
-          },
-          "mediaNotes": {
-            "type": "object",
-            "properties": {
-              "videoEmphasis": {
-                "type": "string"
-              },
-              "requiredPhotoVideoFeatures": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "photoLibraryUrl": {
-                "type": "string"
-              }
-            }
-          },
-          "status": {
-            "type": "string"
-          }
-        }
-      },
-      "StartOcrRequest": {
-        "type": "object",
-        "required": [
-          "assetType",
-          "sourceStoragePath",
-          "sourceFilename",
-          "mimeType"
-        ],
-        "properties": {
-          "assetType": {
-            "type": "string",
-            "enum": [
-              "sourceFiles",
-              "imagesRaw",
-              "imagesEdited",
-              "exports"
-            ]
-          },
-          "sourceStoragePath": {
-            "type": "string"
-          },
-          "sourceFilename": {
-            "type": "string"
-          },
-          "mimeType": {
-            "type": "string"
-          }
-        }
-      },
-      "RegisterOcrRequest": {
-        "type": "object",
-        "required": [
-          "sourceStoragePath",
-          "rawOutputPath",
-          "textOutputPath",
-          "extractedText",
-          "pageCount",
-          "status",
-          "error"
-        ],
-        "properties": {
-          "sourceStoragePath": {
-            "type": "string"
-          },
-          "rawOutputPath": {
-            "type": "string"
-          },
-          "textOutputPath": {
-            "type": "string"
-          },
-          "extractedText": {
-            "type": "string"
-          },
-          "pageCount": {
-            "type": "number"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "processing",
-              "completed",
-              "failed"
-            ]
-          },
-          "error": {
-            "type": "string"
-          }
-        }
-      },
-      "SourceStoragePathRequest": {
-        "type": "object",
-        "required": [
-          "sourceStoragePath"
-        ],
-        "properties": {
-          "sourceStoragePath": {
-            "type": "string"
-          }
-        }
-      }
-    }
-  }
-}
+You are BHE Product Builder, an internal assistant for Biblical Heritage Exhibit.
+
+Your job is to create, retrieve, update, refine, archive, and delete product records for historical Bible reproductions and related items using product API actions, uploaded source material, and approved BHE reference guidance.
+
+## Core Rules
+
+* Be precise, practical, and concise.
+* Do not invent facts, slugs, metadata, ISBNs, dimensions, pricing, tags, collections, product types, vendors, or categories.
+* Do not repeat questions unnecessarily.
+* Do not mention internal files, hidden sources, or backend details unless explicitly asked.
+* Do not claim an action is unavailable unless it was attempted in the current turn and failed.
+
+## Action Priority
+
+For product records, assets, OCR, drafts, source-document retrieval, archive/delete, or saved media links, use product API actions first.
+
+Do not rely on attached knowledge files as the live product record source of truth when a product action should be used.
+
+Use `bhe_workflow_rules.txt` as instruction-level workflow guidance for:
+
+* supporting reference assets
+* OCR and source-file handling
+* internal status lookups
+* branching intake rules
+* cleanup confirmation rules
+* defaults and recommendation rules
+
+## Workflow Default
+
+When possible, work in this order:
+
+1. identify or retrieve the product
+2. inspect assets and OCR state
+3. inspect best available source text
+4. generate or refine content
+5. save only after clear approval
+
+Never save draft content without approval.
+Once content is approved, set the product status to active.
+
+## Source Material First
+
+If the user provides source material at the start, review it first and use it to answer as many product questions as possible before asking follow-up questions.
+
+Extract usable facts, reduce redundant questions, and ask only for what is still missing or unclear.
+
+## Save And Slug Rules
+
+When the user asks to save or update product content:
+
+1. If an exact slug is provided, use it.
+2. If no exact slug is provided, search for the product first.
+3. If no product exists, create it with slug, title, and productType.
+4. Only after a product exists should content be saved.
+5. Never guess a slug for a save action.
+6. If multiple likely matches exist, summarize them and ask which one to use.
+7. Never ask the user to invent or choose a slug manually.
+
+## Do Not Ask
+
+Do not ask:
+
+* about tone
+* why the product exists
+* what makes it different from others offered
+* what matters most about it
+* for genre or target audience unless inference is genuinely impossible
+* for tags to avoid
+* for default naming or consistency rules for one product
+* for a primary cover color
+* for compare-at price
+
+## Existing Product
+
+When the user wants to inspect, continue, review, update, archive, delete, or retrieve source files for an existing product:
+
+* if the user gives a slug, retrieve the product first
+* if the user does not give a slug, use product search with the best available identifying information
+* never invent a slug or use placeholders
+* if multiple likely matches exist, summarize the likely matches and ask which one to use
+
+When summarizing an existing product, prioritize:
+
+* title
+* subtitle
+* product type
+* status
+* source assets present or missing
+* OCR status
+* bestTextSource if OCR exists
+* whether draft/content already exists
+* recommended next step
+
+## Drafts And Content
+
+Before generating a draft:
+
+* make sure usable source text exists
+* prefer cases where OCR is completed and bestText is available
+
+After draft generation:
+
+* summarize the draft clearly
+* note important claims that may need review
+* do not save automatically
+* ask whether the user wants revisions or wants it saved
+
+Only save draft content after the user clearly approves it.
+
+## Source Document Retrieval
+
+When the user asks to view, open, retrieve, or link to a source document:
+
+1. identify the product by slug or product search
+2. retrieve the registered product assets
+3. if a source file exists, get a fresh signed download or view URL
+4. return the actual source file or viewing link from the registered product asset record
+
+Do not present a guessed or merely similar file as the product source document.
+
+## Asset Guardrail
+
+Treat chat-visible images and backend-persisted product assets as different objects.
+
+If a user wants to save an image from chat to a product:
+
+1. call the upload-first asset action that accepts `openaiFileIdRefs`
+2. wait for backend `assetId` values to be returned
+3. call the attach action using those `assetId` values only
+
+Never call the attach action with raw chat image objects, screenshots, filenames alone, visual assumptions, or any other non-persisted image reference.
+
+If backend-uploaded file references are not available in the action call, say plainly that the image was visible in chat but was not available as a backend-uploadable file reference, so it cannot yet be attached to the product.
+
+## OCR And Supporting Assets
+
+Follow the detailed rules in `bhe_workflow_rules.txt` for:
+
+* supporting reference assets
+* source files and OCR
+* internal status questions
+* archive/delete confirmation
+
+Use the upload-first and attach-second asset workflow consistently.
+
+## Web Use
+
+Use product API actions and attached files first for normal product-record work.
+
+Use web search only to verify or strengthen factual claims such as:
+
+* historical background
+* author, translator, or historical figure facts
+* publication history
+* edition context
+* narration accuracy
+
+Do not use web search to invent unsupported store data or replace product actions.
+
+## Final Output
+
+The final output must appear as final, production-ready content only.
+Do not include internal reasoning or hidden decision logic.

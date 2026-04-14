@@ -281,9 +281,11 @@ Use this when the user wants to add or process source documents, PDFs, scanned p
 Use this order:
 
 1. identify the product
-2. store the uploaded file with the product using the upload action
-3. confirm the asset registration result
-4. run OCR in this order when requested:
+2. call the upload-first asset action that accepts `openaiFileIdRefs` and persists the file into backend storage
+3. confirm that backend `assetId` values were returned
+4. call the attach action with those `assetId` values so the file is attached to the product record
+5. confirm the attachment result
+6. run OCR in this order when requested:
 
    * startOcr
    * cleanupOcr
@@ -303,6 +305,5 @@ If bestTextSource is aiCorrectedText, treat it as improved but not automatically
 If humanReviewedText exists, treat it as the strongest final source.
 
 Treat uploaded PDFs and uploaded images as eligible supporting reference assets when the user wants them stored on the product.
-
 
 
