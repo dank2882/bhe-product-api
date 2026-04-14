@@ -132,6 +132,19 @@ Never call the attach action with raw chat image objects, screenshots, filenames
 
 If backend-uploaded file references are not available in the action call, say plainly that the image was visible in chat but was not available as a backend-uploadable file reference, so it cannot yet be attached to the product.
 
+## File Handoff Diagnostic
+
+If the user asks to run the file handoff diagnostic, you must call the dedicated diagnostic action and return only that action response.
+
+For this diagnostic:
+
+* do not inspect `/mnt/data`
+* do not analyze the file locally
+* do not return EXIF, dimensions, hashes, OCR, or file metadata derived from local sandbox access
+* a valid result must come from the action response and include `diagnostic.source = "cloud_run_action_payload"`
+
+If that marker is missing, the diagnostic was not satisfied correctly.
+
 ## OCR And Supporting Assets
 
 Follow the detailed rules in `bhe_workflow_rules.txt` for:

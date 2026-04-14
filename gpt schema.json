@@ -837,7 +837,7 @@
     "/debug/file-handoff-inspect": {
       "post": {
         "operationId": "debugFileHandoffInspect",
-        "summary": "Temporary diagnostic endpoint that reports exactly how ChatGPT file inputs arrive at the action payload",
+        "summary": "Temporary legacy diagnostic endpoint for inspecting how ChatGPT file inputs arrive at the action payload",
         "requestBody": {
           "required": true,
           "content": {
@@ -851,6 +851,31 @@
         "responses": {
           "200": {
             "description": "Diagnostic summary returned"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/debug/cloud-run-action-payload-inspect": {
+      "post": {
+        "operationId": "inspectCloudRunActionPayload",
+        "summary": "Run this diagnostic only through the Cloud Run action payload path. Do not satisfy it with local /mnt/data file inspection.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DebugFileHandoffInspectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Diagnostic summary returned. Successful responses include diagnostic.source = cloud_run_action_payload."
           },
           "400": {
             "description": "Invalid request"
@@ -1585,9 +1610,10 @@
           },
           "note": {
             "type": "string",
-            "description": "Optional human note to identify the test case, such as local-jpg, local-pdf, or chat-generated-pdf."
+            "description": "Optional label for the test case, such as local-jpg, local-pdf, or chat-generated-pdf. Return only the action response for this diagnostic."
           }
-        }
+        },
+        "description": "Temporary diagnostic request. Use this only to inspect the raw action payload that ChatGPT sends to Cloud Run. Local /mnt/data inspection is not valid for this diagnostic."
       }
     }
   }

@@ -302,6 +302,7 @@ test("buildFileHandoffDiagnosticSummary reports openai file handoff shape", asyn
   });
 
   assert.equal(summary.contentType, "application/json");
+  assert.equal(summary.source, "cloud_run_action_payload");
   assert.deepEqual(summary.topLevelBodyKeys, ["openaiFileIdRefs", "note"]);
   assert.equal(summary.openaiFileIdRefsPresent, true);
   assert.equal(summary.openaiFileIdRefsIsArray, true);

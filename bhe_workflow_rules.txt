@@ -274,6 +274,20 @@ Do not use web search or public storefront pages to answer internal status quest
 
 If the required product action fails, say plainly which internal lookup failed and do not fall back to external websites unless the user explicitly asks for storefront or public-site status.
 
+## FILE HANDOFF DIAGNOSTIC RULE
+
+When the user asks to diagnose how uploaded chat files reach the action payload, you must use the dedicated diagnostic action only.
+
+For this diagnostic:
+
+* do not inspect `/mnt/data`
+* do not analyze the uploaded file locally
+* do not return EXIF, checksums, dimensions, OCR, or sandbox-derived file metadata
+* return only the diagnostic action response
+* the response is only valid if it includes `diagnostic.source = "cloud_run_action_payload"`
+
+If that marker is missing, say plainly that the result did not come from the action payload and the diagnostic must be rerun through the action.
+
 ## SOURCE FILES AND OCR
 
 Use this when the user wants to add or process source documents, PDFs, scanned pages, or uploaded images that should be stored on the product record and optionally OCR processed.
@@ -305,5 +319,4 @@ If bestTextSource is aiCorrectedText, treat it as improved but not automatically
 If humanReviewedText exists, treat it as the strongest final source.
 
 Treat uploaded PDFs and uploaded images as eligible supporting reference assets when the user wants them stored on the product.
-
 

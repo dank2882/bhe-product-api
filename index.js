@@ -284,6 +284,7 @@ function buildFileHandoffDiagnosticSummary(req) {
     : undefined;
 
   return {
+    source: "cloud_run_action_payload",
     receivedAt: getNowIso(),
     method: req.method,
     path: req.path,
@@ -2448,7 +2449,7 @@ app.post("/images/analyze-uploaded-images", async (req, res) => {
   }
 });
 
-app.post("/debug/file-handoff-inspect", async (req, res) => {
+async function handleFileHandoffDiagnostic(req, res) {
   try {
     const diagnostic = buildFileHandoffDiagnosticSummary(req);
     console.log("File handoff diagnostic request:", JSON.stringify(diagnostic));
@@ -2459,7 +2460,10 @@ app.post("/debug/file-handoff-inspect", async (req, res) => {
       .status(getErrorStatusCode(error, 500))
       .json({ ok: false, error: error.message || "Diagnostic failed" });
   }
-});
+}
+
+app.post("/debug/file-handoff-inspect", handleFileHandoffDiagnostic);
+app.post("/debug/cloud-run-action-payload-inspect", handleFileHandoffDiagnostic);
 
 app.post("/products/:slug/assets/upload-openai-files", async (req, res) => {
   try {
