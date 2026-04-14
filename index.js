@@ -217,6 +217,99 @@ function getErrorStatusCode(error, fallbackStatusCode = 500) {
   return Number.isInteger(error?.statusCode) ? error.statusCode : fallbackStatusCode;
 }
 
+function redactHeaderValue(headerName, value) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const normalizedName = headerName.toLowerCase();
+
+  if (["authorization", "x-api-key", "cookie"].includes(normalizedName)) {
+    return "[redacted]";
+  }
+
+  return value;
+}
+
+function getRelevantRequestHeaders(headers = {}) {
+  const relevantHeaders = {};
+
+  for (const [headerName, headerValue] of Object.entries(headers)) {
+    const normalizedName = headerName.toLowerCase();
+    const shouldInclude =
+      normalizedName === "content-type" ||
+      normalizedName === "content-length" ||
+      normalizedName === "user-agent" ||
+      normalizedName === "host" ||
+      normalizedName.startsWith("x-openai") ||
+      normalizedName.startsWith("openai-") ||
+      normalizedName.startsWith("x-forwarded-") ||
+      normalizedName === "authorization" ||
+      normalizedName === "x-api-key";
+
+    if (!shouldInclude) {
+      continue;
+    }
+
+    relevantHeaders[headerName] = Array.isArray(headerValue)
+      ? headerValue.map((item) => redactHeaderValue(headerName, item))
+      : redactHeaderValue(headerName, headerValue);
+  }
+
+  return relevantHeaders;
+}
+
+function getValueType(value) {
+  if (Array.isArray(value)) {
+    return "array";
+  }
+
+  if (value === null) {
+    return "null";
+  }
+
+  return typeof value;
+}
+
+function buildFileHandoffDiagnosticSummary(req) {
+  const body = req.body;
+  const bodyIsPlainObject = isPlainObject(body);
+  const topLevelBodyKeys = bodyIsPlainObject ? Object.keys(body) : [];
+  const hasOpenAiFileIdRefs =
+    bodyIsPlainObject && Object.prototype.hasOwnProperty.call(body, "openaiFileIdRefs");
+  const openaiFileIdRefs = hasOpenAiFileIdRefs ? body.openaiFileIdRefs : undefined;
+  const openaiFileIdRefsIsArray = Array.isArray(openaiFileIdRefs);
+  const firstElement = openaiFileIdRefsIsArray && openaiFileIdRefs.length > 0
+    ? openaiFileIdRefs[0]
+    : undefined;
+
+  return {
+    receivedAt: getNowIso(),
+    method: req.method,
+    path: req.path,
+    contentType: req.get("content-type") || "",
+    bodyRootType: getValueType(body),
+    topLevelBodyKeys,
+    topLevelBodyValueTypes: bodyIsPlainObject
+      ? Object.fromEntries(
+          Object.entries(body).map(([key, value]) => [key, getValueType(value)])
+        )
+      : {},
+    openaiFileIdRefsPresent: hasOpenAiFileIdRefs,
+    openaiFileIdRefsIsArray,
+    openaiFileIdRefsLength: openaiFileIdRefsIsArray ? openaiFileIdRefs.length : 0,
+    firstElementType: getValueType(firstElement),
+    firstElementKeys: isPlainObject(firstElement) ? Object.keys(firstElement) : [],
+    firstElementPreview:
+      firstElement === undefined
+        ? null
+        : isPlainObject(firstElement) || Array.isArray(firstElement)
+          ? firstElement
+          : String(firstElement),
+    relevantHeaders: getRelevantRequestHeaders(req.headers || {})
+  };
+}
+
 function getDefaultOcrBlock() {
   return {
     status: "not_started",
@@ -2355,6 +2448,19 @@ app.post("/images/analyze-uploaded-images", async (req, res) => {
   }
 });
 
+app.post("/debug/file-handoff-inspect", async (req, res) => {
+  try {
+    const diagnostic = buildFileHandoffDiagnosticSummary(req);
+    console.log("File handoff diagnostic request:", JSON.stringify(diagnostic));
+    return res.status(200).json({ ok: true, diagnostic });
+  } catch (error) {
+    console.error("Error building file handoff diagnostic:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Diagnostic failed" });
+  }
+});
+
 app.post("/products/:slug/assets/upload-openai-files", async (req, res) => {
   try {
     const result = await uploadAssetsToStorage(
@@ -4258,6 +4364,7 @@ module.exports = {
   CHAT_VISIBLE_IMAGES_NOT_ATTACHABLE_ERROR,
   analyzeUploadedImages,
   attachAssetsToProduct,
+  buildFileHandoffDiagnosticSummary,
   buildCanonicalAssetUrl,
   buildPersistedAssetRecord,
   buildProductAssetAttachment,

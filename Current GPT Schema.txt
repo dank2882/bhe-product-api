@@ -833,6 +833,30 @@
           }
         }
       }
+    },
+    "/debug/file-handoff-inspect": {
+      "post": {
+        "operationId": "debugFileHandoffInspect",
+        "summary": "Temporary diagnostic endpoint that reports exactly how ChatGPT file inputs arrive at the action payload",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DebugFileHandoffInspectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Diagnostic summary returned"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1545,6 +1569,23 @@
           },
           "notes": {
             "type": "string"
+          }
+        }
+      },
+      "DebugFileHandoffInspectRequest": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "openaiFileIdRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads for diagnostics. The runtime payload may contain objects with fields such as id, name, mime_type, and download_link."
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional human note to identify the test case, such as local-jpg, local-pdf, or chat-generated-pdf."
           }
         }
       }

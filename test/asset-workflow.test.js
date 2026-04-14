@@ -7,6 +7,7 @@ process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || "test-openai-key";
 const {
   CHAT_VISIBLE_IMAGES_NOT_ATTACHABLE_ERROR,
   attachAssetsToProduct,
+  buildFileHandoffDiagnosticSummary,
   uploadAssetsToStorage
 } = require("../index.js");
 
@@ -271,4 +272,46 @@ test("image-only attach leaves unrelated product fields untouched", async () => 
   assert.equal(after.subtitle, before.subtitle);
   assert.deepEqual(after.content, before.content);
   assert.equal(after.assets.imagesRaw.length, 1);
+});
+
+test("buildFileHandoffDiagnosticSummary reports openai file handoff shape", async () => {
+  const summary = buildFileHandoffDiagnosticSummary({
+    method: "POST",
+    path: "/debug/file-handoff-inspect",
+    headers: {
+      "content-type": "application/json",
+      "content-length": "321",
+      "user-agent": "OpenAI/Actions",
+      "x-api-key": "secret-key",
+      "x-openai-trace-id": "trace-123"
+    },
+    get(name) {
+      return this.headers[name.toLowerCase()] || "";
+    },
+    body: {
+      openaiFileIdRefs: [
+        {
+          name: "sample.pdf",
+          id: "file_123",
+          mime_type: "application/pdf",
+          download_link: "https://files.example/sample.pdf"
+        }
+      ],
+      note: "debug"
+    }
+  });
+
+  assert.equal(summary.contentType, "application/json");
+  assert.deepEqual(summary.topLevelBodyKeys, ["openaiFileIdRefs", "note"]);
+  assert.equal(summary.openaiFileIdRefsPresent, true);
+  assert.equal(summary.openaiFileIdRefsIsArray, true);
+  assert.equal(summary.openaiFileIdRefsLength, 1);
+  assert.equal(summary.firstElementType, "object");
+  assert.deepEqual(summary.firstElementKeys, [
+    "name",
+    "id",
+    "mime_type",
+    "download_link"
+  ]);
+  assert.equal(summary.relevantHeaders["x-api-key"], "[redacted]");
 });
