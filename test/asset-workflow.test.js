@@ -8,6 +8,11 @@ const {
   CHAT_VISIBLE_IMAGES_NOT_ATTACHABLE_ERROR,
   attachAssetsToProduct,
   buildFileHandoffDiagnosticSummary,
+  findRegisteredAsset,
+  getCleanupSourceText,
+  getFinalAiCorrectionSourceText,
+  getOcrModeForMimeType,
+  getNormalizationSourceText,
   uploadAssetsToStorage
 } = require("../index.js");
 
@@ -315,4 +320,103 @@ test("buildFileHandoffDiagnosticSummary reports openai file handoff shape", asyn
     "download_link"
   ]);
   assert.equal(summary.relevantHeaders["x-api-key"], "[redacted]");
+});
+
+test("attached PDF from asset library remains OCR-eligible as a registered source file", async () => {
+  const { slug, deps } = createDeps();
+  const uploadResult = await uploadAssetsToStorage(
+    {
+      slug,
+      assetType: "sourceFiles",
+      purpose: "source-document",
+      subtype: "handwritten-notes",
+      openaiFileIdRefs: [
+        {
+          name: "notes.pdf",
+          mime_type: "application/pdf",
+          download_link: "https://files.example/notes.pdf"
+        }
+      ]
+    },
+    deps
+  );
+
+  const assetId = uploadResult.persistedAssets[0].assetId;
+  const attachResult = await attachAssetsToProduct(
+    {
+      slug,
+      assetIds: [assetId],
+      assetRole: "source_note"
+    },
+    deps
+  );
+
+  const savedProduct = (await deps.productsCollection.doc(slug).get()).data();
+  const attachedAsset = attachResult.attachedAssets[0];
+  const matchingAsset = findRegisteredAsset(
+    savedProduct,
+    "sourceFiles",
+    attachedAsset.storagePath,
+    attachedAsset.filename
+  );
+
+  assert.ok(matchingAsset);
+  assert.equal(attachedAsset.storagePath.includes("/asset-library/"), true);
+  assert.equal(attachedAsset.mimeType, "application/pdf");
+});
+
+test("getOcrModeForMimeType routes PDFs to the PDF OCR mode", async () => {
+  assert.equal(getOcrModeForMimeType("application/pdf"), "document_ai_pdf");
+});
+
+test("cleanup prefers the initial AI correction when available", async () => {
+  assert.equal(
+    getCleanupSourceText({
+      extractedText: "raw text",
+      aiInitialCorrectedText: "ai first pass"
+    }),
+    "ai first pass"
+  );
+});
+
+test("normalization prefers cleaned text, then initial AI text", async () => {
+  assert.equal(
+    getNormalizationSourceText({
+      cleanedText: "cleaned",
+      aiInitialCorrectedText: "ai first pass",
+      extractedText: "raw"
+    }),
+    "cleaned"
+  );
+
+  assert.equal(
+    getNormalizationSourceText({
+      cleanedText: "",
+      aiInitialCorrectedText: "ai first pass",
+      extractedText: "raw"
+    }),
+    "ai first pass"
+  );
+});
+
+test("final AI correction prefers normalized text but can fall back to the initial AI text", async () => {
+  assert.equal(
+    getFinalAiCorrectionSourceText({
+      normalizedText: "normalized",
+      cleanedText: "cleaned",
+      aiInitialCorrectedText: "ai first pass",
+      extractedText: "raw"
+    }),
+    "normalized"
+  );
+
+  assert.equal(
+    getFinalAiCorrectionSourceText({
+      normalizedText: "",
+      cleanedText: "",
+      aiInitialCorrectedText: "ai first pass",
+      extractedText: "raw"
+    }),
+    "ai first pass"
+  );
 });

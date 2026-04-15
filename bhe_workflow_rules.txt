@@ -320,3 +320,13 @@ If humanReviewedText exists, treat it as the strongest final source.
 
 Treat uploaded PDFs and uploaded images as eligible supporting reference assets when the user wants them stored on the product.
 
+When confirming a successful file save or OCR action, use complete finished sentences.
+
+Include:
+
+* product title and slug
+* saved filename
+* asset purpose or role
+* OCR status
+
+Do not leave dangling labels such as `Source file:` or `OCR:` with no value after them.

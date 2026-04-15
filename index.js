@@ -329,6 +329,29 @@ function getSafeAssets(product = {}) {
   };
 }
 
+function findRegisteredAsset(product, assetType, storagePath, filename) {
+  const cleanAssetType =
+    typeof assetType === "string" && assetType.trim() ? assetType.trim() : "";
+  const cleanStoragePath =
+    typeof storagePath === "string" && storagePath.trim() ? storagePath.trim() : "";
+  const cleanFilename =
+    typeof filename === "string" && filename.trim() ? filename.trim() : "";
+
+  if (!cleanAssetType || !cleanStoragePath || !cleanFilename) {
+    return null;
+  }
+
+  const assets = getSafeAssets(product);
+  const assetList = Array.isArray(assets[cleanAssetType]) ? assets[cleanAssetType] : [];
+
+  return assetList.find(
+    (asset) =>
+      asset &&
+      asset.storagePath === cleanStoragePath &&
+      asset.filename === cleanFilename
+  ) || null;
+}
+
 function isAllowedOcrAssetType(assetType) {
   return ["sourceFiles", "imagesRaw", "imagesEdited", "exports"].includes(assetType);
 }
@@ -459,6 +482,15 @@ function applyBestText(record) {
     };
   }
 
+  if (record.aiInitialCorrectedText && record.aiInitialCorrectedText.trim()) {
+    return {
+      ...record,
+      bestText: record.aiInitialCorrectedText,
+      bestTextSource: "aiInitialCorrectedText",
+      bestTextUpdatedAt: now
+    };
+  }
+
   if (record.normalizedText && record.normalizedText.trim()) {
     return {
       ...record,
@@ -520,6 +552,11 @@ function withOcrDefaults(record = {}) {
     normalizationProcessedAt: record.normalizationProcessedAt || "",
     normalizationError: record.normalizationError || "",
 
+    aiInitialCorrectedText: record.aiInitialCorrectedText || "",
+    aiInitialCorrectionStatus: record.aiInitialCorrectionStatus || "not_started",
+    aiInitialCorrectionProcessedAt: record.aiInitialCorrectionProcessedAt || "",
+    aiInitialCorrectionError: record.aiInitialCorrectionError || "",
+
     aiCorrectedText: record.aiCorrectedText || "",
     aiCorrectionStatus: record.aiCorrectionStatus || "not_started",
     aiCorrectionProcessedAt: record.aiCorrectionProcessedAt || "",
@@ -531,6 +568,33 @@ function withOcrDefaults(record = {}) {
     bestTextSource: record.bestTextSource || "",
     bestTextUpdatedAt: record.bestTextUpdatedAt || ""
   };
+}
+
+function getCleanupSourceText(record = {}) {
+  return (
+    (record.aiInitialCorrectedText && record.aiInitialCorrectedText.trim()) ||
+    (record.extractedText && record.extractedText.trim()) ||
+    ""
+  );
+}
+
+function getNormalizationSourceText(record = {}) {
+  return (
+    (record.cleanedText && record.cleanedText.trim()) ||
+    (record.aiInitialCorrectedText && record.aiInitialCorrectedText.trim()) ||
+    (record.extractedText && record.extractedText.trim()) ||
+    ""
+  );
+}
+
+function getFinalAiCorrectionSourceText(record = {}) {
+  return (
+    (record.normalizedText && record.normalizedText.trim()) ||
+    (record.cleanedText && record.cleanedText.trim()) ||
+    (record.aiInitialCorrectedText && record.aiInitialCorrectedText.trim()) ||
+    (record.extractedText && record.extractedText.trim()) ||
+    ""
+  );
 }
 
 function buildSourceTextPackage(product) {
@@ -2188,22 +2252,39 @@ async function importConversationFilesToProduct({
         })
       );
 
-      updatedOcrRecord.cleanedText = cleanOcrText(updatedOcrRecord.extractedText);
+      try {
+        updatedOcrRecord.aiInitialCorrectedText = await runAiCorrection(updatedOcrRecord.extractedText);
+        updatedOcrRecord.aiInitialCorrectionStatus = "completed";
+        updatedOcrRecord.aiInitialCorrectionProcessedAt = getNowIso();
+        updatedOcrRecord.aiInitialCorrectionError = "";
+      } catch (ocrAiInitialError) {
+        updatedOcrRecord.aiInitialCorrectionStatus = "failed";
+        updatedOcrRecord.aiInitialCorrectionProcessedAt = getNowIso();
+        updatedOcrRecord.aiInitialCorrectionError = ocrAiInitialError.message;
+      }
+
+      updatedOcrRecord = applyBestText(updatedOcrRecord);
+
+      updatedOcrRecord.cleanedText = cleanOcrText(getCleanupSourceText(updatedOcrRecord));
       updatedOcrRecord.cleanupStatus = "completed";
       updatedOcrRecord.cleanupProcessedAt = getNowIso();
       updatedOcrRecord = applyBestText(updatedOcrRecord);
 
-      updatedOcrRecord.normalizedText = normalizeOcrText(updatedOcrRecord.cleanedText);
+      updatedOcrRecord.normalizedText = normalizeOcrText(getNormalizationSourceText(updatedOcrRecord));
       updatedOcrRecord.normalizationStatus = "completed";
       updatedOcrRecord.normalizationProcessedAt = getNowIso();
       updatedOcrRecord = applyBestText(updatedOcrRecord);
 
       try {
-        updatedOcrRecord.aiCorrectedText = await runAiCorrection(updatedOcrRecord.normalizedText);
+        updatedOcrRecord.aiCorrectedText = await runAiCorrection(
+          getFinalAiCorrectionSourceText(updatedOcrRecord)
+        );
         updatedOcrRecord.aiCorrectionStatus = "completed";
         updatedOcrRecord.aiCorrectionProcessedAt = getNowIso();
+        updatedOcrRecord.aiCorrectionError = "";
       } catch (ocrAiError) {
         updatedOcrRecord.aiCorrectionStatus = "failed";
+        updatedOcrRecord.aiCorrectionProcessedAt = getNowIso();
         updatedOcrRecord.aiCorrectionError = ocrAiError.message;
       }
 
@@ -2659,22 +2740,39 @@ app.post("/products/:slug/assets/upload", upload.single("file"), async (req, res
           })
         );
 
-        updatedOcrRecord.cleanedText = cleanOcrText(updatedOcrRecord.extractedText);
+        try {
+          updatedOcrRecord.aiInitialCorrectedText = await runAiCorrection(updatedOcrRecord.extractedText);
+          updatedOcrRecord.aiInitialCorrectionStatus = "completed";
+          updatedOcrRecord.aiInitialCorrectionProcessedAt = getNowIso();
+          updatedOcrRecord.aiInitialCorrectionError = "";
+        } catch (ocrAiInitialError) {
+          updatedOcrRecord.aiInitialCorrectionStatus = "failed";
+          updatedOcrRecord.aiInitialCorrectionProcessedAt = getNowIso();
+          updatedOcrRecord.aiInitialCorrectionError = ocrAiInitialError.message;
+        }
+
+        updatedOcrRecord = applyBestText(updatedOcrRecord);
+
+        updatedOcrRecord.cleanedText = cleanOcrText(getCleanupSourceText(updatedOcrRecord));
         updatedOcrRecord.cleanupStatus = "completed";
         updatedOcrRecord.cleanupProcessedAt = getNowIso();
         updatedOcrRecord = applyBestText(updatedOcrRecord);
 
-        updatedOcrRecord.normalizedText = normalizeOcrText(updatedOcrRecord.cleanedText);
+        updatedOcrRecord.normalizedText = normalizeOcrText(getNormalizationSourceText(updatedOcrRecord));
         updatedOcrRecord.normalizationStatus = "completed";
         updatedOcrRecord.normalizationProcessedAt = getNowIso();
         updatedOcrRecord = applyBestText(updatedOcrRecord);
 
         try {
-          updatedOcrRecord.aiCorrectedText = await runAiCorrection(updatedOcrRecord.normalizedText);
+          updatedOcrRecord.aiCorrectedText = await runAiCorrection(
+            getFinalAiCorrectionSourceText(updatedOcrRecord)
+          );
           updatedOcrRecord.aiCorrectionStatus = "completed";
           updatedOcrRecord.aiCorrectionProcessedAt = getNowIso();
+          updatedOcrRecord.aiCorrectionError = "";
         } catch (ocrAiError) {
           updatedOcrRecord.aiCorrectionStatus = "failed";
+          updatedOcrRecord.aiCorrectionProcessedAt = getNowIso();
           updatedOcrRecord.aiCorrectionError = ocrAiError.message;
         }
 
@@ -3571,13 +3669,6 @@ app.post("/products/:slug/ocr/start", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Missing or invalid required fields" });
     }
 
-    const assetFolder = getAssetFolder(cleanAssetType);
-    const expectedPrefix = `products/${slug}/${assetFolder}/`;
-
-    if (!cleanSourceStoragePath.startsWith(expectedPrefix)) {
-      return res.status(400).json({ ok: false, error: "Invalid sourceStoragePath" });
-    }
-
     const docRef = productsCollection.doc(slug);
     const doc = await docRef.get();
 
@@ -3586,14 +3677,14 @@ app.post("/products/:slug/ocr/start", async (req, res) => {
     }
 
     const product = doc.data();
-    const productAssets = product.assets || {};
-    const assetList = productAssets[cleanAssetType] || [];
-
-    const assetExists = assetList.some(
-      (asset) => asset && asset.storagePath === cleanSourceStoragePath && asset.filename === cleanSourceFilename
+    const matchingAsset = findRegisteredAsset(
+      product,
+      cleanAssetType,
+      cleanSourceStoragePath,
+      cleanSourceFilename
     );
 
-    if (!assetExists) {
+    if (!matchingAsset) {
       return res.status(400).json({ ok: false, error: "Invalid sourceStoragePath" });
     }
 
@@ -3665,6 +3756,19 @@ app.post("/products/:slug/ocr/start", async (req, res) => {
         })
       );
 
+      try {
+        completedRecord.aiInitialCorrectedText = await runAiCorrection(completedRecord.extractedText);
+        completedRecord.aiInitialCorrectionStatus = "completed";
+        completedRecord.aiInitialCorrectionProcessedAt = getNowIso();
+        completedRecord.aiInitialCorrectionError = "";
+      } catch (ocrAiInitialError) {
+        completedRecord.aiInitialCorrectionStatus = "failed";
+        completedRecord.aiInitialCorrectionProcessedAt = getNowIso();
+        completedRecord.aiInitialCorrectionError = ocrAiInitialError.message || "Initial AI correction failed";
+      }
+
+      const completedRecordWithAiStart = applyBestText(withOcrDefaults(completedRecord));
+
       const refreshedDoc = await docRef.get();
       const refreshedProduct = refreshedDoc.data() || {};
       const refreshedOcr = refreshedProduct.ocr || getDefaultOcrBlock();
@@ -3678,13 +3782,13 @@ app.post("/products/:slug/ocr/start", async (req, res) => {
 
       const finalDocuments =
         refreshedIndex === -1
-          ? [...refreshedDocuments, completedRecord]
+          ? [...refreshedDocuments, completedRecordWithAiStart]
           : refreshedDocuments.map((docItem, index) =>
               index === refreshedIndex
                 ? applyBestText(
                     withOcrDefaults({
                       ...docItem,
-                      ...completedRecord,
+                      ...completedRecordWithAiStart,
                       rawOutputPath,
                       textOutputPath,
                       extractedText: documentAiResult.extractedText || "",
@@ -3705,7 +3809,11 @@ app.post("/products/:slug/ocr/start", async (req, res) => {
         updatedAt: getNowIso()
       });
 
-      return res.status(200).json({ ok: true, message: "OCR completed", ocrDocument: completedRecord });
+      return res.status(200).json({
+        ok: true,
+        message: "OCR completed",
+        ocrDocument: completedRecordWithAiStart
+      });
     } catch (ocrError) {
       console.error("Document AI OCR failed:", ocrError);
 
@@ -3987,7 +4095,7 @@ app.post("/products/:slug/ocr/cleanup", async (req, res) => {
     }
 
     const existingRecord = withOcrDefaults(currentDocuments[documentIndex]);
-    const extractedText = existingRecord.extractedText || "";
+    const extractedText = getCleanupSourceText(existingRecord);
 
     if (!extractedText.trim()) {
       return res.status(400).json({ ok: false, error: "No OCR text available to clean" });
@@ -4094,10 +4202,7 @@ app.post("/products/:slug/ocr/normalize", async (req, res) => {
     }
 
     const existingRecord = withOcrDefaults(currentDocuments[documentIndex]);
-    const sourceText =
-      (existingRecord.cleanedText && existingRecord.cleanedText.trim()) ||
-      (existingRecord.extractedText && existingRecord.extractedText.trim()) ||
-      "";
+    const sourceText = getNormalizationSourceText(existingRecord);
 
     if (!sourceText) {
       return res.status(400).json({ ok: false, error: "No OCR text available to normalize" });
@@ -4204,11 +4309,7 @@ app.post("/products/:slug/ocr/ai-correct", async (req, res) => {
     }
 
     const existingRecord = withOcrDefaults(currentDocuments[documentIndex]);
-    const sourceText =
-      (existingRecord.normalizedText && existingRecord.normalizedText.trim()) ||
-      (existingRecord.cleanedText && existingRecord.cleanedText.trim()) ||
-      (existingRecord.extractedText && existingRecord.extractedText.trim()) ||
-      "";
+    const sourceText = getFinalAiCorrectionSourceText(existingRecord);
 
     if (!sourceText) {
       return res.status(400).json({ ok: false, error: "No OCR text available to AI-correct" });
@@ -4373,7 +4474,12 @@ module.exports = {
   buildPersistedAssetRecord,
   buildProductAssetAttachment,
   createWorkflowError,
+  findRegisteredAsset,
+  getCleanupSourceText,
+  getFinalAiCorrectionSourceText,
   getAssetWorkflowDependencies,
+  getOcrModeForMimeType,
+  getNormalizationSourceText,
   normalizePersistedAssetRecord,
   normalizeStoredAssetRecord,
   uploadAssetsToStorage

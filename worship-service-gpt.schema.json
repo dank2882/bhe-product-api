@@ -1,0 +1,1293 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Church Service Planning API",
+    "version": "2.0.0",
+    "description": "API for searching songs, retrieving service plans, suggesting setlists, saving approved plans, and uploading planning documents for a church service planning GPT."
+  },
+  "servers": [
+    {
+      "url": "https://your-service-planning-api.example.com"
+    }
+  ],
+  "paths": {
+    "/songs/search": {
+      "post": {
+        "operationId": "searchSongs",
+        "summary": "Search the church song library using free text, structured filters, or both",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSongsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching songs returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchSongsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/{songId}": {
+      "get": {
+        "operationId": "getSong",
+        "summary": "Get a single song from the library",
+        "parameters": [
+          {
+            "name": "songId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Song returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSongResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Song not found"
+          }
+        }
+      }
+    },
+    "/services/search": {
+      "post": {
+        "operationId": "searchServices",
+        "summary": "Search existing services using free text, structured filters, or both",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchServicesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching services returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchServicesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services": {
+      "post": {
+        "operationId": "createService",
+        "summary": "Create a new service planning record and let the backend generate the serviceId",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateServiceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Service created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateServiceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        }
+      }
+    },
+    "/services/{serviceId}": {
+      "get": {
+        "operationId": "getService",
+        "summary": "Get an existing service plan",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetServiceResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service not found"
+          }
+        }
+      }
+    },
+    "/services/{serviceId}/setlist/suggest": {
+      "post": {
+        "operationId": "suggestServiceSetlist",
+        "summary": "Suggest a draft setlist for a service using planning context, song library data, and constraints",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestSetlistRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Draft setlist returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestSetlistResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service not found"
+          }
+        }
+      }
+    },
+    "/services/{serviceId}/setlist/save": {
+      "post": {
+        "operationId": "saveServiceSetlist",
+        "summary": "Save an approved service setlist",
+        "x-openai-isConsequential": true,
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveSetlistRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Setlist saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveSetlistResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{serviceId}/order-of-service/save": {
+      "post": {
+        "operationId": "saveOrderOfService",
+        "summary": "Save an approved order of service including transitions and notes",
+        "x-openai-isConsequential": true,
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveOrderOfServiceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order of service saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveOrderOfServiceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{serviceId}/planning-files/upload-openai-files": {
+      "post": {
+        "operationId": "uploadServicePlanningFiles",
+        "summary": "Persist uploaded planning documents from the GPT action payload using openaiFileIdRefs",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadServicePlanningFilesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Planning files saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadServicePlanningFilesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SearchSongsRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Optional free-text query such as grace, resurrection, or living hope"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchSongFilters"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 10
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "relevance",
+              "recently_used_asc",
+              "recently_used_desc",
+              "familiarity_desc",
+              "title_asc"
+            ],
+            "default": "relevance"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "query"
+            ]
+          },
+          {
+            "required": [
+              "filters"
+            ]
+          }
+        ]
+      },
+      "SearchSongFilters": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "string"
+          },
+          "scripture": {
+            "type": "string"
+          },
+          "season": {
+            "type": "string"
+          },
+          "tempo": {
+            "type": "string",
+            "enum": [
+              "slow",
+              "medium",
+              "fast"
+            ]
+          },
+          "energy": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "familiarityMin": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "lastUsedBefore": {
+            "type": "string",
+            "format": "date"
+          },
+          "lastUsedAfter": {
+            "type": "string",
+            "format": "date"
+          },
+          "usageCountLast90DaysMax": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "vocalRange": {
+            "type": "string"
+          },
+          "serviceRoleSuitability": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "opener",
+                "gathering",
+                "pre-sermon",
+                "response",
+                "communion",
+                "baptism",
+                "sending",
+                "closing"
+              ]
+            }
+          },
+          "arrangementComplexityMax": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "moderate",
+              "complex"
+            ]
+          },
+          "congregationFit": {
+            "type": "string",
+            "enum": [
+              "all-church",
+              "family",
+              "youth",
+              "traditional-leaning",
+              "modern-leaning"
+            ]
+          }
+        }
+      },
+      "SearchSongsResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "songs",
+          "count"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "songs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongSummary"
+            }
+          },
+          "count": {
+            "type": "integer"
+          },
+          "appliedFilters": {
+            "$ref": "#/components/schemas/SearchSongFilters"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SongSummary": {
+        "type": "object",
+        "required": [
+          "songId",
+          "title"
+        ],
+        "properties": {
+          "songId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "tempo": {
+            "type": "string"
+          },
+          "energy": {
+            "type": "string"
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scriptureTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "familiarityScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "lastUsedDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "usageCountLast90Days": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "vocalRange": {
+            "type": "string"
+          },
+          "serviceRoleSuitability": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "arrangementComplexity": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "moderate",
+              "complex"
+            ]
+          },
+          "congregationFit": {
+            "type": "string"
+          }
+        }
+      },
+      "SongRecord": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SongSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "alternateKeys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "defaultNotes": {
+                "type": "string"
+              },
+              "lyricsSource": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "GetSongResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "song"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "song": {
+            "$ref": "#/components/schemas/SongRecord"
+          }
+        }
+      },
+      "SearchServicesRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Optional free-text query such as Easter, John 15, or communion"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchServiceFilters"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 10
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "relevance",
+              "service_date_desc",
+              "service_date_asc"
+            ],
+            "default": "relevance"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "query"
+            ]
+          },
+          {
+            "required": [
+              "filters"
+            ]
+          }
+        ]
+      },
+      "SearchServiceFilters": {
+        "type": "object",
+        "properties": {
+          "serviceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "serviceDateFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "serviceDateTo": {
+            "type": "string",
+            "format": "date"
+          },
+          "series": {
+            "type": "string"
+          },
+          "season": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string"
+          },
+          "scripture": {
+            "type": "string"
+          },
+          "serviceType": {
+            "type": "string"
+          },
+          "campus": {
+            "type": "string"
+          },
+          "planningStatus": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "in_review",
+              "approved",
+              "archived"
+            ]
+          }
+        }
+      },
+      "SearchServicesResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "services",
+          "count"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceSummary"
+            }
+          },
+          "count": {
+            "type": "integer"
+          },
+          "appliedFilters": {
+            "$ref": "#/components/schemas/SearchServiceFilters"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreateServiceRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "serviceDate"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "serviceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "series": {
+            "type": "string"
+          },
+          "season": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string"
+          },
+          "scripture": {
+            "type": "string"
+          },
+          "sermonTitle": {
+            "type": "string"
+          },
+          "serviceType": {
+            "type": "string"
+          },
+          "campus": {
+            "type": "string"
+          },
+          "congregationProfile": {
+            "type": "string"
+          },
+          "audienceNotes": {
+            "type": "string"
+          },
+          "specialElements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "planningStatus": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "in_review",
+              "approved",
+              "archived"
+            ],
+            "default": "draft"
+          },
+          "serviceNotes": {
+            "type": "string"
+          }
+        }
+      },
+      "ServiceSummary": {
+        "type": "object",
+        "required": [
+          "serviceId",
+          "title",
+          "serviceDate",
+          "planningStatus"
+        ],
+        "properties": {
+          "serviceId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "serviceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "series": {
+            "type": "string"
+          },
+          "season": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string"
+          },
+          "scripture": {
+            "type": "string"
+          },
+          "sermonTitle": {
+            "type": "string"
+          },
+          "serviceType": {
+            "type": "string"
+          },
+          "campus": {
+            "type": "string"
+          },
+          "planningStatus": {
+            "type": "string"
+          },
+          "specialElements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ServiceRecord": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ServiceSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "congregationProfile": {
+                "type": "string"
+              },
+              "audienceNotes": {
+                "type": "string"
+              },
+              "serviceNotes": {
+                "type": "string"
+              },
+              "setlist": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SetlistItem"
+                }
+              },
+              "orderOfService": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OrderOfServiceItem"
+                }
+              },
+              "teamNotes": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ]
+      },
+      "CreateServiceResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "service"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "service": {
+            "$ref": "#/components/schemas/ServiceRecord"
+          }
+        }
+      },
+      "GetServiceResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "service"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "service": {
+            "$ref": "#/components/schemas/ServiceRecord"
+          }
+        }
+      },
+      "SuggestSetlistRequest": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "string"
+          },
+          "scripture": {
+            "type": "string"
+          },
+          "sermonTitle": {
+            "type": "string"
+          },
+          "season": {
+            "type": "string"
+          },
+          "specialElements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "constraints": {
+            "$ref": "#/components/schemas/PlanningConstraints"
+          },
+          "targetSongCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8,
+            "default": 4
+          }
+        }
+      },
+      "PlanningConstraints": {
+        "type": "object",
+        "properties": {
+          "preferredKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "avoidSongsUsedInLastDays": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxNewSongs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "serviceLengthMinutes": {
+            "type": "integer",
+            "minimum": 15
+          },
+          "teamSkillLevel": {
+            "type": "string",
+            "enum": [
+              "limited",
+              "typical",
+              "strong"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "SetlistItem": {
+        "type": "object",
+        "required": [
+          "songId",
+          "title",
+          "slot",
+          "reason"
+        ],
+        "properties": {
+          "songId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "tempo": {
+            "type": "string"
+          },
+          "energy": {
+            "type": "string"
+          },
+          "slot": {
+            "type": "string",
+            "description": "Examples: opener, pre-sermon, response, communion, sending"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "PlanningDirection": {
+        "type": "object",
+        "required": [
+          "name",
+          "summary"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "fit": {
+            "type": "string"
+          }
+        }
+      },
+      "SetlistAlternate": {
+        "type": "object",
+        "required": [
+          "songId",
+          "title",
+          "whyItFits"
+        ],
+        "properties": {
+          "songId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "whyItFits": {
+            "type": "string"
+          },
+          "swapForSlot": {
+            "type": "string"
+          }
+        }
+      },
+      "SuggestSetlistResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "serviceId",
+          "recommendedSetlist",
+          "alternates",
+          "planningRationale",
+          "warnings",
+          "missingContext"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "recommendedSetlist": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SetlistItem"
+            }
+          },
+          "alternates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SetlistAlternate"
+            }
+          },
+          "planningRationale": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "planningDirections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanningDirection"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "missingContext": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          }
+        }
+      },
+      "SaveSetlistRequest": {
+        "type": "object",
+        "required": [
+          "setlist"
+        ],
+        "properties": {
+          "setlist": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SetlistItem"
+            }
+          },
+          "summaryNotes": {
+            "type": "string"
+          }
+        }
+      },
+      "SaveSetlistResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "serviceId",
+          "savedAt"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OrderOfServiceItem": {
+        "type": "object",
+        "required": [
+          "position",
+          "type",
+          "title"
+        ],
+        "properties": {
+          "position": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "type": {
+            "type": "string",
+            "description": "Examples: welcome, song, prayer, scripture, sermon, communion, benediction"
+          },
+          "title": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transitionNotes": {
+            "type": "string"
+          }
+        }
+      },
+      "SaveOrderOfServiceRequest": {
+        "type": "object",
+        "required": [
+          "orderOfService"
+        ],
+        "properties": {
+          "orderOfService": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderOfServiceItem"
+            }
+          },
+          "teamNotes": {
+            "type": "string"
+          }
+        }
+      },
+      "SaveOrderOfServiceResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "serviceId",
+          "savedAt"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UploadServicePlanningFilesRequest": {
+        "type": "object",
+        "required": [
+          "openaiFileIdRefs"
+        ],
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "sermon-notes",
+              "planning-notes",
+              "lyric-sheet",
+              "service-template",
+              "supporting-reference"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          },
+          "openaiFileIdRefs": {
+            "type": "array",
+            "description": "This parameter name must stay exactly openaiFileIdRefs so GPT Actions can pass uploaded conversation files. Runtime values may arrive either as string IDs or as objects with fields such as id, name, mime_type, and download_link, so the backend should normalize both shapes.",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              ]
+            }
+          }
+        }
+      },
+      "UploadedPlanningFile": {
+        "type": "object",
+        "required": [
+          "assetId",
+          "filename",
+          "contentType"
+        ],
+        "properties": {
+          "assetId": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      },
+      "UploadServicePlanningFilesResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "serviceId",
+          "files"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadedPlanningFile"
+            }
+          }
+        }
+      }
+    }
+  }
+}

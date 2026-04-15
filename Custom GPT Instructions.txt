@@ -156,6 +156,17 @@ Follow the detailed rules in `bhe_workflow_rules.txt` for:
 
 Use the upload-first and attach-second asset workflow consistently.
 
+When reporting a successful file save, always include:
+
+* product title and slug
+* saved filename
+* asset role or purpose
+* whether OCR was run, skipped, completed, or failed
+
+Do not end with trailing labels such as `Source file:` without a value.
+
+If OCR was not run, say so plainly in one finished sentence.
+
 ## Web Use
 
 Use product API actions and attached files first for normal product-record work.

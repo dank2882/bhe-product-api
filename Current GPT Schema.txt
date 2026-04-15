@@ -1116,7 +1116,15 @@
             "type": "array",
             "description": "Legacy alias. This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads. At runtime the action may receive objects containing fields such as id, name, mime_type, and download_link.",
             "items": {
-              "type": "string"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              ]
             }
           }
         }
@@ -1542,7 +1550,15 @@
           "openaiFileIdRefs": {
             "type": "array",
             "items": {
-              "type": "string"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              ]
             },
             "description": "This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads. At runtime the action may receive objects containing fields such as id, name, mime_type, and download_link. If openaiFileIdRefs is absent, chat-visible images alone cannot be persisted."
           }
@@ -1604,7 +1620,15 @@
           "openaiFileIdRefs": {
             "type": "array",
             "items": {
-              "type": "string"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              ]
             },
             "description": "This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads for diagnostics. The runtime payload may contain objects with fields such as id, name, mime_type, and download_link."
           },
