@@ -46,6 +46,15 @@ const APPROVED_PRODUCT_TYPES = [
   "Dimensional Art",
   "Tour"
 ];
+const ALLOWED_REPOSITORY_ITEM_TYPES = [
+  "person",
+  "topic",
+  "edition",
+  "event",
+  "place",
+  "collection",
+  "unsorted"
+];
 const CHAT_VISIBLE_IMAGES_NOT_ATTACHABLE_ERROR =
   "The images were visible in chat, but no backend-uploaded asset references were available, so they could not be attached to the product record.";
 const SUPPORTED_ASSET_MIME_TYPES = new Set([
@@ -106,6 +115,7 @@ const documentAiClient = new DocumentAi.DocumentProcessorServiceClient({
 const productsCollection = db.collection("products");
 const assetLibraryCollection = db.collection("productAssetLibrary");
 const repositoryDocumentsCollection = db.collection("repositoryDocuments");
+const repositoryItemsCollection = db.collection("repositoryItems");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }
@@ -1718,7 +1728,8 @@ function getDefaultRepositoryDocumentOcr() {
     aiCorrectedText: "",
     aiCorrectionStatus: "not_started",
     aiCorrectionProcessedAt: "",
-    aiCorrectionError: ""
+    aiCorrectionError: "",
+    humanReviewedText: ""
   };
 }
 
@@ -1761,6 +1772,26 @@ function buildDefaultRepositoryDocumentRecord({
     reviewStatus: "pending",
     ocr: getDefaultRepositoryDocumentOcr(),
     linkedKnowledgeItemIds: []
+  };
+}
+
+function buildDefaultRepositoryItemRecord({
+  itemId,
+  title,
+  itemType,
+  createdAt,
+  updatedAt
+}) {
+  const timestamp = createdAt || updatedAt || getNowIso();
+
+  return {
+    itemId,
+    title,
+    itemType,
+    canonicalSummary: "",
+    linkedDocumentIds: [],
+    createdAt: timestamp,
+    updatedAt: timestamp
   };
 }
 
@@ -1893,6 +1924,7 @@ function getAssetWorkflowDependencies(overrides = {}) {
 function getRepositoryWorkflowDependencies(overrides = {}) {
   return {
     repositoryDocumentsCollection,
+    repositoryItemsCollection,
     storage,
     bucketName: BUCKET_NAME,
     fetchImpl: fetch,
@@ -1927,6 +1959,307 @@ async function getRequiredRepositoryDocument(repositoryDocuments, documentId) {
     documentId: cleanDocumentId,
     docRef,
     document: doc.data() || {}
+  };
+}
+
+async function getRequiredRepositoryItem(repositoryItems, itemId) {
+  const cleanItemId =
+    typeof itemId === "string" && itemId.trim() ? itemId.trim() : "";
+
+  if (!cleanItemId) {
+    throw createWorkflowError("Missing or invalid itemId", 400);
+  }
+
+  const docRef = repositoryItems.doc(cleanItemId);
+  const doc = await docRef.get();
+
+  if (!doc.exists) {
+    throw createWorkflowError("Repository item not found", 404, {
+      itemId: cleanItemId
+    });
+  }
+
+  return {
+    itemId: cleanItemId,
+    docRef,
+    item: doc.data() || {}
+  };
+}
+
+async function getRepositoryDocumentById(
+  { documentId },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const { document } = await getRequiredRepositoryDocument(
+    deps.repositoryDocumentsCollection,
+    documentId
+  );
+
+  return {
+    document
+  };
+}
+
+async function getRepositoryDocumentSourceText(
+  { documentId },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const { document } = await getRequiredRepositoryDocument(
+    deps.repositoryDocumentsCollection,
+    documentId
+  );
+  const ocr = {
+    ...getDefaultRepositoryDocumentOcr(),
+    ...(isPlainObject(document.ocr) ? document.ocr : {})
+  };
+
+  return {
+    documentId: document.documentId || documentId,
+    sourceText: {
+      bestText: ocr.bestText || "",
+      bestTextSource: ocr.bestTextSource || "",
+      bestTextUpdatedAt: ocr.bestTextUpdatedAt || "",
+      extractedText: ocr.extractedText || "",
+      cleanedText: ocr.cleanedText || "",
+      normalizedText: ocr.normalizedText || "",
+      aiCorrectedText: ocr.aiCorrectedText || "",
+      humanReviewedText: ocr.humanReviewedText || ""
+    }
+  };
+}
+
+async function createRepositoryItem(
+  { title, itemType },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  if (typeof title !== "string" || !title.trim()) {
+    throw createWorkflowError("Missing or invalid title", 400);
+  }
+
+  if (typeof itemType !== "string" || !itemType.trim()) {
+    throw createWorkflowError("Missing or invalid itemType", 400);
+  }
+
+  const cleanTitle = title.trim();
+  const cleanItemType = itemType.trim();
+
+  if (!ALLOWED_REPOSITORY_ITEM_TYPES.includes(cleanItemType)) {
+    throw createWorkflowError("Invalid itemType", 400, {
+      itemType: cleanItemType
+    });
+  }
+
+  const item = buildDefaultRepositoryItemRecord({
+    itemId: randomUUID(),
+    title: cleanTitle,
+    itemType: cleanItemType,
+    createdAt: getNowIso()
+  });
+
+  await deps.repositoryItemsCollection.doc(item.itemId).set(item);
+
+  return {
+    item
+  };
+}
+
+async function getRepositoryItemById(
+  { itemId },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const { item } = await getRequiredRepositoryItem(
+    deps.repositoryItemsCollection,
+    itemId
+  );
+
+  return {
+    item
+  };
+}
+
+async function getRepositoryItemDocuments(
+  { itemId },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const { itemId: cleanItemId, item } = await getRequiredRepositoryItem(
+    deps.repositoryItemsCollection,
+    itemId
+  );
+  const linkedDocumentIds = Array.isArray(item.linkedDocumentIds)
+    ? item.linkedDocumentIds.filter((id) => typeof id === "string" && id.trim())
+    : [];
+
+  if (linkedDocumentIds.length === 0) {
+    return {
+      itemId: cleanItemId,
+      count: 0,
+      documents: []
+    };
+  }
+
+  const documents = [];
+  for (const documentId of linkedDocumentIds) {
+    const { document } = await getRequiredRepositoryDocument(
+      deps.repositoryDocumentsCollection,
+      documentId
+    );
+    documents.push(buildRepositoryDocumentSearchResultSummary(document, documentId));
+  }
+
+  return {
+    itemId: cleanItemId,
+    count: documents.length,
+    documents
+  };
+}
+
+async function saveRepositoryItemSummary(
+  { itemId, canonicalSummary },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const {
+    docRef,
+    item
+  } = await getRequiredRepositoryItem(deps.repositoryItemsCollection, itemId);
+
+  if (typeof canonicalSummary !== "string" || !canonicalSummary.trim()) {
+    throw createWorkflowError("Missing or invalid canonicalSummary", 400);
+  }
+
+  const updatedAt = getNowIso();
+  const updatedItem = {
+    ...item,
+    canonicalSummary: canonicalSummary.trim(),
+    updatedAt
+  };
+
+  await docRef.update({
+    canonicalSummary: updatedItem.canonicalSummary,
+    updatedAt
+  });
+
+  return {
+    item: updatedItem
+  };
+}
+
+async function linkRepositoryItemDocuments(
+  { itemId, documentIds },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const {
+    itemId: cleanItemId,
+    docRef: itemDocRef,
+    item: existingItem
+  } = await getRequiredRepositoryItem(deps.repositoryItemsCollection, itemId);
+
+  if (!Array.isArray(documentIds) || documentIds.length === 0) {
+    throw createWorkflowError("Missing or invalid documentIds", 400);
+  }
+
+  const normalizedDocumentIds = [];
+  for (const rawDocumentId of documentIds) {
+    const cleanDocumentId =
+      typeof rawDocumentId === "string" && rawDocumentId.trim() ? rawDocumentId.trim() : "";
+
+    if (!cleanDocumentId) {
+      throw createWorkflowError("Missing or invalid documentIds", 400);
+    }
+
+    if (!normalizedDocumentIds.includes(cleanDocumentId)) {
+      normalizedDocumentIds.push(cleanDocumentId);
+    }
+  }
+
+  const repositoryDocuments = [];
+  for (const documentIdToLink of normalizedDocumentIds) {
+    const repositoryDocument = await getRequiredRepositoryDocument(
+      deps.repositoryDocumentsCollection,
+      documentIdToLink
+    );
+    repositoryDocuments.push(repositoryDocument);
+  }
+
+  const updatedAt = getNowIso();
+  const existingLinkedDocumentIds = Array.isArray(existingItem.linkedDocumentIds)
+    ? existingItem.linkedDocumentIds.filter((id) => typeof id === "string" && id.trim())
+    : [];
+  const linkedDocumentIds = Array.from(
+    new Set(existingLinkedDocumentIds.concat(normalizedDocumentIds))
+  );
+
+  const updatedItem = {
+    ...existingItem,
+    linkedDocumentIds,
+    updatedAt
+  };
+
+  await itemDocRef.update({
+    linkedDocumentIds,
+    updatedAt
+  });
+
+  for (const { docRef, document } of repositoryDocuments) {
+    const existingLinkedKnowledgeItemIds = Array.isArray(document.linkedKnowledgeItemIds)
+      ? document.linkedKnowledgeItemIds.filter((id) => typeof id === "string" && id.trim())
+      : [];
+    const linkedKnowledgeItemIds = Array.from(
+      new Set(existingLinkedKnowledgeItemIds.concat(cleanItemId))
+    );
+
+    await docRef.update({
+      linkedKnowledgeItemIds,
+      updatedAt
+    });
+  }
+
+  return {
+    itemId: cleanItemId,
+    linkedCount: normalizedDocumentIds.length,
+    linkedDocumentIds,
+    item: updatedItem
+  };
+}
+
+async function searchRepositoryItems(
+  { query, limit = 10 },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  if (typeof query !== "string" || !query.trim()) {
+    throw createWorkflowError("Missing or invalid query", 400);
+  }
+
+  const cleanQuery = query.trim().toLowerCase();
+  const tokens = cleanQuery.split(/\s+/).filter(Boolean);
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 25);
+  const snapshot = await deps.repositoryItemsCollection.limit(200).get();
+
+  const results = snapshot.docs
+    .map((doc) => {
+      const item = doc.data() || {};
+      const searchText = buildRepositoryItemSearchText(item);
+      const matchedTokenCount = tokens.filter((token) => searchText.includes(token)).length;
+
+      return {
+        ...buildRepositoryItemSearchResultSummary(item, doc.id),
+        _score: matchedTokenCount
+      };
+    })
+    .filter((item) => item._score > 0)
+    .sort((a, b) => {
+      if (b._score !== a._score) {
+        return b._score - a._score;
+      }
+
+      return (b.updatedAt || "").localeCompare(a.updatedAt || "");
+    })
+    .slice(0, safeLimit)
+    .map(({ _score, ...item }) => item);
+
+  return {
+    query: cleanQuery,
+    count: results.length,
+    results
   };
 }
 
@@ -2188,6 +2521,63 @@ function buildRepositoryDocumentSummary(document = {}) {
   };
 }
 
+function buildRepositoryDocumentSearchText(document = {}) {
+  return [
+    document.title || "",
+    document.originalFilename || "",
+    document.originalFolderLabel || "",
+    document.binLabel || "",
+    document.scanBatchLabel || "",
+    document.sourceLocationNotes || "",
+    document.ocr?.bestText || ""
+  ]
+    .join(" ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildRepositoryDocumentSearchResultSummary(document = {}, fallbackDocumentId = "") {
+  return {
+    documentId: document.documentId || fallbackDocumentId,
+    title: document.title || "",
+    originalFilename: document.originalFilename || "",
+    originalFolderLabel: document.originalFolderLabel || "",
+    binLabel: document.binLabel || "",
+    scanBatchLabel: document.scanBatchLabel || "",
+    uploadedAt: document.uploadedAt || "",
+    reviewStatus: document.reviewStatus || "",
+    bestTextSource: document.ocr?.bestTextSource || "",
+    ocrStatus: document.ocr?.status || ""
+  };
+}
+
+function buildRepositoryItemSearchText(item = {}) {
+  return [
+    item.title || "",
+    item.itemType || "",
+    item.canonicalSummary || ""
+  ]
+    .join(" ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildRepositoryItemSearchResultSummary(item = {}, fallbackItemId = "") {
+  const linkedDocumentIds = Array.isArray(item.linkedDocumentIds) ? item.linkedDocumentIds : [];
+
+  return {
+    itemId: item.itemId || fallbackItemId,
+    title: item.title || "",
+    itemType: item.itemType || "",
+    canonicalSummary: item.canonicalSummary || "",
+    linkedDocumentCount: linkedDocumentIds.length,
+    createdAt: item.createdAt || "",
+    updatedAt: item.updatedAt || ""
+  };
+}
+
 function getRepositoryDocumentOcrBaseName(documentId, sourceFilename) {
   const safeFilename = sanitizeFilenameForStorage(
     typeof sourceFilename === "string" && sourceFilename.trim()
@@ -2313,6 +2703,112 @@ async function uploadRepositoryDocumentsToStorage(
   return {
     count: createdDocuments.length,
     documents: createdDocuments
+  };
+}
+
+async function searchRepositoryDocuments(
+  {
+    query,
+    limit = 10,
+    originalFolderLabel,
+    binLabel,
+    scanBatchLabel
+  },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  if (typeof query !== "string" || !query.trim()) {
+    throw createWorkflowError("Missing or invalid query", 400);
+  }
+
+  const cleanQuery = query.trim().toLowerCase();
+  const tokens = cleanQuery.split(/\s+/).filter(Boolean);
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 25);
+  const cleanOriginalFolderLabel =
+    typeof originalFolderLabel === "string" ? originalFolderLabel.trim() : "";
+  const cleanBinLabel = typeof binLabel === "string" ? binLabel.trim() : "";
+  const cleanScanBatchLabel = typeof scanBatchLabel === "string" ? scanBatchLabel.trim() : "";
+  const snapshot = await deps.repositoryDocumentsCollection.limit(200).get();
+
+  const results = snapshot.docs
+    .map((doc) => {
+      const document = doc.data() || {};
+      const matchesOriginalFolderLabel =
+        !cleanOriginalFolderLabel || document.originalFolderLabel === cleanOriginalFolderLabel;
+      const matchesBinLabel = !cleanBinLabel || document.binLabel === cleanBinLabel;
+      const matchesScanBatchLabel =
+        !cleanScanBatchLabel || document.scanBatchLabel === cleanScanBatchLabel;
+      const searchText = buildRepositoryDocumentSearchText(document);
+      const matchedTokenCount = tokens.filter((token) => searchText.includes(token)).length;
+
+      return {
+        ...buildRepositoryDocumentSearchResultSummary(document, doc.id),
+        _matchesFilters:
+          matchesOriginalFolderLabel && matchesBinLabel && matchesScanBatchLabel,
+        _score: matchedTokenCount
+      };
+    })
+    .filter((item) => item._matchesFilters && item._score > 0)
+    .sort((a, b) => {
+      if (b._score !== a._score) {
+        return b._score - a._score;
+      }
+
+      return (b.uploadedAt || "").localeCompare(a.uploadedAt || "");
+    })
+    .slice(0, safeLimit)
+    .map(({ _matchesFilters, _score, ...item }) => item);
+
+  return {
+    query: cleanQuery,
+    count: results.length,
+    results
+  };
+}
+
+async function listRepositoryDocumentsByProvenance(
+  {
+    originalFolderLabel,
+    binLabel,
+    scanBatchLabel
+  },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const cleanOriginalFolderLabel =
+    typeof originalFolderLabel === "string" ? originalFolderLabel.trim() : "";
+  const cleanBinLabel = typeof binLabel === "string" ? binLabel.trim() : "";
+  const cleanScanBatchLabel = typeof scanBatchLabel === "string" ? scanBatchLabel.trim() : "";
+
+  if (!cleanOriginalFolderLabel && !cleanBinLabel && !cleanScanBatchLabel) {
+    throw createWorkflowError(
+      "At least one provenance filter is required",
+      400
+    );
+  }
+
+  const snapshot = await deps.repositoryDocumentsCollection.limit(200).get();
+
+  const documents = snapshot.docs
+    .map((doc) => {
+      const document = doc.data() || {};
+      const matchesOriginalFolderLabel =
+        !cleanOriginalFolderLabel || document.originalFolderLabel === cleanOriginalFolderLabel;
+      const matchesBinLabel = !cleanBinLabel || document.binLabel === cleanBinLabel;
+      const matchesScanBatchLabel =
+        !cleanScanBatchLabel || document.scanBatchLabel === cleanScanBatchLabel;
+
+      return {
+        ...buildRepositoryDocumentSearchResultSummary(document, doc.id),
+        _matchesFilters:
+          matchesOriginalFolderLabel && matchesBinLabel && matchesScanBatchLabel
+      };
+    })
+    .filter((item) => item._matchesFilters)
+    .sort((a, b) => (b.uploadedAt || "").localeCompare(a.uploadedAt || ""))
+    .map(({ _matchesFilters, ...item }) => item);
+
+  return {
+    count: documents.length,
+    documents
   };
 }
 
@@ -2662,6 +3158,47 @@ async function aiCorrectRepositoryDocumentOcr(
       documentId: cleanDocumentId
     });
   }
+}
+
+async function humanReviewRepositoryDocumentOcr(
+  { documentId, humanReviewedText },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const {
+    documentId: cleanDocumentId,
+    docRef,
+    document
+  } = await getRequiredRepositoryDocument(deps.repositoryDocumentsCollection, documentId);
+
+  if (typeof humanReviewedText !== "string" || !humanReviewedText.trim()) {
+    throw createWorkflowError("Missing or invalid humanReviewedText", 400, {
+      documentId: cleanDocumentId
+    });
+  }
+
+  const cleanHumanReviewedText = humanReviewedText.trim();
+  const existingOcr = {
+    ...getDefaultRepositoryDocumentOcr(),
+    ...(isPlainObject(document.ocr) ? document.ocr : {})
+  };
+  const bestTextUpdatedAt = getNowIso();
+  const updatedOcr = {
+    ...existingOcr,
+    humanReviewedText: cleanHumanReviewedText,
+    bestText: cleanHumanReviewedText,
+    bestTextSource: "humanReviewedText",
+    bestTextUpdatedAt
+  };
+
+  await docRef.update({
+    ocr: updatedOcr,
+    updatedAt: bestTextUpdatedAt
+  });
+
+  return {
+    documentId: cleanDocumentId,
+    ocr: updatedOcr
+  };
 }
 
 async function attachAssetsToProduct(
@@ -3270,6 +3807,214 @@ app.post("/repository/documents/upload-openai-files", async (req, res) => {
   }
 });
 
+app.post("/repository/items", async (req, res) => {
+  try {
+    const result = await createRepositoryItem(
+      req.body || {},
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      item: result.item
+    });
+  } catch (error) {
+    console.error("Error creating repository item:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Create failed" });
+  }
+});
+
+app.get("/repository/items/:itemId", async (req, res) => {
+  try {
+    const result = await getRepositoryItemById(
+      { itemId: req.params.itemId },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      item: result.item
+    });
+  } catch (error) {
+    console.error("Error fetching repository item:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Fetch failed" });
+  }
+});
+
+app.get("/repository/items/:itemId/documents", async (req, res) => {
+  try {
+    const result = await getRepositoryItemDocuments(
+      { itemId: req.params.itemId },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      itemId: result.itemId,
+      count: result.count,
+      documents: result.documents
+    });
+  } catch (error) {
+    console.error("Error fetching repository item documents:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Fetch failed" });
+  }
+});
+
+app.post("/repository/items/:itemId/summary/save", async (req, res) => {
+  try {
+    const result = await saveRepositoryItemSummary(
+      {
+        itemId: req.params.itemId,
+        canonicalSummary: req.body?.canonicalSummary
+      },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message: "Repository item summary saved",
+      item: result.item
+    });
+  } catch (error) {
+    console.error("Error saving repository item summary:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Save failed" });
+  }
+});
+
+app.post("/repository/items/:itemId/link-documents", async (req, res) => {
+  try {
+    const result = await linkRepositoryItemDocuments(
+      {
+        itemId: req.params.itemId,
+        documentIds: req.body?.documentIds
+      },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      itemId: result.itemId,
+      linkedCount: result.linkedCount,
+      linkedDocumentIds: result.linkedDocumentIds,
+      item: result.item
+    });
+  } catch (error) {
+    console.error("Error linking repository documents to item:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Link failed" });
+  }
+});
+
+app.post("/repository/items/search", async (req, res) => {
+  try {
+    const result = await searchRepositoryItems(
+      req.body || {},
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      query: result.query,
+      count: result.count,
+      results: result.results
+    });
+  } catch (error) {
+    console.error("Error searching repository items:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Search failed" });
+  }
+});
+
+app.post("/repository/documents/search", async (req, res) => {
+  try {
+    const result = await searchRepositoryDocuments(
+      req.body || {},
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      query: result.query,
+      count: result.count,
+      results: result.results
+    });
+  } catch (error) {
+    console.error("Error searching repository documents:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Search failed" });
+  }
+});
+
+app.post("/repository/documents/by-provenance", async (req, res) => {
+  try {
+    const result = await listRepositoryDocumentsByProvenance(
+      req.body || {},
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      count: result.count,
+      documents: result.documents
+    });
+  } catch (error) {
+    console.error("Error listing repository documents by provenance:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "List failed" });
+  }
+});
+
+app.get("/repository/documents/:documentId", async (req, res) => {
+  try {
+    const result = await getRepositoryDocumentById(
+      { documentId: req.params.documentId },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      document: result.document
+    });
+  } catch (error) {
+    console.error("Error fetching repository document:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Fetch failed" });
+  }
+});
+
+app.get("/repository/documents/:documentId/source-text", async (req, res) => {
+  try {
+    const result = await getRepositoryDocumentSourceText(
+      { documentId: req.params.documentId },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      documentId: result.documentId,
+      sourceText: result.sourceText
+    });
+  } catch (error) {
+    console.error("Error fetching repository source text:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Fetch failed" });
+  }
+});
+
 app.post("/repository/documents/:documentId/ocr/start", async (req, res) => {
   try {
     const result = await startRepositoryDocumentOcr(
@@ -3351,6 +4096,30 @@ app.post("/repository/documents/:documentId/ocr/ai-correct", async (req, res) =>
     return res
       .status(getErrorStatusCode(error, 500))
       .json({ ok: false, error: error.message || "OCR AI correction failed" });
+  }
+});
+
+app.post("/repository/documents/:documentId/ocr/human-review", async (req, res) => {
+  try {
+    const result = await humanReviewRepositoryDocumentOcr(
+      {
+        documentId: req.params.documentId,
+        humanReviewedText: req.body?.humanReviewedText
+      },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message: "Repository human-reviewed OCR text saved",
+      documentId: result.documentId,
+      ocr: result.ocr
+    });
+  } catch (error) {
+    console.error("Error saving repository human-reviewed OCR text:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Human review failed" });
   }
 });
 
@@ -5229,22 +5998,35 @@ module.exports = {
   analyzeUploadedImages,
   attachAssetsToProduct,
   buildDefaultRepositoryDocumentRecord,
+  buildDefaultRepositoryItemRecord,
   buildFileHandoffDiagnosticSummary,
   buildCanonicalAssetUrl,
   buildPersistedAssetRecord,
   buildProductAssetAttachment,
   cleanupRepositoryDocumentOcr,
+  createRepositoryItem,
   createWorkflowError,
   findRegisteredAsset,
   getCleanupSourceText,
   getFinalAiCorrectionSourceText,
   getAssetWorkflowDependencies,
   getOcrModeForMimeType,
+  getRepositoryDocumentById,
+  getRepositoryDocumentSourceText,
+  getRepositoryItemDocuments,
+  getRepositoryItemById,
+  getRequiredRepositoryItem,
+  humanReviewRepositoryDocumentOcr,
   getRepositoryWorkflowDependencies,
+  linkRepositoryItemDocuments,
+  listRepositoryDocumentsByProvenance,
   getNormalizationSourceText,
   normalizeRepositoryDocumentOcr,
   normalizePersistedAssetRecord,
   normalizeStoredAssetRecord,
+  saveRepositoryItemSummary,
+  searchRepositoryDocuments,
+  searchRepositoryItems,
   startRepositoryDocumentOcr,
   uploadRepositoryDocumentsToStorage,
   uploadAssetsToStorage
