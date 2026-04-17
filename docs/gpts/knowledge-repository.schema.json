@@ -1,0 +1,564 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BHE Knowledge Repository API",
+    "version": "1.0.0",
+    "description": "API for ingesting repository documents, running repository OCR workflows, retrieving repository source text, organizing repository items, and linking evidence documents to knowledge items."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+    }
+  ],
+  "paths": {
+    "/repository/documents/upload-openai-files": {
+      "post": {
+        "operationId": "uploadRepositoryDocuments",
+        "summary": "Upload repository PDFs with provenance metadata",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadRepositoryDocumentsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repository documents created"
+          },
+          "400": {
+            "description": "Invalid upload request"
+          }
+        }
+      }
+    },
+    "/repository/documents/search": {
+      "post": {
+        "operationId": "searchRepositoryDocuments",
+        "summary": "Search repository documents by text with optional provenance filters",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRepositoryDocumentsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching repository documents returned"
+          },
+          "400": {
+            "description": "Invalid search request"
+          }
+        }
+      }
+    },
+    "/repository/documents/by-provenance": {
+      "post": {
+        "operationId": "listRepositoryDocumentsByProvenance",
+        "summary": "List repository documents by exact provenance fields",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRepositoryDocumentsByProvenanceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching repository documents returned"
+          },
+          "400": {
+            "description": "At least one provenance filter is required"
+          }
+        }
+      }
+    },
+    "/repository/documents/{documentId}": {
+      "get": {
+        "operationId": "getRepositoryDocument",
+        "summary": "Get a repository document by documentId",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository document found"
+          },
+          "404": {
+            "description": "Repository document not found"
+          }
+        }
+      }
+    },
+    "/repository/documents/{documentId}/source-text": {
+      "get": {
+        "operationId": "getRepositoryDocumentSourceText",
+        "summary": "Get the source-text package for a repository document",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository source text returned"
+          },
+          "404": {
+            "description": "Repository document not found"
+          }
+        }
+      }
+    },
+    "/repository/documents/{documentId}/ocr/start": {
+      "post": {
+        "operationId": "startRepositoryDocumentOcr",
+        "summary": "Run OCR for a repository document",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository OCR completed"
+          },
+          "400": {
+            "description": "Invalid OCR request"
+          }
+        }
+      }
+    },
+    "/repository/documents/{documentId}/ocr/cleanup": {
+      "post": {
+        "operationId": "cleanupRepositoryDocumentOcr",
+        "summary": "Clean repository OCR text",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository OCR cleanup completed"
+          },
+          "400": {
+            "description": "No OCR text available to clean"
+          }
+        }
+      }
+    },
+    "/repository/documents/{documentId}/ocr/normalize": {
+      "post": {
+        "operationId": "normalizeRepositoryDocumentOcr",
+        "summary": "Normalize repository OCR text",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository OCR normalization completed"
+          },
+          "400": {
+            "description": "No OCR text available to normalize"
+          }
+        }
+      }
+    },
+    "/repository/documents/{documentId}/ocr/ai-correct": {
+      "post": {
+        "operationId": "aiCorrectRepositoryDocumentOcr",
+        "summary": "AI-correct repository OCR text",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository OCR AI correction completed"
+          },
+          "400": {
+            "description": "No OCR text available to AI-correct"
+          }
+        }
+      }
+    },
+    "/repository/documents/{documentId}/ocr/human-review": {
+      "post": {
+        "operationId": "humanReviewRepositoryDocumentOcr",
+        "summary": "Save human-reviewed OCR text for a repository document",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRepositoryHumanReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Human-reviewed repository OCR text saved"
+          },
+          "400": {
+            "description": "Invalid human review request"
+          }
+        }
+      }
+    },
+    "/repository/items": {
+      "post": {
+        "operationId": "createRepositoryItem",
+        "summary": "Create a repository item",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRepositoryItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repository item created"
+          },
+          "400": {
+            "description": "Invalid repository item request"
+          }
+        }
+      }
+    },
+    "/repository/items/search": {
+      "post": {
+        "operationId": "searchRepositoryItems",
+        "summary": "Search repository items by title, type, or summary",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRepositoryItemsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching repository items returned"
+          },
+          "400": {
+            "description": "Invalid search request"
+          }
+        }
+      }
+    },
+    "/repository/items/{itemId}": {
+      "get": {
+        "operationId": "getRepositoryItem",
+        "summary": "Get a repository item by itemId",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository item found"
+          },
+          "404": {
+            "description": "Repository item not found"
+          }
+        }
+      }
+    },
+    "/repository/items/{itemId}/summary/save": {
+      "post": {
+        "operationId": "saveRepositoryItemSummary",
+        "summary": "Save a canonical summary on a repository item",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRepositoryItemSummaryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repository item summary saved"
+          },
+          "400": {
+            "description": "Invalid summary request"
+          }
+        }
+      }
+    },
+    "/repository/items/{itemId}/link-documents": {
+      "post": {
+        "operationId": "linkRepositoryItemDocuments",
+        "summary": "Link repository documents to a repository item",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkRepositoryItemDocumentsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repository documents linked to item"
+          },
+          "400": {
+            "description": "Invalid linking request"
+          }
+        }
+      }
+    },
+    "/repository/items/{itemId}/documents": {
+      "get": {
+        "operationId": "getRepositoryItemDocuments",
+        "summary": "Get linked repository document summaries for an item",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Linked repository documents returned"
+          },
+          "404": {
+            "description": "Repository item not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UploadRepositoryDocumentsRequest": {
+        "type": "object",
+        "required": ["openaiFileIdRefs"],
+        "properties": {
+          "openaiFileIdRefs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "originalFolderLabel": {
+            "type": "string"
+          },
+          "binLabel": {
+            "type": "string"
+          },
+          "scanBatchLabel": {
+            "type": "string"
+          },
+          "sourceLocationNotes": {
+            "type": "string"
+          },
+          "uploadedBy": {
+            "type": "string"
+          }
+        }
+      },
+      "SearchRepositoryDocumentsRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 10
+          },
+          "originalFolderLabel": {
+            "type": "string"
+          },
+          "binLabel": {
+            "type": "string"
+          },
+          "scanBatchLabel": {
+            "type": "string"
+          }
+        }
+      },
+      "ListRepositoryDocumentsByProvenanceRequest": {
+        "type": "object",
+        "properties": {
+          "originalFolderLabel": {
+            "type": "string"
+          },
+          "binLabel": {
+            "type": "string"
+          },
+          "scanBatchLabel": {
+            "type": "string"
+          }
+        }
+      },
+      "SaveRepositoryHumanReviewRequest": {
+        "type": "object",
+        "required": ["humanReviewedText"],
+        "properties": {
+          "humanReviewedText": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateRepositoryItemRequest": {
+        "type": "object",
+        "required": ["title", "itemType"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "itemType": {
+            "type": "string",
+            "enum": [
+              "person",
+              "topic",
+              "edition",
+              "event",
+              "place",
+              "collection",
+              "unsorted"
+            ]
+          }
+        }
+      },
+      "SearchRepositoryItemsRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 10
+          }
+        }
+      },
+      "SaveRepositoryItemSummaryRequest": {
+        "type": "object",
+        "required": ["canonicalSummary"],
+        "properties": {
+          "canonicalSummary": {
+            "type": "string"
+          }
+        }
+      },
+      "LinkRepositoryItemDocumentsRequest": {
+        "type": "object",
+        "required": ["documentIds"],
+        "properties": {
+          "documentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

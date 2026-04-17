@@ -12,8 +12,8 @@ You do not need a brand-new stack. The fastest path is:
 
 From the current BHE build:
 
-* `Custom GPT Instructions.txt` gives us the pattern for a domain-specific system prompt
-* `gpt schema.json` gives us the pattern for GPT Actions via OpenAPI
+* [docs/gpts/product-builder.instructions.md](/Users/danielkirchner/Documents/bhe-product-api/docs/gpts/product-builder.instructions.md) gives us the current source-of-truth pattern for a domain-specific system prompt
+* [docs/gpts/product-builder.schema.json](/Users/danielkirchner/Documents/bhe-product-api/docs/gpts/product-builder.schema.json) gives us the current source-of-truth pattern for GPT Actions via OpenAPI
 * `index.js` already shows the backend structure for:
   * record lookup
   * search
@@ -94,7 +94,7 @@ The GPT should usually work like this:
 
 ## V2 Actions To Build
 
-The revised schema in [worship-service-gpt.schema.json](/Users/danielkirchner/Documents/bhe-product-api/worship-service-gpt.schema.json) includes a cleaner contract:
+The archived example schema in [worship-service-gpt.schema.json](/Users/danielkirchner/Documents/bhe-product-api/docs/archive/legacy-root-files/worship-service-gpt.schema.json) includes a cleaner contract:
 
 * `searchSongs`
 * `getSong`
@@ -141,8 +141,8 @@ Suggested conversation starters:
 
 ## Recommended Build Order
 
-1. use [worship-service-gpt.instructions.txt](/Users/danielkirchner/Documents/bhe-product-api/worship-service-gpt.instructions.txt) as the first system prompt
-2. use [worship-service-gpt.schema.json](/Users/danielkirchner/Documents/bhe-product-api/worship-service-gpt.schema.json) as the first action schema
+1. use [worship-service-gpt.instructions.txt](/Users/danielkirchner/Documents/bhe-product-api/docs/archive/legacy-root-files/worship-service-gpt.instructions.txt) as the first system prompt
+2. use [worship-service-gpt.schema.json](/Users/danielkirchner/Documents/bhe-product-api/docs/archive/legacy-root-files/worship-service-gpt.schema.json) as the first action schema
 3. fork the current backend patterns into service-specific routes
 4. start with retrieval and suggestion actions before adding write-heavy mutations
 5. only add OCR if your team will actually upload sermon PDFs or scanned planning notes
