@@ -105,6 +105,7 @@ const documentAiClient = new DocumentAi.DocumentProcessorServiceClient({
 
 const productsCollection = db.collection("products");
 const assetLibraryCollection = db.collection("productAssetLibrary");
+const repositoryDocumentsCollection = db.collection("repositoryDocuments");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }
@@ -1693,6 +1694,76 @@ function buildCanonicalAssetUrl(storageKey, bucketName = BUCKET_NAME) {
   return `gs://${bucketName}/${storageKey}`;
 }
 
+function getDefaultRepositoryDocumentOcr() {
+  return {
+    status: "not_started",
+    sourceStoragePath: "",
+    rawOutputPath: "",
+    textOutputPath: "",
+    extractedText: "",
+    pageCount: 0,
+    processedAt: "",
+    error: "",
+    bestText: "",
+    bestTextSource: "",
+    bestTextUpdatedAt: "",
+    cleanedText: "",
+    cleanupStatus: "not_started",
+    cleanupProcessedAt: "",
+    cleanupError: "",
+    normalizedText: "",
+    normalizationStatus: "not_started",
+    normalizationProcessedAt: "",
+    normalizationError: "",
+    aiCorrectedText: "",
+    aiCorrectionStatus: "not_started",
+    aiCorrectionProcessedAt: "",
+    aiCorrectionError: ""
+  };
+}
+
+function buildDefaultRepositoryDocumentRecord({
+  documentId,
+  title,
+  originalFilename,
+  storagePath,
+  canonicalUrl,
+  byteSize,
+  mimeType = "application/pdf",
+  uploadedAt,
+  createdAt,
+  updatedAt,
+  uploadedBy,
+  originalFolderLabel,
+  binLabel,
+  scanBatchLabel,
+  sourceLocationNotes
+}) {
+  const timestamp = uploadedAt || createdAt || updatedAt || getNowIso();
+
+  return {
+    documentId,
+    title,
+    originalFilename,
+    storagePath,
+    canonicalUrl: typeof canonicalUrl === "string" ? canonicalUrl : "",
+    byteSize: typeof byteSize === "number" ? byteSize : 0,
+    mimeType: mimeType || "application/pdf",
+    uploadedAt: timestamp,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    uploadedBy: typeof uploadedBy === "string" ? uploadedBy : "",
+    originalFolderLabel: typeof originalFolderLabel === "string" ? originalFolderLabel : "",
+    binLabel: typeof binLabel === "string" ? binLabel : "",
+    scanBatchLabel: typeof scanBatchLabel === "string" ? scanBatchLabel : "",
+    sourceLocationNotes: typeof sourceLocationNotes === "string" ? sourceLocationNotes : "",
+    documentType: "printed-article",
+    reviewStatus: "pending",
+    ocr: getDefaultRepositoryDocumentOcr(),
+    linkedKnowledgeItemIds: []
+  };
+}
+
 function buildPersistedAssetRecord({
   assetId,
   slug,
@@ -1816,6 +1887,46 @@ function getAssetWorkflowDependencies(overrides = {}) {
     bucketName: BUCKET_NAME,
     fetchImpl: fetch,
     ...overrides
+  };
+}
+
+function getRepositoryWorkflowDependencies(overrides = {}) {
+  return {
+    repositoryDocumentsCollection,
+    storage,
+    bucketName: BUCKET_NAME,
+    fetchImpl: fetch,
+    runDocumentAiOcr,
+    saveJsonFileToStorage,
+    saveTextFileToStorage,
+    cleanOcrText,
+    normalizeOcrText,
+    runAiCorrection,
+    ...overrides
+  };
+}
+
+async function getRequiredRepositoryDocument(repositoryDocuments, documentId) {
+  const cleanDocumentId =
+    typeof documentId === "string" && documentId.trim() ? documentId.trim() : "";
+
+  if (!cleanDocumentId) {
+    throw createWorkflowError("Missing or invalid documentId", 400);
+  }
+
+  const docRef = repositoryDocuments.doc(cleanDocumentId);
+  const doc = await docRef.get();
+
+  if (!doc.exists) {
+    throw createWorkflowError("Repository document not found", 404, {
+      documentId: cleanDocumentId
+    });
+  }
+
+  return {
+    documentId: cleanDocumentId,
+    docRef,
+    document: doc.data() || {}
   };
 }
 
@@ -2008,6 +2119,549 @@ async function uploadAssetsToStorage(
     uploadedCount: persistedAssets.length,
     persistedAssets
   };
+}
+
+function getRepositoryUploadFilename(fileRef = {}) {
+  const originalName =
+    typeof fileRef?.name === "string" && fileRef.name.trim()
+      ? fileRef.name.trim()
+      : `uploaded-${Date.now()}.pdf`;
+
+  return {
+    originalName,
+    safeFilename: sanitizeFilenameForStorage(originalName)
+  };
+}
+
+function getRepositoryUploadMimeType(fileRef = {}) {
+  const rawMimeType =
+    typeof fileRef?.mime_type === "string" && fileRef.mime_type.trim()
+      ? fileRef.mime_type.trim()
+      : typeof fileRef?.mimeType === "string" && fileRef.mimeType.trim()
+        ? fileRef.mimeType.trim()
+        : "";
+
+  if (rawMimeType) {
+    return normalizeAssetMimeType(rawMimeType);
+  }
+
+  const filename =
+    typeof fileRef?.name === "string" && fileRef.name.trim() ? fileRef.name.trim().toLowerCase() : "";
+
+  if (filename.endsWith(".pdf")) {
+    return "application/pdf";
+  }
+
+  return "";
+}
+
+function buildRepositoryDocumentSummary(document = {}) {
+  return {
+    documentId: typeof document.documentId === "string" ? document.documentId : "",
+    title: typeof document.title === "string" ? document.title : "",
+    originalFilename: typeof document.originalFilename === "string" ? document.originalFilename : "",
+    storagePath: typeof document.storagePath === "string" ? document.storagePath : "",
+    canonicalUrl: typeof document.canonicalUrl === "string" ? document.canonicalUrl : "",
+    byteSize: typeof document.byteSize === "number" ? document.byteSize : 0,
+    mimeType: typeof document.mimeType === "string" ? document.mimeType : "",
+    uploadedAt: typeof document.uploadedAt === "string" ? document.uploadedAt : "",
+    createdAt: typeof document.createdAt === "string" ? document.createdAt : "",
+    updatedAt: typeof document.updatedAt === "string" ? document.updatedAt : "",
+    uploadedBy: typeof document.uploadedBy === "string" ? document.uploadedBy : "",
+    originalFolderLabel:
+      typeof document.originalFolderLabel === "string" ? document.originalFolderLabel : "",
+    binLabel: typeof document.binLabel === "string" ? document.binLabel : "",
+    scanBatchLabel: typeof document.scanBatchLabel === "string" ? document.scanBatchLabel : "",
+    sourceLocationNotes:
+      typeof document.sourceLocationNotes === "string" ? document.sourceLocationNotes : "",
+    documentType: typeof document.documentType === "string" ? document.documentType : "",
+    reviewStatus: typeof document.reviewStatus === "string" ? document.reviewStatus : "",
+    ocr: {
+      status:
+        typeof document.ocr?.status === "string"
+          ? document.ocr.status
+          : getDefaultRepositoryDocumentOcr().status
+    },
+    linkedKnowledgeItemIds: Array.isArray(document.linkedKnowledgeItemIds)
+      ? document.linkedKnowledgeItemIds
+      : []
+  };
+}
+
+function getRepositoryDocumentOcrBaseName(documentId, sourceFilename) {
+  const safeFilename = sanitizeFilenameForStorage(
+    typeof sourceFilename === "string" && sourceFilename.trim()
+      ? sourceFilename.trim()
+      : `document-${documentId}.pdf`
+  );
+
+  return safeFilename.replace(/\.[^.]+$/, "").trim() || `document-${documentId}`;
+}
+
+function getRepositoryDocumentRawOcrOutputPath(documentId, sourceFilename) {
+  const base = getRepositoryDocumentOcrBaseName(documentId, sourceFilename);
+  return `repository/documents/${documentId}/ocr/raw/${base}.json`;
+}
+
+function getRepositoryDocumentTextOcrOutputPath(documentId, sourceFilename) {
+  const base = getRepositoryDocumentOcrBaseName(documentId, sourceFilename);
+  return `repository/documents/${documentId}/ocr/text/${base}.txt`;
+}
+
+async function uploadRepositoryDocumentsToStorage(
+  {
+    openaiFileIdRefs,
+    originalFolderLabel,
+    binLabel,
+    scanBatchLabel,
+    sourceLocationNotes,
+    uploadedBy
+  },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  if (!Array.isArray(openaiFileIdRefs) || openaiFileIdRefs.length === 0) {
+    throw createWorkflowError(
+      "No backend-uploadable file references were provided for repository document upload.",
+      400
+    );
+  }
+
+  const bucket = deps.storage.bucket(deps.bucketName);
+  const createdDocuments = [];
+  const cleanUploadedBy = typeof uploadedBy === "string" ? uploadedBy.trim() : "";
+  const cleanOriginalFolderLabel =
+    typeof originalFolderLabel === "string" ? originalFolderLabel.trim() : "";
+  const cleanBinLabel = typeof binLabel === "string" ? binLabel.trim() : "";
+  const cleanScanBatchLabel = typeof scanBatchLabel === "string" ? scanBatchLabel.trim() : "";
+  const cleanSourceLocationNotes =
+    typeof sourceLocationNotes === "string" ? sourceLocationNotes.trim() : "";
+
+  for (const fileRef of openaiFileIdRefs) {
+    if (!isPlainObject(fileRef)) {
+      throw createWorkflowError(
+        "Each repository file reference must be an object with a backend-downloadable file link.",
+        400
+      );
+    }
+
+    const downloadLink =
+      typeof fileRef.download_link === "string" ? fileRef.download_link.trim() : "";
+
+    if (!downloadLink) {
+      throw createWorkflowError(
+        "Each repository file reference must include a backend-downloadable download_link.",
+        400,
+        { fileRef }
+      );
+    }
+
+    const { originalName, safeFilename } = getRepositoryUploadFilename(fileRef);
+    const mimeType = getRepositoryUploadMimeType(fileRef);
+
+    if (mimeType !== "application/pdf") {
+      throw createWorkflowError(
+        `Unsupported repository document type for ${originalName}. Only PDF files are supported.`,
+        400,
+        { filename: originalName, mimeType: mimeType || "" }
+      );
+    }
+
+    const response = await deps.fetchImpl(downloadLink);
+
+    if (!response.ok) {
+      throw createWorkflowError(
+        `Failed to download uploaded repository file into backend storage: ${originalName}`,
+        400,
+        { filename: originalName }
+      );
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const byteSize = buffer.byteLength;
+    const documentId = randomUUID();
+    const storagePath = `repository/documents/${documentId}-${safeFilename}`;
+    const canonicalUrl = buildCanonicalAssetUrl(storagePath, deps.bucketName);
+    const uploadedAt = getNowIso();
+
+    const titleFromOriginal = originalName.replace(/\.[^.]+$/, "").trim();
+    const titleFromSanitized = safeFilename.replace(/\.[^.]+$/, "").trim();
+    const resolvedTitle = titleFromOriginal || titleFromSanitized;
+
+    await bucket.file(storagePath).save(buffer, { contentType: mimeType });
+
+    const createdDocument = buildDefaultRepositoryDocumentRecord({
+      documentId,
+      title: resolvedTitle,
+      originalFilename: originalName,
+      storagePath,
+      canonicalUrl,
+      byteSize,
+      mimeType,
+      uploadedAt,
+      uploadedBy: cleanUploadedBy,
+      originalFolderLabel: cleanOriginalFolderLabel,
+      binLabel: cleanBinLabel,
+      scanBatchLabel: cleanScanBatchLabel,
+      sourceLocationNotes: cleanSourceLocationNotes
+    });
+
+    await deps.repositoryDocumentsCollection.doc(documentId).set(createdDocument);
+    createdDocuments.push(buildRepositoryDocumentSummary(createdDocument));
+  }
+
+  return {
+    count: createdDocuments.length,
+    documents: createdDocuments
+  };
+}
+
+async function startRepositoryDocumentOcr(
+  { documentId },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const {
+    documentId: cleanDocumentId,
+    docRef,
+    document
+  } = await getRequiredRepositoryDocument(deps.repositoryDocumentsCollection, documentId);
+
+  const mimeType = normalizeAssetMimeType(document.mimeType);
+
+  if (mimeType !== "application/pdf") {
+    throw createWorkflowError("Repository document OCR currently supports PDF files only.", 400, {
+      documentId: cleanDocumentId,
+      mimeType
+    });
+  }
+
+  const sourceStoragePath =
+    typeof document.storagePath === "string" && document.storagePath.trim()
+      ? document.storagePath.trim()
+      : "";
+
+  if (!sourceStoragePath) {
+    throw createWorkflowError("Repository document is missing storagePath", 400, {
+      documentId: cleanDocumentId
+    });
+  }
+
+  const sourceFilename =
+    typeof document.originalFilename === "string" && document.originalFilename.trim()
+      ? document.originalFilename.trim()
+      : sourceStoragePath.split("/").pop() || `document-${cleanDocumentId}.pdf`;
+
+  const rawOutputPath = getRepositoryDocumentRawOcrOutputPath(cleanDocumentId, sourceFilename);
+  const textOutputPath = getRepositoryDocumentTextOcrOutputPath(cleanDocumentId, sourceFilename);
+
+  const processingOcr = {
+    ...getDefaultRepositoryDocumentOcr(),
+    status: "processing",
+    sourceStoragePath,
+    rawOutputPath,
+    textOutputPath
+  };
+
+  await docRef.update({
+    ocr: processingOcr,
+    updatedAt: getNowIso()
+  });
+
+  try {
+    const ocrRun = await deps.runDocumentAiOcr({
+      sourceStoragePath,
+      sourceFilename,
+      mimeType
+    });
+
+    await deps.saveJsonFileToStorage(rawOutputPath, ocrRun.rawResult);
+    await deps.saveTextFileToStorage(textOutputPath, ocrRun.extractedText);
+
+    const processedAt = getNowIso();
+    const bestText = typeof ocrRun.extractedText === "string" ? ocrRun.extractedText : "";
+    const completedOcr = {
+      ...getDefaultRepositoryDocumentOcr(),
+      status: "completed",
+      sourceStoragePath,
+      rawOutputPath,
+      textOutputPath,
+      extractedText: bestText,
+      pageCount: typeof ocrRun.pageCount === "number" ? ocrRun.pageCount : 0,
+      processedAt,
+      error: "",
+      bestText,
+      bestTextSource: "extractedText",
+      bestTextUpdatedAt: processedAt
+    };
+
+    await docRef.update({
+      ocr: completedOcr,
+      updatedAt: processedAt
+    });
+
+    return {
+      documentId: cleanDocumentId,
+      ocr: completedOcr
+    };
+  } catch (error) {
+    const failedOcr = {
+      ...getDefaultRepositoryDocumentOcr(),
+      status: "failed",
+      sourceStoragePath,
+      rawOutputPath,
+      textOutputPath,
+      error: error.message || "OCR failed"
+    };
+
+    await docRef.update({
+      ocr: failedOcr,
+      updatedAt: getNowIso()
+    });
+
+    throw createWorkflowError(error.message || "OCR failed", 500, {
+      documentId: cleanDocumentId
+    });
+  }
+}
+
+async function cleanupRepositoryDocumentOcr(
+  { documentId },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const {
+    documentId: cleanDocumentId,
+    docRef,
+    document
+  } = await getRequiredRepositoryDocument(deps.repositoryDocumentsCollection, documentId);
+
+  const existingOcr = {
+    ...getDefaultRepositoryDocumentOcr(),
+    ...(isPlainObject(document.ocr) ? document.ocr : {})
+  };
+  const extractedText = getCleanupSourceText(existingOcr);
+
+  if (!extractedText.trim()) {
+    throw createWorkflowError("No OCR text available to clean", 400, {
+      documentId: cleanDocumentId
+    });
+  }
+
+  const processingOcr = {
+    ...existingOcr,
+    cleanupStatus: "processing",
+    cleanupError: ""
+  };
+
+  await docRef.update({
+    ocr: processingOcr,
+    updatedAt: getNowIso()
+  });
+
+  try {
+    const cleanedText = deps.cleanOcrText(extractedText);
+    const cleanupProcessedAt = getNowIso();
+    const completedOcr = {
+      ...existingOcr,
+      cleanedText,
+      cleanupStatus: "completed",
+      cleanupProcessedAt,
+      cleanupError: "",
+      bestText: cleanedText && cleanedText.trim() ? cleanedText : existingOcr.bestText,
+      bestTextSource: cleanedText && cleanedText.trim() ? "cleanedText" : existingOcr.bestTextSource,
+      bestTextUpdatedAt:
+        cleanedText && cleanedText.trim() ? cleanupProcessedAt : existingOcr.bestTextUpdatedAt
+    };
+
+    await docRef.update({
+      ocr: completedOcr,
+      updatedAt: cleanupProcessedAt
+    });
+
+    return {
+      documentId: cleanDocumentId,
+      ocr: completedOcr
+    };
+  } catch (error) {
+    const failedOcr = {
+      ...existingOcr,
+      cleanupStatus: "failed",
+      cleanupProcessedAt: getNowIso(),
+      cleanupError: error.message || "Cleanup failed"
+    };
+
+    await docRef.update({
+      ocr: failedOcr,
+      updatedAt: getNowIso()
+    });
+
+    throw createWorkflowError(error.message || "Cleanup failed", 500, {
+      documentId: cleanDocumentId
+    });
+  }
+}
+
+async function normalizeRepositoryDocumentOcr(
+  { documentId },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const {
+    documentId: cleanDocumentId,
+    docRef,
+    document
+  } = await getRequiredRepositoryDocument(deps.repositoryDocumentsCollection, documentId);
+
+  const existingOcr = {
+    ...getDefaultRepositoryDocumentOcr(),
+    ...(isPlainObject(document.ocr) ? document.ocr : {})
+  };
+  const sourceText = getNormalizationSourceText(existingOcr);
+
+  if (!sourceText.trim()) {
+    throw createWorkflowError("No OCR text available to normalize", 400, {
+      documentId: cleanDocumentId
+    });
+  }
+
+  const processingOcr = {
+    ...existingOcr,
+    normalizationStatus: "processing",
+    normalizationError: ""
+  };
+
+  await docRef.update({
+    ocr: processingOcr,
+    updatedAt: getNowIso()
+  });
+
+  try {
+    const normalizedText = deps.normalizeOcrText(sourceText);
+    const normalizationProcessedAt = getNowIso();
+    const completedOcr = {
+      ...existingOcr,
+      normalizedText,
+      normalizationStatus: "completed",
+      normalizationProcessedAt,
+      normalizationError: "",
+      bestText:
+        normalizedText && normalizedText.trim() ? normalizedText : existingOcr.bestText,
+      bestTextSource:
+        normalizedText && normalizedText.trim()
+          ? "normalizedText"
+          : existingOcr.bestTextSource,
+      bestTextUpdatedAt:
+        normalizedText && normalizedText.trim()
+          ? normalizationProcessedAt
+          : existingOcr.bestTextUpdatedAt
+    };
+
+    await docRef.update({
+      ocr: completedOcr,
+      updatedAt: normalizationProcessedAt
+    });
+
+    return {
+      documentId: cleanDocumentId,
+      ocr: completedOcr
+    };
+  } catch (error) {
+    const failedOcr = {
+      ...existingOcr,
+      normalizationStatus: "failed",
+      normalizationProcessedAt: getNowIso(),
+      normalizationError: error.message || "Normalization failed"
+    };
+
+    await docRef.update({
+      ocr: failedOcr,
+      updatedAt: getNowIso()
+    });
+
+    throw createWorkflowError(error.message || "Normalization failed", 500, {
+      documentId: cleanDocumentId
+    });
+  }
+}
+
+async function aiCorrectRepositoryDocumentOcr(
+  { documentId },
+  deps = getRepositoryWorkflowDependencies()
+) {
+  const {
+    documentId: cleanDocumentId,
+    docRef,
+    document
+  } = await getRequiredRepositoryDocument(deps.repositoryDocumentsCollection, documentId);
+
+  const existingOcr = {
+    ...getDefaultRepositoryDocumentOcr(),
+    ...(isPlainObject(document.ocr) ? document.ocr : {})
+  };
+  const sourceText = getFinalAiCorrectionSourceText(existingOcr);
+
+  if (!sourceText.trim()) {
+    throw createWorkflowError("No OCR text available to AI-correct", 400, {
+      documentId: cleanDocumentId
+    });
+  }
+
+  const processingOcr = {
+    ...existingOcr,
+    aiCorrectionStatus: "processing",
+    aiCorrectionError: ""
+  };
+
+  await docRef.update({
+    ocr: processingOcr,
+    updatedAt: getNowIso()
+  });
+
+  try {
+    const aiCorrectedText = await deps.runAiCorrection(sourceText);
+    const aiCorrectionProcessedAt = getNowIso();
+    const completedOcr = {
+      ...existingOcr,
+      aiCorrectedText,
+      aiCorrectionStatus: "completed",
+      aiCorrectionProcessedAt,
+      aiCorrectionError: "",
+      bestText:
+        aiCorrectedText && aiCorrectedText.trim() ? aiCorrectedText : existingOcr.bestText,
+      bestTextSource:
+        aiCorrectedText && aiCorrectedText.trim()
+          ? "aiCorrectedText"
+          : existingOcr.bestTextSource,
+      bestTextUpdatedAt:
+        aiCorrectedText && aiCorrectedText.trim()
+          ? aiCorrectionProcessedAt
+          : existingOcr.bestTextUpdatedAt
+    };
+
+    await docRef.update({
+      ocr: completedOcr,
+      updatedAt: aiCorrectionProcessedAt
+    });
+
+    return {
+      documentId: cleanDocumentId,
+      ocr: completedOcr
+    };
+  } catch (error) {
+    const failedOcr = {
+      ...existingOcr,
+      aiCorrectionStatus: "failed",
+      aiCorrectionProcessedAt: getNowIso(),
+      aiCorrectionError: error.message || "AI correction failed"
+    };
+
+    await docRef.update({
+      ocr: failedOcr,
+      updatedAt: getNowIso()
+    });
+
+    throw createWorkflowError(error.message || "AI correction failed", 500, {
+      documentId: cleanDocumentId
+    });
+  }
 }
 
 async function attachAssetsToProduct(
@@ -2593,6 +3247,110 @@ app.post("/products/:slug/assets/attach", async (req, res) => {
     return res
       .status(getErrorStatusCode(error, 500))
       .json({ ok: false, error: error.message || "Attach failed" });
+  }
+});
+
+app.post("/repository/documents/upload-openai-files", async (req, res) => {
+  try {
+    const result = await uploadRepositoryDocumentsToStorage(
+      req.body || {},
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      count: result.count,
+      documents: result.documents
+    });
+  } catch (error) {
+    console.error("Error uploading repository documents to storage:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "Upload failed" });
+  }
+});
+
+app.post("/repository/documents/:documentId/ocr/start", async (req, res) => {
+  try {
+    const result = await startRepositoryDocumentOcr(
+      { documentId: req.params.documentId },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message: "Repository document OCR completed",
+      documentId: result.documentId,
+      ocr: result.ocr
+    });
+  } catch (error) {
+    console.error("Error starting repository document OCR:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "OCR failed" });
+  }
+});
+
+app.post("/repository/documents/:documentId/ocr/cleanup", async (req, res) => {
+  try {
+    const result = await cleanupRepositoryDocumentOcr(
+      { documentId: req.params.documentId },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message: "Repository OCR cleanup completed",
+      documentId: result.documentId,
+      ocr: result.ocr
+    });
+  } catch (error) {
+    console.error("Error cleaning repository OCR text:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "OCR cleanup failed" });
+  }
+});
+
+app.post("/repository/documents/:documentId/ocr/normalize", async (req, res) => {
+  try {
+    const result = await normalizeRepositoryDocumentOcr(
+      { documentId: req.params.documentId },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message: "Repository OCR normalization completed",
+      documentId: result.documentId,
+      ocr: result.ocr
+    });
+  } catch (error) {
+    console.error("Error normalizing repository OCR text:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "OCR normalization failed" });
+  }
+});
+
+app.post("/repository/documents/:documentId/ocr/ai-correct", async (req, res) => {
+  try {
+    const result = await aiCorrectRepositoryDocumentOcr(
+      { documentId: req.params.documentId },
+      getRepositoryWorkflowDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      message: "Repository OCR AI correction completed",
+      documentId: result.documentId,
+      ocr: result.ocr
+    });
+  } catch (error) {
+    console.error("Error AI-correcting repository OCR text:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json({ ok: false, error: error.message || "OCR AI correction failed" });
   }
 });
 
@@ -4466,21 +5224,28 @@ if (require.main === module) {
 
 module.exports = {
   app,
+  aiCorrectRepositoryDocumentOcr,
   CHAT_VISIBLE_IMAGES_NOT_ATTACHABLE_ERROR,
   analyzeUploadedImages,
   attachAssetsToProduct,
+  buildDefaultRepositoryDocumentRecord,
   buildFileHandoffDiagnosticSummary,
   buildCanonicalAssetUrl,
   buildPersistedAssetRecord,
   buildProductAssetAttachment,
+  cleanupRepositoryDocumentOcr,
   createWorkflowError,
   findRegisteredAsset,
   getCleanupSourceText,
   getFinalAiCorrectionSourceText,
   getAssetWorkflowDependencies,
   getOcrModeForMimeType,
+  getRepositoryWorkflowDependencies,
   getNormalizationSourceText,
+  normalizeRepositoryDocumentOcr,
   normalizePersistedAssetRecord,
   normalizeStoredAssetRecord,
+  startRepositoryDocumentOcr,
+  uploadRepositoryDocumentsToStorage,
   uploadAssetsToStorage
 };
