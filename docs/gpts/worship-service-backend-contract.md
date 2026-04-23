@@ -12,10 +12,50 @@ The goal is to make the GPT reliable before write-heavy workflows are added.
 ## Principles
 
 * Backend generates `serviceId`
+* action contract compatibility is part of feature completion
 * search supports free text, filters, or both
 * responses return raw structured data, not narrated prose
 * suggestion responses always include rationale, warnings, and missing-context signals
 * low-confidence planning should return multiple viable directions
+
+## Vertical Slice Rule
+
+This contract should not be treated as backend-only planning.
+
+For each GPT-facing slice:
+
+1. implement the backend endpoint
+2. test the backend directly
+3. wire or update the Custom GPT action schema
+4. test the feature through real GPT prompts
+5. only then mark the slice complete
+
+A slice is not complete if the backend works but the Custom GPT cannot use it reliably.
+
+## Contract Freeze Rule
+
+Freeze the action contract early within each slice and keep it synchronized with the backend.
+
+Acceptance criteria should include:
+
+* request payload shape matches what the GPT actually sends
+* response payload shape is easy for the GPT to reason over
+* error payloads are consistent and usable in GPT recovery flows
+* nullability, enums, and required fields stay aligned between schema and backend
+
+If the backend behavior changes, the action schema should be updated in the same milestone, not later.
+
+## Prompt Regression Rule
+
+Maintain a small real-world prompt test set and rerun it at each milestone.
+
+Use prompt regression checks to catch:
+
+* schema drift
+* payload mismatch
+* weak error handling
+* overly chatty or ambiguous response shapes
+* planning behavior that looks correct in backend tests but fails in the Custom GPT
 
 ## Data Collections
 
@@ -91,6 +131,7 @@ Recommended backend notes:
 
 * implement a lightweight ranking score from theme match, scripture match, freshness, familiarity, and service-role fit
 * never let unavailable songs or archived songs outrank active songs
+* validate the response shape through real GPT prompts before treating the endpoint as done
 
 ### `POST /services/search`
 
@@ -113,6 +154,7 @@ Recommended backend notes:
 
 * this endpoint should help the GPT avoid creating duplicate services
 * if multiple services match closely, the GPT should summarize candidates instead of guessing
+* test ambiguous-result handling through the Custom GPT, not only backend unit tests
 
 ### `POST /services`
 
@@ -134,6 +176,7 @@ Recommended backend notes:
 
 * use a stable ID pattern such as `svc_...` or a UUID
 * optionally enforce uniqueness on `serviceDate + campus + serviceType`
+* verify that the GPT can successfully create and then reference the returned `serviceId`
 
 ### `POST /services/{serviceId}/setlist/suggest`
 
@@ -162,6 +205,7 @@ Recommended backend notes:
 * if context is strong, return one primary recommendation with medium or high confidence
 * if context is thin, return 2 to 3 planning directions and mark confidence low
 * suggestion generation should use explicit structured output so the backend validates what the model returns before passing it on
+* validate that the GPT can consume warnings, missing-context fields, and alternates without response-shape confusion
 
 ## Validation Rules
 

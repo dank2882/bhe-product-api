@@ -112,6 +112,56 @@ The backend contract draft is here:
 
 * [docs/worship-service-backend-contract.md](/Users/danielkirchner/Documents/bhe-product-api/docs/worship-service-backend-contract.md)
 
+The prompt regression set is here:
+
+* [docs/gpts/worship-service-prompt-regression-set.md](/Users/danielkirchner/Documents/bhe-product-api/docs/gpts/worship-service-prompt-regression-set.md)
+
+The current Slice 1 GPT artifacts are here:
+
+* [docs/gpts/worship-service-slice1.instructions.md](/Users/danielkirchner/Documents/bhe-product-api/docs/gpts/worship-service-slice1.instructions.md)
+* [docs/gpts/worship-service-slice1.schema.json](/Users/danielkirchner/Documents/bhe-product-api/docs/gpts/worship-service-slice1.schema.json)
+
+## Operating Rule
+
+Do not treat backend completion as feature completion.
+
+For this project, a major feature slice is only done when it works end to end through the Custom GPT interface.
+
+That means each major slice must move in this order:
+
+1. implement the backend endpoint or backend behavior
+2. test the backend behavior directly
+3. wire or update the Custom GPT action schema
+4. test the feature through real GPT prompts
+5. only then mark the slice complete
+
+No major backend layer should be built without validating that the Custom GPT can actually use it successfully.
+
+## Vertical Slice Policy
+
+Build in vertical slices, not backend-first and GPT-last.
+
+Recommended rule:
+
+* create the Custom GPT early, even if it is primitive
+* freeze the action contract for the current slice before broad backend expansion
+* keep the OpenAPI schema synchronized with backend behavior as part of the slice
+* treat payload shape, error behavior, and GPT usability as acceptance criteria
+
+If the backend works in isolation but the GPT cannot use it reliably, the slice is not done.
+
+## Contract Discipline
+
+For each GPT-facing slice:
+
+* define the request and response shape early
+* keep schema field names, enums, nullability, and error responses aligned with live backend behavior
+* test the real payload shape coming from the GPT, not only idealized local payloads
+* prefer small contract changes over drifting backend behavior
+
+The action contract should be stable within a slice.
+If it changes, the GPT schema and prompt tests should be updated immediately in the same milestone.
+
 ## ChatGPT Setup Notes
 
 Current OpenAI help and docs indicate:
@@ -141,20 +191,21 @@ Suggested conversation starters:
 
 ## Recommended Build Order
 
-1. use [worship-service-gpt.instructions.txt](/Users/danielkirchner/Documents/bhe-product-api/docs/archive/legacy-root-files/worship-service-gpt.instructions.txt) as the first system prompt
-2. use [worship-service-gpt.schema.json](/Users/danielkirchner/Documents/bhe-product-api/docs/archive/legacy-root-files/worship-service-gpt.schema.json) as the first action schema
-3. fork the current backend patterns into service-specific routes
-4. start with retrieval and suggestion actions before adding write-heavy mutations
-5. only add OCR if your team will actually upload sermon PDFs or scanned planning notes
+1. define and approve the canonical song import rules in [worship-service-song-catalog-spec.md](/Users/danielkirchner/Documents/bhe-product-api/docs/gpts/worship-service-song-catalog-spec.md)
+2. create the earliest usable Custom GPT shell using [worship-service-slice1.instructions.md](/Users/danielkirchner/Documents/bhe-product-api/docs/gpts/worship-service-slice1.instructions.md) and [worship-service-slice1.schema.json](/Users/danielkirchner/Documents/bhe-product-api/docs/gpts/worship-service-slice1.schema.json)
+3. build the next feature as a vertical slice: backend behavior, schema update, GPT prompt validation, then completion
+4. keep the prompt regression set current and rerun it at every milestone
+5. start with retrieval and suggestion actions before adding write-heavy mutations
+6. only add OCR if your team will actually upload sermon PDFs or scanned planning notes
 
-## Suggested Next Backend Slice
+## Suggested Next Slice
 
-If we turn this into code next, the best first implementation would be:
+If we turn this into code next, the best GPT-facing slice would be:
 
-* add a `services` collection
-* add a `songs` collection
-* implement search and retrieval endpoints first
-* add one suggestion endpoint that calls OpenAI using structured JSON output
-* delay save endpoints until retrieval and draft quality are stable
+* freeze the action contract for the first GPT-visible read workflow
+* implement the smallest live backend endpoint that supports it
+* wire the Custom GPT schema to that endpoint immediately
+* test it through real prompts
+* only then extend to the next endpoint
 
-That gets you a usable internal planning GPT quickly, while preserving the architecture we already proved out here.
+That keeps the planning stack honest early, when mismatches are still cheap to fix.

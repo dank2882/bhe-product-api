@@ -1,0 +1,374 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Church Song Catalog API",
+    "version": "1.0.0",
+    "description": "Slice 1 action schema for searching the canonical hymnal catalog and retrieving canonical song details."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-265001256563.us-west1.run.app"
+    }
+  ],
+  "paths": {
+    "/songs/search": {
+      "post": {
+        "operationId": "searchSongs",
+        "summary": "Search the canonical hymnal catalog using free text, structured filters, or both",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSongsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching songs returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchSongsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing query or filters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Song search failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/{songId}": {
+      "get": {
+        "operationId": "getSong",
+        "summary": "Get a canonical song record by songId",
+        "parameters": [
+          {
+            "name": "songId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Song returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSongResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid songId",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Song not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Song fetch failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SearchSongsRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Optional free-text query for titles, aliases, or topics."
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchSongFilters"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 10
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "relevance",
+              "title_asc",
+              "hymnal_number_asc"
+            ],
+            "default": "relevance"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "query"
+            ]
+          },
+          {
+            "required": [
+              "filters"
+            ]
+          }
+        ]
+      },
+      "SearchSongFilters": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "string",
+            "description": "Topic filter such as Trust or Adoration and Praise."
+          },
+          "hymnalNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sourceStatus": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "needs_review",
+              "blocked"
+            ]
+          }
+        }
+      },
+      "SearchSongsResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "count",
+          "songs"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "query": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "songs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongSummary"
+            }
+          },
+          "appliedFilters": {
+            "$ref": "#/components/schemas/SearchSongFilters"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SongSummary": {
+        "type": "object",
+        "required": [
+          "songId",
+          "hymnalNumber",
+          "canonicalTitle",
+          "topics",
+          "sourceStatus",
+          "reviewFlags"
+        ],
+        "properties": {
+          "songId": {
+            "type": "string"
+          },
+          "hymnalNumber": {
+            "type": "integer"
+          },
+          "canonicalTitle": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceStatus": {
+            "type": "string"
+          },
+          "reviewFlags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GetSongResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "song"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "song": {
+            "$ref": "#/components/schemas/SongDetail"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "error"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": false
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorObject"
+          }
+        }
+      },
+      "ErrorObject": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "SongDetail": {
+        "type": "object",
+        "required": [
+          "songId",
+          "hymnalId",
+          "hymnalNumber",
+          "canonicalTitle",
+          "topics",
+          "titleAliases",
+          "normalizedLookupKeys",
+          "sourceStatus",
+          "sourceEvidence",
+          "reviewFlags",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "songId": {
+            "type": "string"
+          },
+          "hymnalId": {
+            "type": "string"
+          },
+          "hymnalNumber": {
+            "type": "integer"
+          },
+          "canonicalTitle": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "titleAliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "normalizedLookupKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceStatus": {
+            "type": "string"
+          },
+          "sourceEvidence": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "reviewFlags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

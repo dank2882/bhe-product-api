@@ -4,6 +4,18 @@ const { createHash, randomUUID } = require("node:crypto");
 const { Firestore } = require("@google-cloud/firestore");
 const { Storage } = require("@google-cloud/storage");
 const { v1: DocumentAi } = require("@google-cloud/documentai");
+const {
+  buildCanonicalSongsFromCsv,
+  buildSongId,
+  importCanonicalSongsToCollection,
+  looseNormalizeTitle,
+  parseSongCatalogCsv,
+  strictNormalizeTitle
+} = require("./lib/song-catalog-importer");
+const {
+  getSongById,
+  searchSongs
+} = require("./lib/song-catalog-service");
 
 const REQUIRED_ENV_VARS = ["BHE_API_KEY", "OPENAI_API_KEY"];
 for (const key of REQUIRED_ENV_VARS) {
@@ -116,6 +128,7 @@ const productsCollection = db.collection("products");
 const assetLibraryCollection = db.collection("productAssetLibrary");
 const repositoryDocumentsCollection = db.collection("repositoryDocuments");
 const repositoryItemsCollection = db.collection("repositoryItems");
+const songsCollection = db.collection("songs");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }
@@ -226,6 +239,34 @@ function createWorkflowError(message, statusCode = 400, details = {}) {
 
 function getErrorStatusCode(error, fallbackStatusCode = 500) {
   return Number.isInteger(error?.statusCode) ? error.statusCode : fallbackStatusCode;
+}
+
+function buildStructuredErrorResponse(
+  error,
+  {
+    fallbackCode = "internal_error",
+    fallbackMessage = "Internal server error"
+  } = {}
+) {
+  const response = {
+    ok: false,
+    error: {
+      code:
+        typeof error?.code === "string" && error.code.trim()
+          ? error.code.trim()
+          : fallbackCode,
+      message:
+        typeof error?.message === "string" && error.message.trim()
+          ? error.message.trim()
+          : fallbackMessage
+    }
+  };
+
+  if (error?.details && typeof error.details === "object" && Object.keys(error.details).length > 0) {
+    response.error.details = error.details;
+  }
+
+  return response;
 }
 
 function redactHeaderValue(headerName, value) {
@@ -1934,6 +1975,13 @@ function getRepositoryWorkflowDependencies(overrides = {}) {
     cleanOcrText,
     normalizeOcrText,
     runAiCorrection,
+    ...overrides
+  };
+}
+
+function getSongCatalogDependencies(overrides = {}) {
+  return {
+    songsCollection,
     ...overrides
   };
 }
@@ -4123,6 +4171,58 @@ app.post("/repository/documents/:documentId/ocr/human-review", async (req, res) 
   }
 });
 
+app.post("/songs/search", async (req, res) => {
+  try {
+    const result = await searchSongs(
+      req.body || {},
+      getSongCatalogDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      query: result.query,
+      count: result.count,
+      songs: result.songs,
+      appliedFilters: result.appliedFilters,
+      warnings: result.warnings
+    });
+  } catch (error) {
+    console.error("Error searching songs:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(
+        buildStructuredErrorResponse(error, {
+          fallbackCode: "song_search_failed",
+          fallbackMessage: "Song search failed"
+        })
+      );
+  }
+});
+
+app.get("/songs/:songId", async (req, res) => {
+  try {
+    const result = await getSongById(
+      { songId: req.params.songId },
+      getSongCatalogDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      song: result.song
+    });
+  } catch (error) {
+    console.error("Error fetching song:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(
+        buildStructuredErrorResponse(error, {
+          fallbackCode: "song_fetch_failed",
+          fallbackMessage: "Song fetch failed"
+        })
+      );
+  }
+});
+
 app.post("/products/:slug/assets/upload", upload.single("file"), async (req, res) => {
   try {
     const { slug } = req.params;
@@ -5997,12 +6097,15 @@ module.exports = {
   CHAT_VISIBLE_IMAGES_NOT_ATTACHABLE_ERROR,
   analyzeUploadedImages,
   attachAssetsToProduct,
+  buildCanonicalSongsFromCsv,
+  buildSongId,
   buildDefaultRepositoryDocumentRecord,
   buildDefaultRepositoryItemRecord,
   buildFileHandoffDiagnosticSummary,
   buildCanonicalAssetUrl,
   buildPersistedAssetRecord,
   buildProductAssetAttachment,
+  buildStructuredErrorResponse,
   cleanupRepositoryDocumentOcr,
   createRepositoryItem,
   createWorkflowError,
@@ -6010,6 +6113,7 @@ module.exports = {
   getCleanupSourceText,
   getFinalAiCorrectionSourceText,
   getAssetWorkflowDependencies,
+  getSongCatalogDependencies,
   getOcrModeForMimeType,
   getRepositoryDocumentById,
   getRepositoryDocumentSourceText,
@@ -6017,17 +6121,22 @@ module.exports = {
   getRepositoryItemById,
   getRequiredRepositoryItem,
   humanReviewRepositoryDocumentOcr,
+  importCanonicalSongsToCollection,
   getRepositoryWorkflowDependencies,
   linkRepositoryItemDocuments,
   listRepositoryDocumentsByProvenance,
+  looseNormalizeTitle,
   getNormalizationSourceText,
   normalizeRepositoryDocumentOcr,
   normalizePersistedAssetRecord,
   normalizeStoredAssetRecord,
   saveRepositoryItemSummary,
+  searchSongs,
   searchRepositoryDocuments,
   searchRepositoryItems,
   startRepositoryDocumentOcr,
+  strictNormalizeTitle,
+  getSongById,
   uploadRepositoryDocumentsToStorage,
   uploadAssetsToStorage
 };
