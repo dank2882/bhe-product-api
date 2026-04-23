@@ -85,6 +85,13 @@ function buildSong(overrides = {}) {
         notes: ""
       }
     },
+    ministryMetadata: {
+      leaderReadiness: "unknown",
+      strength: "unknown",
+      feelsDated: "unknown",
+      situationalUse: [],
+      developmentPotential: "unknown"
+    },
     reviewFlags: [],
     createdAt: "2026-04-23T00:00:00.000Z",
     updatedAt: "2026-04-23T00:00:00.000Z",
@@ -147,6 +154,98 @@ test("searchSongs supports theme filtering without a query", async () => {
   ]);
 });
 
+test("searchSongs supports Slice 2 ministry metadata filtering", async () => {
+  const deps = createDeps({
+    "rejoice-0381": buildSong({
+      songId: "rejoice-0381",
+      hymnalNumber: 381,
+      canonicalTitle: "Blessed Assurance",
+      topics: ["Assurance and Confidence", "Testimony"],
+      ministryMetadata: {
+        leaderReadiness: "ready_now",
+        strength: "core",
+        feelsDated: "no",
+        situationalUse: ["invitation", "reflective"],
+        developmentPotential: "medium"
+      }
+    }),
+    "rejoice-0405": buildSong({
+      songId: "rejoice-0405",
+      hymnalNumber: 405,
+      canonicalTitle: "Take My Life, and Let It Be Consecrated",
+      topics: ["Invitation", "Prayer"],
+      ministryMetadata: {
+        leaderReadiness: "learnable_soon",
+        strength: "solid_rotation",
+        feelsDated: "no",
+        situationalUse: ["invitation", "reflective"],
+        developmentPotential: "high"
+      }
+    }),
+    "rejoice-0636": buildSong({
+      songId: "rejoice-0636",
+      hymnalNumber: 636,
+      canonicalTitle: "Revive Us Again",
+      topics: ["Adoration and Praise", "Revival"],
+      ministryMetadata: {
+        leaderReadiness: "ready_now",
+        strength: "core",
+        feelsDated: "yes",
+        situationalUse: ["revival"],
+        developmentPotential: "low"
+      }
+    })
+  });
+
+  const result = await searchSongs(
+    {
+      filters: {
+        leaderReadiness: "learnable_soon",
+        developmentPotential: "high",
+        situationalUse: "invitation"
+      }
+    },
+    deps
+  );
+
+  assert.equal(result.count, 1);
+  assert.equal(result.songs[0].songId, "rejoice-0405");
+  assert.deepEqual(result.appliedFilters, {
+    leaderReadiness: "learnable_soon",
+    situationalUse: ["invitation"],
+    developmentPotential: "high"
+  });
+  assert.equal(result.songs[0].ministryMetadata.leaderReadiness, "learnable_soon");
+});
+
+test("searchSongs rejects invalid Slice 2 filter values clearly", async () => {
+  const deps = createDeps({
+    "rejoice-0001": buildSong()
+  });
+
+  await assert.rejects(
+    () => searchSongs(
+      {
+        filters: {
+          strength: "powerhouse"
+        }
+      },
+      deps
+    ),
+    (error) => {
+      assert.equal(error.message, "Invalid filter value for strength");
+      assert.equal(error.statusCode, 400);
+      assert.equal(error.code, "invalid_filter_value");
+      assert.deepEqual(error.details, {
+        field: "strength",
+        value: "powerhouse",
+        allowedValues: ["core", "solid_rotation", "situational", "unknown"]
+      });
+      return true;
+    }
+  );
+});
+
 test("searchSongs rejects requests with no query and no filters", async () => {
   const deps = createDeps({
     "rejoice-0001": buildSong()
@@ -180,6 +279,13 @@ test("getSongById returns the canonical song detail", async () => {
   assert.equal(result.song.songId, "rejoice-0001");
   assert.equal(result.song.canonicalTitle, "Joyful, Joyful, We Adore Thee");
   assert.deepEqual(result.song.titleAliases, ["Joyful Joyful We Adore Thee"]);
+  assert.deepEqual(result.song.ministryMetadata, {
+    leaderReadiness: "unknown",
+    strength: "unknown",
+    feelsDated: "unknown",
+    situationalUse: [],
+    developmentPotential: "unknown"
+  });
 });
 
 test("getSongById fails clearly when the song does not exist", async () => {

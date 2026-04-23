@@ -9,6 +9,9 @@ const {
   parseSongCatalogCsv,
   strictNormalizeTitle
 } = require("../lib/song-catalog-importer");
+const {
+  seedSlice2MinistryMetadataToCollection
+} = require("../lib/song-ministry-metadata");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -106,6 +109,13 @@ test("repeated hymn numbers with different topics aggregate into one canonical s
   assert.deepEqual(song.titleAliases, ["O God, Our Help in Ages-Past"]);
   assert.deepEqual(song.reviewFlags, []);
   assert.equal(song.sourceStatus, "verified");
+  assert.deepEqual(song.ministryMetadata, {
+    leaderReadiness: "unknown",
+    strength: "unknown",
+    feelsDated: "unknown",
+    situationalUse: [],
+    developmentPotential: "unknown"
+  });
   assert.equal(song.sourceEvidence.rowCount, 2);
   assert.deepEqual(
     song.sourceEvidence.rowRefs.map((row) => row.rowNumber),
@@ -230,4 +240,108 @@ test("importCanonicalSongsToCollection is idempotent across unchanged re-imports
   const savedSong = (await songsCollection.doc("rejoice-0024").get()).data();
   assert.equal(savedSong.songId, "rejoice-0024");
   assert.equal(savedSong.createdAt, "2026-04-23T00:00:00.000Z");
+});
+
+test("importCanonicalSongsToCollection preserves existing ministry metadata on re-import", async () => {
+  const songsCollection = new FakeCollection({
+    "rejoice-0381": {
+      songId: "rejoice-0381",
+      hymnalId: "rejoice",
+      hymnalNumber: 381,
+      canonicalTitle: "Blessed Assurance",
+      topics: ["Assurance and Confidence", "Testimony"],
+      titleAliases: [],
+      normalizedLookupKeys: ["number:381"],
+      ministryMetadata: {
+        leaderReadiness: "ready_now",
+        strength: "core",
+        feelsDated: "no",
+        situationalUse: ["invitation", "reflective"],
+        developmentPotential: "medium"
+      },
+      sourceStatus: "verified",
+      sourceEvidence: {
+        catalogSource: "song_topics_index_verified.csv",
+        catalogVersion: "working",
+        rowCount: 1,
+        rowRefs: []
+      },
+      reviewFlags: [],
+      createdAt: "2026-04-01T00:00:00.000Z",
+      updatedAt: "2026-04-01T00:00:00.000Z"
+    }
+  });
+
+  await importCanonicalSongsToCollection(
+    {
+      csvText: buildCsv([
+        '381,"Blessed Assurance","Assurance and Confidence, Testimony"'
+      ]),
+      importedAt: "2026-04-23T00:00:00.000Z"
+    },
+    { songsCollection }
+  );
+
+  const savedSong = (await songsCollection.doc("rejoice-0381").get()).data();
+  assert.deepEqual(savedSong.ministryMetadata, {
+    leaderReadiness: "ready_now",
+    strength: "core",
+    feelsDated: "no",
+    situationalUse: ["invitation", "reflective"],
+    developmentPotential: "medium"
+  });
+  assert.equal(savedSong.createdAt, "2026-04-01T00:00:00.000Z");
+});
+
+test("seedSlice2MinistryMetadataToCollection merges the sample metadata onto existing songs", async () => {
+  const songsCollection = new FakeCollection({
+    "rejoice-0381": {
+      songId: "rejoice-0381",
+      canonicalTitle: "Blessed Assurance",
+      updatedAt: "2026-04-01T00:00:00.000Z"
+    },
+    "rejoice-0405": {
+      songId: "rejoice-0405",
+      canonicalTitle: "Take My Life, and Let It Be Consecrated",
+      updatedAt: "2026-04-01T00:00:00.000Z"
+    }
+  });
+
+  const result = await seedSlice2MinistryMetadataToCollection(
+    {
+      metadataBySongId: {
+        "rejoice-0381": {
+          leaderReadiness: "ready_now",
+          strength: "core",
+          feelsDated: "no",
+          situationalUse: ["reflective", "invitation"],
+          developmentPotential: "medium"
+        },
+        "rejoice-9999": {
+          leaderReadiness: "ready_now",
+          strength: "core",
+          feelsDated: "no",
+          situationalUse: ["revival"],
+          developmentPotential: "high"
+        }
+      },
+      updatedAt: "2026-04-23T00:00:00.000Z"
+    },
+    { songsCollection }
+  );
+
+  assert.deepEqual(result.updatedSongIds, ["rejoice-0381"]);
+  assert.deepEqual(result.skippedMissingSongIds, ["rejoice-9999"]);
+  assert.equal(result.totalUpdated, 1);
+  assert.equal(result.totalMissing, 1);
+
+  const savedSong = (await songsCollection.doc("rejoice-0381").get()).data();
+  assert.deepEqual(savedSong.ministryMetadata, {
+    leaderReadiness: "ready_now",
+    strength: "core",
+    feelsDated: "no",
+    situationalUse: ["invitation", "reflective"],
+    developmentPotential: "medium"
+  });
+  assert.equal(savedSong.updatedAt, "2026-04-23T00:00:00.000Z");
 });
