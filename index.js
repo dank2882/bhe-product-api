@@ -17,6 +17,10 @@ const {
   searchSongs,
   updateSongMinistryMetadata
 } = require("./lib/song-catalog-service");
+const {
+  getServiceById,
+  searchServices
+} = require("./lib/service-history-service");
 
 const REQUIRED_ENV_VARS = ["BHE_API_KEY", "OPENAI_API_KEY"];
 for (const key of REQUIRED_ENV_VARS) {
@@ -131,6 +135,9 @@ const repositoryDocumentsCollection = db.collection("repositoryDocuments");
 const repositoryItemsCollection = db.collection("repositoryItems");
 const songsCollection = db.collection("songs");
 const songMetadataAuditCollection = db.collection("songMetadataAudit");
+const servicesCollection = db.collection("services");
+const serviceSongEventsCollection = db.collection("serviceSongEvents");
+const breezeImportsCollection = db.collection("breezeImports");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }
@@ -1984,6 +1991,16 @@ function getRepositoryWorkflowDependencies(overrides = {}) {
 function getSongCatalogDependencies(overrides = {}) {
   return {
     songsCollection,
+    songMetadataAuditCollection,
+    ...overrides
+  };
+}
+
+function getServiceHistoryDependencies(overrides = {}) {
+  return {
+    servicesCollection,
+    serviceSongEventsCollection,
+    breezeImportsCollection,
     ...overrides
   };
 }
@@ -4225,6 +4242,90 @@ app.get("/songs/:songId", async (req, res) => {
   }
 });
 
+app.patch("/songs/:songId/ministry-metadata", async (req, res) => {
+  try {
+    const result = await updateSongMinistryMetadata(
+      {
+        songId: req.params.songId,
+        changes: req.body?.changes,
+        changeReason: req.body?.changeReason,
+        changedBy: req.body?.changedBy
+      },
+      getSongCatalogDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      songId: result.songId,
+      ministryMetadata: result.ministryMetadata,
+      auditEntry: result.auditEntry,
+      updatedAt: result.updatedAt
+    });
+  } catch (error) {
+    console.error("Error updating song ministry metadata:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(
+        buildStructuredErrorResponse(error, {
+          fallbackCode: "song_metadata_update_failed",
+          fallbackMessage: "Song metadata update failed"
+        })
+      );
+  }
+});
+
+app.post("/services/search", async (req, res) => {
+  try {
+    const result = await searchServices(
+      req.body || {},
+      getServiceHistoryDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      query: result.query,
+      count: result.count,
+      services: result.services,
+      appliedFilters: result.appliedFilters,
+      warnings: result.warnings
+    });
+  } catch (error) {
+    console.error("Error searching services:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(
+        buildStructuredErrorResponse(error, {
+          fallbackCode: "service_search_failed",
+          fallbackMessage: "Service search failed"
+        })
+      );
+  }
+});
+
+app.get("/services/:serviceId", async (req, res) => {
+  try {
+    const result = await getServiceById(
+      { serviceId: req.params.serviceId },
+      getServiceHistoryDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      service: result.service
+    });
+  } catch (error) {
+    console.error("Error fetching service:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(
+        buildStructuredErrorResponse(error, {
+          fallbackCode: "service_fetch_failed",
+          fallbackMessage: "Service fetch failed"
+        })
+      );
+  }
+});
+
 app.post("/products/:slug/assets/upload", upload.single("file"), async (req, res) => {
   try {
     const { slug } = req.params;
@@ -6116,9 +6217,11 @@ module.exports = {
   getFinalAiCorrectionSourceText,
   getAssetWorkflowDependencies,
   getSongCatalogDependencies,
+  getServiceHistoryDependencies,
   getOcrModeForMimeType,
   getRepositoryDocumentById,
   getRepositoryDocumentSourceText,
+  getServiceById,
   getRepositoryItemDocuments,
   getRepositoryItemById,
   getRequiredRepositoryItem,
@@ -6133,6 +6236,7 @@ module.exports = {
   normalizePersistedAssetRecord,
   normalizeStoredAssetRecord,
   saveRepositoryItemSummary,
+  searchServices,
   searchSongs,
   searchRepositoryDocuments,
   searchRepositoryItems,
