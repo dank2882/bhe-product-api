@@ -14,7 +14,8 @@ const {
 } = require("./lib/song-catalog-importer");
 const {
   getSongById,
-  searchSongs
+  searchSongs,
+  updateSongMinistryMetadata
 } = require("./lib/song-catalog-service");
 
 const REQUIRED_ENV_VARS = ["BHE_API_KEY", "OPENAI_API_KEY"];
@@ -129,6 +130,7 @@ const assetLibraryCollection = db.collection("productAssetLibrary");
 const repositoryDocumentsCollection = db.collection("repositoryDocuments");
 const repositoryItemsCollection = db.collection("repositoryItems");
 const songsCollection = db.collection("songs");
+const songMetadataAuditCollection = db.collection("songMetadataAudit");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }
@@ -6137,6 +6139,7 @@ module.exports = {
   startRepositoryDocumentOcr,
   strictNormalizeTitle,
   getSongById,
+  updateSongMinistryMetadata,
   uploadRepositoryDocumentsToStorage,
   uploadAssetsToStorage
 };
