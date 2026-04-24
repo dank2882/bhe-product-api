@@ -6,21 +6,24 @@ Slice name: Breeze API Capability Discovery for Service History Import
 
 Status: Discovery only
 
-Recommendation: Breeze service-plan PDF/download artifacts appear to contain the service-song rows needed for normalized import. The exact programmatic download endpoint is still unknown, so the next slice should discover whether these PDFs can be fetched from an authenticated event/service-plan route.
+Recommendation: The authenticated Breeze Service Plan page at `/events/409212043/plan` visibly contains the order-of-service rows needed for normalized import. The initial read-only API probe returned event-shaped data but did not identify clearly recognizable Service Planning song/setlist fields; this does not prove those rows are absent from Breeze's backend or unreachable by authenticated web routes. The next slice should discover how the authenticated plan page source gets those rows.
 
 ## Summary Recommendation
 
 Breeze appears to expose calendar-style event data through its public API, and Breeze support documentation confirms that Breeze Service Planning can store ordered service-plan items, including songs. However, the public API reference inspected for this slice does not expose a clear Service Planning, Worship Team, song library, set list, song usage, or service-plan item endpoint.
 
-Dan provided a downloaded Breeze order-of-service PDF for Event ID `409212043`. That artifact contains the service title, service date/time, theme, section structure, music rows, note rows, song titles, hymn numbers, keys, leaders/performers, start times, and implied song order. This is the strongest source discovered so far for service-history song usage.
+The authenticated Service Plan page at `/events/409212043/plan` visibly renders structured order-of-service rows, including sections, music items, note items, song titles, hymn numbers, keys, leaders, start times, and order. This proves the data exists somewhere in Breeze's authenticated service-plan source path.
+
+Dan also provided a downloaded Breeze order-of-service PDF for Event ID `409212043`. That artifact is useful evidence that the visible service-plan data can be exported, but it should not make PDF download/parsing the preferred next path if the page source, embedded data, or internal web route can be accessed directly.
 
 For future service-history import, the safest path is hybrid:
 
 1. Use the Breeze API for event shells if the church's worship services are represented as Breeze Events.
-2. Use Breeze service-plan PDF/download extraction for ordered song/service-plan rows if the PDF can be fetched programmatically.
-3. Normalize the imported result into internal `services`, `serviceSongEvents`, and `breezeImports` records before GPT-facing service-history reads.
+2. Use authenticated service-plan page source, embedded data, internal web routes, or generic plan/schedule item structures for ordered song/service-plan rows if accessible.
+3. Use service-plan PDF/download extraction only as a fallback if the direct authenticated page source path is not viable.
+4. Normalize the imported result into internal `services`, `serviceSongEvents`, and `breezeImports` records before GPT-facing service-history reads.
 
-Do not build a full API-only importer until we confirm that song rows, order, and service-plan item details are accessible in the actual Breeze tenant. The next discovery step should focus on the authenticated PDF/download route, not on planning logic.
+Do not build a full API-only importer until we understand where the visible plan rows are loaded from. The next discovery step should focus on authenticated service-plan page source discovery, not PDF parsing and not planning logic.
 
 ## Authenticated Tenant/Export Probe
 
@@ -206,15 +209,9 @@ Authenticated Breeze-specific unknowns remain:
 
 ### Recommended Next Slice After Probe
 
-Recommended next slice: more discovery if the goal remains Breeze-specific import.
+This early spreadsheet probe is superseded by later authenticated Breeze findings. The current next slice recommendation is Slice 7 - Authenticated Breeze Service Plan Page Source Discovery.
 
-That next slice should acquire one of:
-
-1. A read-only Breeze API key plus tenant subdomain for authenticated Events API probing.
-2. A tenant-generated Breeze Service Planning export/report/print sample for one known historical service.
-3. Confirmation that the local Music Ministry spreadsheet is the accepted source of truth for service-song history.
-
-If Dan confirms the local Music Ministry spreadsheet is the accepted source, then the next build slice should be an export-file import proof of concept for that CSV/XLSX shape.
+If Dan later decides the local Music Ministry spreadsheet should also be imported as a separate historical source, that should be a separate export-file import proof of concept.
 
 ## Read-Only Tenant API Probe
 
@@ -246,7 +243,7 @@ Status code summary:
 | `/api/events?start={year}-01-01&end={year}-12-31&limit=5&details=1` | GET | successful read-only response from tenant; numeric status not retained in repo |
 | `/api/events/calendars` | GET | successful read-only response from tenant; numeric status not retained in repo |
 | `/api/events/locations` | GET | successful read-only response from tenant; numeric status not retained in repo |
-| `/api/events/list_event?instance_id={event_instance_id}&schedule=1&schedule_limit=5&eligible=0` | GET | tested when an event instance ID was available; response did not prove Service Planning song-row availability |
+| `/api/events/list_event?instance_id={event_instance_id}&schedule=1&schedule_limit=5&eligible=0` | GET | tested when an event instance ID was available; response did not identify clearly recognizable Service Planning song/setlist fields |
 
 ### Response Shapes
 
@@ -254,8 +251,9 @@ High-level shape findings:
 
 * Events endpoints return JSON suitable for event/service shell discovery.
 * Calendar and location endpoints return JSON shell/context data.
-* Event detail-style access can provide service/event context, but the observed official API shapes did not expose Service Planning song rows.
-* The public docs and tenant probe did not reveal a stable official API response shape for Service Planning songs, set lists, song order, or usage roles.
+* Event detail-style access can provide service/event context, but the observed official API shapes did not identify clearly recognizable Service Planning song/setlist fields.
+* The public docs and tenant probe did not reveal a stable official API response shape explicitly named around Service Planning songs, set lists, song order, or usage roles.
+* This does not prove service-plan rows are absent from Breeze's backend or unreachable by authenticated web routes. They may be stored as generic plan items, schedule items, details, blocks, or nested metadata rather than fields named `songs`, `setlist`, or `usage`.
 
 ### Event/Service Shell Availability
 
@@ -263,7 +261,7 @@ Event/service shells are available from official events-related endpoints. This 
 
 ### Service Planning Song Rows, Set Lists, Song Order, and Usage Roles
 
-The official API probe did not expose:
+The official API probe did not identify clearly recognizable fields named around:
 
 * Service Planning song rows
 * set lists
@@ -271,36 +269,39 @@ The official API probe did not expose:
 * usage roles
 * Worship Team song library usage
 
-Those fields are visible in authenticated Service Plan pages and in the downloaded service-plan PDF artifact, but not through the official events API responses observed in this probe.
+The authenticated Service Plan page at `/events/409212043/plan` visibly renders these rows, and the downloaded service-plan PDF artifact preserves them. Therefore the data exists in Breeze's authenticated service-plan path even though the initial official API probe did not identify it by obvious field names.
 
 ### API Sufficiency for Service-History Import
 
-The official Breeze API appears sufficient for service/event shell metadata, but not sufficient by itself for full service-history song usage import.
+The official Breeze API appears sufficient for service/event shell metadata. The initial probe is not sufficient by itself to confirm the service-song row source.
 
 Current import recommendation:
 
 * use official Breeze API event shells where useful
-* use authenticated service-plan PDF/download extraction for song rows if the download endpoint can be discovered
-* use authenticated plan-page HTML extraction as the fallback if programmatic PDF download is not available
+* investigate the authenticated Service Plan page source at `/events/{eventId}/plan`
+* prefer direct page HTML, embedded page data, internal AJAX/web routes, or generic plan/schedule item structures for song rows if they are accessible
+* keep PDF/download extraction as evidence and fallback, not as the preferred first build path
 
 ### Remaining Unknowns
 
-* Exact authenticated service-plan PDF/download URL or route.
-* Whether the PDF/download route accepts API-key auth, browser-session auth, or another authenticated route.
-* Whether the event API response exposes enough identifiers to discover the service-plan download URL.
-* Whether every service with song history has a service-plan PDF/download artifact.
-* Whether service-plan page HTML is easier and more stable to parse than the PDF.
+* Whether the `/events/{eventId}/plan` rows are present in fetched HTML.
+* Whether separate internal requests load the plan rows after the page shell renders.
+* Whether row data is stored generically rather than as `song` fields.
+* Whether row order, music/note row type, hymn numbers, keys, leaders, times, and sections can be extracted reliably.
+* What authentication/session method is required for page source and internal routes.
+* Risks of relying on authenticated Breeze web routes rather than documented public API endpoints.
 
 ### Recommended Next Step for API Probe
 
-The next slice should discover the programmatic service-plan PDF/download endpoint for a known Event ID, starting with Event ID `409212043`.
+The next slice should discover the authenticated Service Plan page source for a known Event ID, starting with Event ID `409212043` and `/events/409212043/plan`.
 
-## Authenticated Service Plan Download Artifact Probe
+## Authenticated Service Plan Page and Download Artifact Probe
 
 Probe date: 2026-04-24
 
-Source inspected:
+Sources inspected:
 
+* Authenticated Breeze Service Plan page at `/events/409212043/plan`.
 * Downloaded Breeze order-of-service PDF.
 * Event ID: `409212043`.
 * Service: Morning Service.
@@ -309,9 +310,11 @@ Source inspected:
 
 The PDF itself was not copied into the repo, and raw service-plan payload content was not stored. The note below records only structural findings and brief examples needed to evaluate import viability.
 
+The authenticated Service Plan page visibly renders structured order-of-service rows. This is the key source-path observation: the row data exists somewhere behind Breeze's authenticated service-plan page, even if the initial read-only API probe did not show obvious `song` or `setlist` fields.
+
 ### Artifact Findings
 
-The Breeze service-plan PDF contains the service-song rows needed for normalized import.
+The authenticated Service Plan page and downloaded PDF artifact contain the service-song rows needed for normalized import.
 
 Observed top-level service fields:
 
@@ -344,23 +347,23 @@ Brief structural examples observed in the PDF:
 * special music rows with title, leader/context, and key
 * invitation row with title and key
 
-The observed PDF includes enough structure to derive service-song rows with stable ordering for a parser proof of concept. The parser proof should still verify the extraction method because the local shell does not currently have command-line PDF text extraction tools available.
+The observed page/PDF content includes enough structure to derive service-song rows with stable ordering for a future proof of concept. The next proof should investigate the authenticated page source and any internal data-loading routes before attempting PDF parsing.
 
 ### Mapping Recommendation
 
-The service-plan PDF can map into the current normalized model.
+The authenticated service-plan page data can map into the current normalized model. The PDF confirms the same visible structure can be exported, but PDF parsing should be treated as fallback unless the page source path proves unavailable.
 
 `services` mapping:
 
-* `serviceId`: derive from Breeze event ID plus date/service title, or from a confirmed Breeze service-plan ID if the download route exposes one
-* `serviceDate`: from PDF service date
+* `serviceId`: derive from Breeze event ID plus date/service title, or from a confirmed Breeze service-plan ID if the page source exposes one
+* `serviceDate`: from service-plan page/PDF service date
 * `serviceType`: derive from service title, event name, or configured mapping such as Morning Service -> `sunday_morning`
-* `title`: from PDF service title
-* `theme`: from PDF theme
+* `title`: from service-plan title
+* `theme`: from service-plan theme
 * `serviceLabels`: derive from service title, theme, or configured label rules when appropriate
 * `source`: `breeze_import`
 * `sourceImportId`: import run ID
-* `rawBreezeReference`: event/download pointer, avoiding raw payload storage
+* `rawBreezeReference`: event/page/source pointer, avoiding raw payload storage
 * `createdAt` and `updatedAt`: internal timestamps
 
 `serviceSongEvents` mapping:
@@ -368,11 +371,11 @@ The service-plan PDF can map into the current normalized model.
 * `serviceSongEventId`: generated stable ID from source service reference plus row index
 * `serviceId`: parent normalized service ID
 * `songId`: matched later through canonical catalog/alias matching
-* `hymnalNumber`: parsed from PDF row when present
+* `hymnalNumber`: parsed from service-plan row when present
 * `title`: parsed source song title
 * `serviceDate`: copied from parent service
 * `serviceType`: copied from parent service
-* `slotIndex`: implied row order from the PDF service plan
+* `slotIndex`: implied row order from the service plan
 * `usageRole`: derive from row type, section, or leader/context such as choir, congregational, special, invitation, or note-derived role
 * `source`: `breeze_import`
 * `sourceImportId`: import run ID
@@ -383,7 +386,7 @@ The service-plan PDF can map into the current normalized model.
 
 * `importId`: generated import run ID
 * `sourceSystem`: `breeze`
-* `sourceMode`: `pdf_download` or `hybrid`
+* `sourceMode`: `service_plan_page`, `internal_route`, `pdf_download`, or `hybrid`
 * `importedAt`: import timestamp
 * `status`: completed, partial, or failed
 * `rowCounts.services`: number of services parsed
@@ -391,11 +394,11 @@ The service-plan PDF can map into the current normalized model.
 * `warnings`: missing fields, extraction anomalies, unmatched songs, or ambiguous roles
 * `unmatchedSongs`: source song rows that cannot be confidently matched later
 * `sourceFiles`: metadata pointer only, not raw private PDF content
-* `apiEndpointsUsed`: event shell endpoint and download endpoint if programmatic fetch is confirmed
+* `apiEndpointsUsed`: event shell endpoint plus page/internal/download route if programmatic access is confirmed
 
-### What the PDF Proves
+### What the Page and PDF Prove
 
-The PDF proves that Breeze can produce a service-plan artifact containing the core service-history song usage data needed by this project:
+The authenticated Service Plan page proves that Breeze renders the core service-history song usage data needed by this project. The PDF proves that the visible page data can also be exported as an order-of-service artifact.
 
 * service date/time
 * service title/type signal
@@ -408,52 +411,69 @@ The PDF proves that Breeze can produce a service-plan artifact containing the co
 * implied song order
 * usage-role signals
 
-The artifact is sufficient to justify a parser proof of concept once the download/acquisition path is decided.
+The page/artifact evidence is sufficient to justify a source discovery proof of concept for `/events/{eventId}/plan`.
 
-### What the PDF Does Not Prove
+### What the Page and PDF Do Not Prove
 
-The PDF does not by itself prove:
+The page/PDF observation does not by itself prove:
 
-* the exact authenticated programmatic download endpoint
+* the exact authenticated programmatic source route
 * whether a stable service-plan ID is available
 * whether a stable service-plan row/item ID is available
-* whether the PDF can be fetched by event ID alone
-* whether all service plans use the same PDF layout
-* whether historical services always have populated service-plan PDFs
-* whether PDF extraction will be plain-text, positional PDF parsing, or browser/HTML-derived
+* whether rows are present directly in fetched HTML
+* whether rows are loaded by internal AJAX/web requests
+* whether row data is stored as generic plan items, schedule items, details, blocks, or nested metadata
+* whether browser-session authentication is required
+* whether all service plans use the same page structure
+* whether all historical services have populated service-plan rows
 
 ### Recommended Source Path
 
-Likely future import strategy if programmatic PDF download is possible:
+Likely future import strategy if the authenticated page source path is accessible:
 
 1. Use Breeze API event shells where useful for date, title, event ID, and calendar context.
-2. Fetch the Breeze service-plan PDF/download artifact for each target event/service plan.
-3. Parse the PDF/download artifact for song rows, order, keys, and usage-role signals.
+2. Fetch or inspect the authenticated Service Plan page at `/events/{eventId}/plan`.
+3. Prefer page HTML, embedded page data, internal AJAX/web routes, or generic plan/schedule item structures for song rows, order, keys, and usage-role signals.
 4. Normalize into `services`, `serviceSongEvents`, and `breezeImports`.
 5. Leave canonical song matching and unmatched-song review for later slices.
 
-Fallback if programmatic PDF download is not possible:
+Fallback if the authenticated page source path is not viable:
 
-1. Use authenticated plan-page HTML extraction if the service plan page exposes the same row structure.
-2. If HTML extraction is also unsuitable, use manually downloaded service-plan PDFs as an export-file import source.
+1. Discover whether a programmatic PDF/download route exists for the same service-plan data.
+2. If automated download is unsuitable, use manually downloaded service-plan PDFs as an export-file import source.
 
 ### Remaining Unknowns
 
-* Exact authenticated download URL or route for service-plan PDFs.
-* Whether download can be discovered from Events API, event detail, or authenticated page links.
-* Whether the download route requires browser session cookies rather than API key auth.
-* Whether all service-plan PDFs share the same layout and labels.
+* Whether the plan rows are present in fetched HTML.
+* Whether separate internal requests load the rows.
+* Whether row data is stored generically rather than as `song` fields.
+* Whether row order can be derived from page/internal route structure.
+* Whether music rows can be distinguished from note rows.
+* Whether hymn numbers, keys, leaders, times, and sections can be extracted.
+* What authentication/session method is required.
+* Risks of relying on authenticated Breeze web routes.
 * Whether row order and section names remain stable across services.
 * Whether note rows should be ignored, preserved as non-song service plan items, or used only as context.
 * Whether leaders/performers should be retained in source metadata or normalized into a separate field later.
 
-### Recommended Next Slice After PDF Probe
+### Recommended Next Slice After Page/PDF Probe
 
-Recommended next slice: programmatic service-plan download endpoint discovery.
+Recommended next slice: Slice 7 - Authenticated Breeze Service Plan Page Source Discovery.
 
-That slice should determine whether Event ID `409212043` can lead to the same PDF through a safe authenticated route. It should test only read-only access paths and should not build the importer yet.
+Goal: determine whether the visible order-of-service rows on `/events/{eventId}/plan` can be retrieved programmatically from the authenticated HTML response, embedded page data, an internal AJAX/web route, a generic plan-item/schedule-item structure, or another repeatable authenticated route.
 
-If the PDF download route is confirmed, the following slice should be a PDF parser proof of concept. If no programmatic PDF route is available, the next best build path is an authenticated plan-page HTML parser proof of concept or a manual PDF/export-file import proof of concept.
+For Event ID `409212043`, Slice 7 should inspect whether:
+
+* plan rows are present in fetched HTML
+* separate internal requests load the rows
+* row data is stored generically rather than as `song` fields
+* row order can be derived
+* music rows can be distinguished from note rows
+* hymn numbers, keys, leaders, times, and sections can be extracted
+* the required authentication is API-key based, browser-session based, or another authenticated method
+* authenticated Breeze web routes are stable enough to support import
+
+Do not build the importer in Slice 7. Do not build PDF parsing unless page/internal route discovery fails and Dan explicitly chooses the PDF fallback path.
 
 ## Sources Inspected
 
@@ -484,29 +504,31 @@ The public API reference does not clearly expose Service Planning plans or plan 
 
 Not confirmed.
 
-Official support documentation confirms that Breeze Service Planning can add songs to events and that service-plan items can be reordered. The public API reference inspected for this slice does not show an endpoint for Service Planning songs, set lists, plan items, song library entries, or song usage history.
+Official support documentation confirms that Breeze Service Planning can add songs to events and that service-plan items can be reordered. The public API reference inspected for this slice does not show an endpoint explicitly named for Service Planning songs, set lists, plan items, song library entries, or song usage history.
 
-API-only song import should be treated as unproven until we run an authenticated tenant probe or get confirmation from Breeze support.
+The initial read-only tenant API probe returned event-shaped data but did not identify clearly recognizable Service Planning song/setlist fields. That does not prove the rows are absent from Breeze's backend or unreachable by authenticated web routes. They may be stored as generic plan items, schedule items, details, blocks, or nested metadata rather than fields named `songs`, `setlist`, or `usage`.
+
+The authenticated Service Plan page at `/events/409212043/plan` visibly renders service-song rows, so the next question is where that page source gets them.
 
 ### 3. If songs are not directly available through API endpoints, are they available through exports/reports instead?
 
-Not confirmed from public API documentation.
+Available in the authenticated Service Plan page and PDF artifact; direct API/export path still not fully characterized.
 
-The service-planning support docs show that Breeze can print service plans and that Worship Team Tools can maintain a song library and support CCLI usage reporting. That strongly suggests there may be report/export paths in the product, but the exact downloadable/exportable fields need to be confirmed in the live tenant.
+The service-planning support docs show that Breeze can print service plans and that Worship Team Tools can maintain a song library and support CCLI usage reporting. Dan's authenticated Service Plan page and downloaded PDF sample confirm that the order-of-service data is available through Breeze's authenticated service-plan path.
 
-The next slice should collect one representative export, printed plan output, or report sample that includes song rows before committing to an importer shape.
+The next slice should inspect the authenticated `/events/{eventId}/plan` page source and related internal requests before treating PDF/export parsing as the main path.
 
 ### 4. What Breeze data object appears to be the authoritative source for our service-history import?
 
 For service shell metadata, Breeze Events appear to be the most likely authoritative API object.
 
-For song usage, order, and service-plan roles, Breeze Service Planning plan items appear to be the authoritative product object. The current public API reference does not prove that those plan items are API-readable.
+For song usage, order, and service-plan roles, Breeze Service Planning plan rows/items appear to be the authoritative product object. The current public API reference does not prove that those rows are API-readable through official public endpoints, but the authenticated plan page proves they exist in Breeze's authenticated service-plan source path.
 
 Practical import model:
 
 * Breeze Event: authoritative for date, time, event name, calendar, location, volunteer/attendance context when needed.
-* Breeze Service Plan / Plan Items: authoritative for songs, item order, keys, notes, and service-plan sequence if obtainable.
-* Export/report row: acceptable source for song usage if plan items are not API-accessible.
+* Breeze Service Plan page/plan items: authoritative for songs, item order, keys, notes, and service-plan sequence if obtainable.
+* Export/PDF/report row: fallback source for song usage if page source/internal routes are not accessible.
 
 ### 5. What fields can we get for each service?
 
@@ -581,35 +603,37 @@ Optional future configuration:
 Key unknowns:
 
 * Whether the live tenant has Service Planning enabled and consistently used for worship services.
-* Whether Breeze exposes service-plan song rows through an undocumented or authenticated API path.
-* Whether Service Planning print/report/export output includes stable song order and enough fields for matching.
+* Whether the visible `/events/{eventId}/plan` rows are present in fetched HTML, embedded page data, internal AJAX/web routes, or generic plan/schedule item structures.
+* Whether Service Planning page/PDF/export output includes stable row order and enough fields for matching across many services.
 * Whether Worship Team Tools are enabled, and whether they change song-library or usage-report availability.
 * Whether service names/calendars cleanly identify Sunday morning, Sunday night, Lord's Supper, Easter, and other planning labels.
 * Whether song rows include canonical titles, CCLI IDs, keys, notes, or only free text.
-* Whether song order is stable and exportable.
+* Whether song order is stable and extractable across authenticated page, internal route, and fallback artifact paths.
 * Whether repeated services, templates, or copied service plans create duplicate source IDs.
 * Whether deleted or edited Breeze services need tombstone/update handling.
 * Breeze rate limits and recommended polling cadence are not confirmed.
 
 Implementation risks:
 
-* A pure API importer may produce service records without songs.
-* A pure export importer may require manual operational steps and stricter file validation.
+* A pure official-API importer may produce service records without songs if it only uses events-related endpoints.
+* A PDF-first importer may do unnecessary work if the authenticated page source or internal routes expose cleaner structured data.
+* Authenticated Breeze web routes may be less stable than official API endpoints and may require browser-session authentication.
 * Song matching will need canonical catalog lookup plus alias support from Slice 5; it should remain a later slice.
 * Import provenance must be preserved so service-history reads never depend on raw Breeze rows.
 
 ### 10. Recommended future import strategy
 
-Recommended strategy: hybrid import.
+Recommended strategy: hybrid import, with authenticated service-plan page source discovery next.
 
-The next slice should not jump straight to a production importer. It should first prove the source path in the live tenant:
+The next slice should not jump straight to a production importer. It should first prove the source path behind the visible Service Plan page in the live tenant:
 
-1. Run an authenticated, read-only Breeze API probe for event shells over a small historical date range.
-2. Determine whether the API response contains service-plan/song rows.
-3. If song rows are absent, collect a representative Service Planning print/export/report sample for the same service.
-4. Produce a final import contract showing exact input fields and how they normalize into `services`, `serviceSongEvents`, and `breezeImports`.
+1. Inspect `/events/409212043/plan` through a safe authenticated route.
+2. Determine whether plan rows are present in fetched HTML, embedded page data, internal AJAX/web routes, generic plan-item/schedule-item structures, or another repeatable authenticated source.
+3. Verify row order, music-vs-note row type, hymn numbers, keys, leaders, times, and sections.
+4. Record the authentication/session method and risks of relying on authenticated Breeze web routes.
+5. Produce a final source-field-to-normalized-field import contract.
 
-If the tenant/API probe reveals a stable service-plan item endpoint, the future importer can lean API-first. If not, build an export-file importer with API enrichment for event shells.
+If the page source/internal route reveals stable service-plan item structures, the future importer can use API/event shells plus authenticated page/internal route extraction. If not, PDF/download extraction remains a fallback.
 
 ## Relevant Breeze API Findings
 
@@ -698,8 +722,8 @@ This architecture is a good fit for Breeze import, as long as the future import 
 Preferred source path for future import:
 
 1. Breeze Events API for event shells, calendars, and stable event references.
-2. Breeze Service Planning plan item source for songs and order, if accessible through authenticated API.
-3. Service Planning export/print/report file for song rows if the API does not expose plan items.
+2. Authenticated Breeze Service Plan page source, embedded page data, internal web route, or generic plan/schedule item source for songs and order.
+3. Service Plan PDF/download artifact only as fallback if the direct page/internal route path is not viable.
 4. Internal normalization step into `services`, `serviceSongEvents`, and `breezeImports`.
 5. Later song matching step against the canonical song catalog using `songId`, `hymnalNumber`, `canonicalTitle`, and `titleAliases`.
 
@@ -713,7 +737,7 @@ Map each import run to one `breezeImports` record:
 
 * `importId`: generated internal import run ID
 * `sourceSystem`: `breeze`
-* `sourceMode`: `api`, `export`, or `hybrid`
+* `sourceMode`: `api`, `service_plan_page`, `internal_route`, `pdf_download`, `export`, or `hybrid`
 * `tenantLabel`: non-secret tenant identifier, if useful
 * `dateFrom`: import window start
 * `dateTo`: import window end
@@ -762,20 +786,26 @@ Map each song/service-plan row to one normalized song usage record:
 
 ## Recommended Next Slice
 
-Recommended next slice: Slice 7 authenticated Breeze source probe and sample import contract.
+Recommended next slice: Slice 7 - Authenticated Breeze Service Plan Page Source Discovery.
 
-Slice 7 should still be discovery/proof oriented, not a full import pipeline. It should:
+Goal: determine whether the visible order-of-service rows on `/events/{eventId}/plan` can be retrieved programmatically from the authenticated HTML response, embedded page data, an internal AJAX/web route, a generic plan-item/schedule-item structure, or another repeatable authenticated route.
 
-1. Add a small read-only probe script or documented manual probe for Breeze Events API using tenant secrets.
-2. Capture sample event JSON for a small historical worship-service range.
-3. Check whether service-plan songs are present anywhere in authenticated API responses.
-4. Capture one representative Service Planning export, print, or report sample if API song rows are absent.
-5. Produce a final source-field-to-normalized-field import contract.
+Slice 7 should still be discovery/proof oriented, not a full import pipeline. For Event ID `409212043`, it should:
 
-After that, build either:
+1. Inspect whether plan rows are present in fetched HTML.
+2. Inspect whether separate internal requests load the rows.
+3. Determine whether row data is stored generically rather than as `song` fields.
+4. Verify whether row order can be derived.
+5. Verify whether music rows can be distinguished from note rows.
+6. Verify whether hymn numbers, keys, leaders, times, and sections can be extracted.
+7. Identify what authentication/session method would be required.
+8. Record risks of relying on authenticated Breeze web routes.
 
-* an API-first importer if service-plan item rows are confirmed through API, or
-* an export-file importer with optional API enrichment if song rows are only available through product exports/reports.
+After that, choose a build slice:
+
+* hybrid import proof of concept if page/internal route extraction is repeatable
+* authenticated plan-page HTML parser proof of concept if row data is in server-rendered HTML
+* PDF parser proof of concept only if page/internal route extraction is not viable and Dan approves the fallback
 
 ## Explicit Non-Scope for Slice 6
 
