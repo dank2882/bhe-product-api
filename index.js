@@ -15,6 +15,7 @@ const {
 const {
   getSongById,
   searchSongs,
+  updateSongIdentity,
   updateSongMinistryMetadata
 } = require("./lib/song-catalog-service");
 const {
@@ -4274,6 +4275,40 @@ app.patch("/songs/:songId/ministry-metadata", async (req, res) => {
   }
 });
 
+app.patch("/songs/:songId/identity", async (req, res) => {
+  try {
+    const result = await updateSongIdentity(
+      {
+        songId: req.params.songId,
+        changes: req.body?.changes,
+        changeReason: req.body?.changeReason,
+        changedBy: req.body?.changedBy
+      },
+      getSongCatalogDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      songId: result.songId,
+      canonicalTitle: result.canonicalTitle,
+      titleAliases: result.titleAliases,
+      normalizedLookupKeys: result.normalizedLookupKeys,
+      auditEntry: result.auditEntry,
+      updatedAt: result.updatedAt
+    });
+  } catch (error) {
+    console.error("Error updating song identity:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(
+        buildStructuredErrorResponse(error, {
+          fallbackCode: "song_identity_update_failed",
+          fallbackMessage: "Song identity update failed"
+        })
+      );
+  }
+});
+
 app.post("/services/search", async (req, res) => {
   try {
     const result = await searchServices(
@@ -6243,6 +6278,7 @@ module.exports = {
   startRepositoryDocumentOcr,
   strictNormalizeTitle,
   getSongById,
+  updateSongIdentity,
   updateSongMinistryMetadata,
   uploadRepositoryDocumentsToStorage,
   uploadAssetsToStorage
