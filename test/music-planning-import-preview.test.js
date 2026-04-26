@@ -116,6 +116,19 @@ test("parseMusicSlotValue keeps choir opener title-first while preserving raw va
   assert.deepEqual(result.warnings, []);
 });
 
+test("parseMusicSlotValue treats choir opener parenthetical as assignment detail, not title", () => {
+  const choirOpener = MUSIC_SLOT_DEFINITIONS.find((slot) => slot.key === "choir_opener");
+  const result = parseMusicSlotValue("Lift Him Up (Schuyler)", choirOpener);
+
+  assert.equal(result.rawValue, "Lift Him Up (Schuyler)");
+  assert.equal(result.songTitleCandidate, "Lift Him Up");
+  assert.equal(result.songTitle, "Lift Him Up");
+  assert.equal(result.assignedPersonOrGroupRaw, "Schuyler");
+  assert.equal(result.detailNote, "");
+  assert.equal(result.songTitleConfidence, "high");
+  assert.deepEqual(result.warnings, []);
+});
+
 test("buildPlanningPreviewFromWorksheetRows separates importable services from skipped shells", () => {
   const worksheet = {
     sheetName: "PROPOSED SCHEDULES",

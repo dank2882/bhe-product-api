@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { createHash } from "node:crypto";
 
 import previewTools from "../lib/music-planning-import-preview.js";
 
@@ -11,7 +12,8 @@ const {
   DEFAULT_SOURCE_SHEET_NAME,
   buildPlanningPreviewFromWorksheetRows,
   hashFile,
-  readXlsxWorksheet
+  readXlsxWorksheet,
+  worksheetFromCsvText
 } = previewTools;
 
 const DEFAULT_WORKBOOK_PATH = "/Users/danielkirchner/Downloads/Music Ministry - Master Data.xlsx";
@@ -20,6 +22,7 @@ const DEFAULT_OUTPUT_PATH = "tmp/music-planning-import-preview.json";
 function parseArgs(argv) {
   const options = {
     workbook: DEFAULT_WORKBOOK_PATH,
+    googleSheetId: "",
     sheet: DEFAULT_SOURCE_SHEET_NAME,
     year: DEFAULT_PLANNING_YEAR,
     out: DEFAULT_OUTPUT_PATH
@@ -31,6 +34,12 @@ function parseArgs(argv) {
 
     if (arg === "--workbook" && next) {
       options.workbook = next;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--google-sheet-id" && next) {
+      options.googleSheetId = next;
       index += 1;
       continue;
     }
@@ -73,6 +82,7 @@ function printHelp() {
   console.log("");
   console.log("Options:");
   console.log(`  --workbook <path>  XLSX workbook path. Default: ${DEFAULT_WORKBOOK_PATH}`);
+  console.log("  --google-sheet-id <id>  Read a shared Google Sheet CSV export instead of a local workbook.");
   console.log(`  --sheet <name>     Sheet name. Default: ${DEFAULT_SOURCE_SHEET_NAME}`);
   console.log(`  --year <year>      Planning year. Default: ${DEFAULT_PLANNING_YEAR}`);
   console.log(`  --out <path>       Preview JSON output path. Default: ${DEFAULT_OUTPUT_PATH}`);
@@ -155,20 +165,51 @@ async function main() {
 
   const workbookPath = path.resolve(options.workbook);
   const outputPath = path.resolve(options.out);
-  const workbookName = path.basename(workbookPath, path.extname(workbookPath));
-  const workbookFileName = path.basename(workbookPath);
-  const worksheet = readXlsxWorksheet({
-    workbookPath,
-    sheetName: options.sheet
-  });
+  const isGoogleSheet = Boolean(options.googleSheetId);
+  const workbookName = isGoogleSheet ? "Music Ministry - Master Data" : path.basename(workbookPath, path.extname(workbookPath));
+  const workbookFileName = isGoogleSheet ? `Google Sheet ${options.googleSheetId}` : path.basename(workbookPath);
+  let worksheet;
+  let sourceType = "spreadsheet_export";
+  let sourceFileHash = "";
+
+  if (isGoogleSheet) {
+    const sheetParam = encodeURIComponent(options.sheet);
+    const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(options.googleSheetId)}/gviz/tq?tqx=out:csv&sheet=${sheetParam}`;
+    const response = await fetch(url, { redirect: "follow" });
+    const csvText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`Google Sheet CSV export failed: ${response.status}`);
+    }
+
+    worksheet = worksheetFromCsvText({
+      csvText,
+      sheetName: options.sheet,
+      workbookPath: url,
+      sheetNames: [options.sheet]
+    });
+    sourceType = "google_sheet_export";
+    sourceFileHash = createHash("sha256").update(csvText).digest("hex");
+  } else {
+    worksheet = readXlsxWorksheet({
+      workbookPath,
+      sheetName: options.sheet
+    });
+    sourceFileHash = hashFile(workbookPath);
+  }
+
   const preview = buildPlanningPreviewFromWorksheetRows({
     worksheet,
     planningYear: options.year,
     sourceName: workbookName,
-    sourceType: "spreadsheet_export",
+    sourceType,
     sourceWorkbookName: workbookFileName,
-    sourceFileHash: hashFile(workbookPath)
+    sourceFileHash
   });
+
+  if (isGoogleSheet) {
+    preview.sourceImportPreview.sourceSpreadsheetId = options.googleSheetId;
+  }
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(preview, null, 2)}\n`);

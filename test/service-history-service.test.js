@@ -101,16 +101,80 @@ function buildBreezeImport(overrides = {}) {
   };
 }
 
+function buildSourceImport(overrides = {}) {
+  return {
+    sourceImportId: "sheet-import-1",
+    sourceType: "spreadsheet_export",
+    sourceName: "Music Ministry - Master Data",
+    sourceSheetName: "PROPOSED SCHEDULES",
+    sourceImportedAt: "2026-04-23T00:00:00.000Z",
+    status: "planned",
+    ...clone(overrides)
+  };
+}
+
+function buildSpreadsheetService(overrides = {}) {
+  return buildService({
+    serviceId: "svc-plan-2026-04-22-sunday-morning",
+    serviceDate: "2026-04-22",
+    serviceType: "sunday_morning",
+    title: "Morning Service",
+    theme: "Grace",
+    source: "spreadsheet_import",
+    sourceType: "spreadsheet_export",
+    sourceName: "Music Ministry - Master Data",
+    sourceImportId: "sheet-import-1",
+    rawBreezeReference: "",
+    planningStatus: "planned",
+    actualStatus: "unknown",
+    changedAfterPlan: false,
+    serviceLabels: ["AM"],
+    sourceSheetName: "PROPOSED SCHEDULES",
+    sourceRowNumber: 4,
+    sourceCell: "B4",
+    ...clone(overrides)
+  });
+}
+
+function buildSpreadsheetSongEvent(overrides = {}) {
+  return buildServiceSongEvent({
+    serviceSongEventId: "sse-plan-2026-04-22-c1",
+    serviceId: "svc-plan-2026-04-22-sunday-morning",
+    songId: null,
+    hymnalNumber: null,
+    title: "Jesus Saves",
+    songTitleCandidate: "Jesus Saves",
+    songTitleConfidence: "high",
+    serviceDate: "2026-04-22",
+    serviceType: "sunday_morning",
+    slotIndex: 10,
+    usageRole: "congregational",
+    source: "spreadsheet_import",
+    sourceType: "spreadsheet_export",
+    sourceImportId: "sheet-import-1",
+    planningStatus: "planned",
+    actualStatus: "unknown",
+    changedAfterPlan: false,
+    sourceColumnName: "Congregational #1",
+    sourceCell: "C4",
+    assignedPersonOrGroupRaw: "",
+    detailNote: "",
+    ...clone(overrides)
+  });
+}
+
 function createDeps({
   services = {},
   serviceSongEvents = {},
   breezeImports = {},
+  sourceImports = {},
   now = () => new Date("2026-04-23T12:00:00.000Z")
 } = {}) {
   return {
     servicesCollection: new FakeCollection(services),
     serviceSongEventsCollection: new FakeCollection(serviceSongEvents),
     breezeImportsCollection: new FakeCollection(breezeImports),
+    sourceImportsCollection: new FakeCollection(sourceImports),
     now
   };
 }
@@ -271,6 +335,7 @@ test("searchServices supports last Sunday morning lookup from normalized Breeze 
 
   assert.equal(result.count, 1);
   assert.deepEqual(result.appliedFilters, {
+    dateScope: "past",
     serviceDate: "2026-04-19",
     serviceType: "sunday_morning"
   });
@@ -294,6 +359,7 @@ test("searchServices supports Easter Sunday morning lookup for a specific year",
   assert.equal(result.count, 1);
   assert.equal(result.services[0].serviceId, "svc-2025-04-20-am");
   assert.deepEqual(result.appliedFilters, {
+    dateScope: "past",
     dateFrom: "2025-01-01",
     dateTo: "2025-12-31",
     serviceType: "sunday_morning",
@@ -313,6 +379,7 @@ test("searchServices returns ambiguity warnings when multiple Lord's Supper even
 
   assert.equal(result.count, 2);
   assert.deepEqual(result.appliedFilters, {
+    dateScope: "past",
     labels: ["lords_supper"]
   });
   assert.deepEqual(result.warnings, [
@@ -332,6 +399,7 @@ test("searchServices supports Sunday night services this month lookup", async ()
 
   assert.equal(result.count, 3);
   assert.deepEqual(result.appliedFilters, {
+    dateScope: "past",
     dateFrom: "2026-04-01",
     dateTo: "2026-04-30",
     serviceType: "sunday_night"
@@ -340,6 +408,320 @@ test("searchServices supports Sunday night services this month lookup", async ()
     result.services.map((service) => service.serviceId),
     ["svc-2026-04-19-pm", "svc-2026-04-12-pm", "svc-2026-04-05-ls"]
   );
+});
+
+test("searchServices defaults to past services and excludes today/future services", async () => {
+  const deps = createDeps({
+    services: {
+      past: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-22-sunday-morning",
+        serviceDate: "2026-04-22"
+      }),
+      today: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-23-sunday-morning",
+        serviceDate: "2026-04-23"
+      }),
+      future: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24"
+      })
+    },
+    serviceSongEvents: {
+      pastEvent: buildSpreadsheetSongEvent({
+        serviceId: "svc-plan-2026-04-22-sunday-morning",
+        serviceDate: "2026-04-22"
+      }),
+      todayEvent: buildSpreadsheetSongEvent({
+        serviceSongEventId: "sse-plan-2026-04-23-c1",
+        serviceId: "svc-plan-2026-04-23-sunday-morning",
+        serviceDate: "2026-04-23"
+      }),
+      futureEvent: buildSpreadsheetSongEvent({
+        serviceSongEventId: "sse-plan-2026-04-24-c1",
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24"
+      })
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    },
+    now: () => new Date("2026-04-23T12:00:00.000Z")
+  });
+
+  const result = await searchServices(
+    {
+      filters: {
+        serviceType: "sunday_morning"
+      }
+    },
+    deps
+  );
+
+  assert.deepEqual(result.appliedFilters, {
+    dateScope: "past",
+    serviceType: "sunday_morning"
+  });
+  assert.deepEqual(
+    result.services.map((service) => service.serviceId),
+    ["svc-plan-2026-04-22-sunday-morning"]
+  );
+});
+
+test("searchServices uses the ministry-local date boundary for default history scope", async () => {
+  const deps = createDeps({
+    services: {
+      currentLocalDay: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24"
+      }),
+      previousLocalDay: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-23-sunday-morning",
+        serviceDate: "2026-04-23"
+      })
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    },
+    now: () => new Date("2026-04-25T04:30:00.000Z")
+  });
+
+  const result = await searchServices(
+    {
+      filters: {
+        serviceType: "sunday_morning"
+      }
+    },
+    deps
+  );
+
+  assert.deepEqual(
+    result.services.map((service) => service.serviceId),
+    ["svc-plan-2026-04-23-sunday-morning"]
+  );
+});
+
+test("searchServices supports upcoming dateScope for today and future planned services", async () => {
+  const deps = createDeps({
+    services: {
+      past: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-22-sunday-morning",
+        serviceDate: "2026-04-22"
+      }),
+      today: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-23-sunday-morning",
+        serviceDate: "2026-04-23"
+      }),
+      future: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24"
+      })
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    },
+    now: () => new Date("2026-04-23T12:00:00.000Z")
+  });
+
+  const result = await searchServices(
+    {
+      filters: {
+        dateScope: "upcoming",
+        serviceType: "sunday_morning"
+      }
+    },
+    deps
+  );
+
+  assert.deepEqual(
+    result.services.map((service) => service.serviceId),
+    [
+      "svc-plan-2026-04-24-sunday-morning",
+      "svc-plan-2026-04-23-sunday-morning"
+    ]
+  );
+});
+
+test("searchServices supports any dateScope for past and upcoming services", async () => {
+  const deps = createDeps({
+    services: {
+      past: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-22-sunday-morning",
+        serviceDate: "2026-04-22"
+      }),
+      future: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24"
+      })
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    },
+    now: () => new Date("2026-04-23T12:00:00.000Z")
+  });
+
+  const result = await searchServices(
+    {
+      filters: {
+        dateScope: "any",
+        serviceType: "sunday_morning"
+      }
+    },
+    deps
+  );
+
+  assert.deepEqual(
+    result.services.map((service) => service.serviceId),
+    [
+      "svc-plan-2026-04-24-sunday-morning",
+      "svc-plan-2026-04-22-sunday-morning"
+    ]
+  );
+});
+
+test("past spreadsheet-imported services appear in history results with status and source fields", async () => {
+  const deps = createDeps({
+    services: {
+      "svc-plan-2026-04-22-sunday-morning": buildSpreadsheetService()
+    },
+    serviceSongEvents: {
+      pastEvent: buildSpreadsheetSongEvent()
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    },
+    now: () => new Date("2026-04-23T12:00:00.000Z")
+  });
+
+  const result = await searchServices(
+    {
+      filters: {
+        serviceDate: "2026-04-22",
+        serviceType: "sunday_morning"
+      }
+    },
+    deps
+  );
+
+  assert.equal(result.count, 1);
+  assert.equal(result.services[0].source, "spreadsheet_import");
+  assert.equal(result.services[0].sourceType, "spreadsheet_export");
+  assert.equal(result.services[0].sourceName, "Music Ministry - Master Data");
+  assert.equal(result.services[0].planningStatus, "planned");
+  assert.equal(result.services[0].actualStatus, "unknown");
+  assert.equal(result.services[0].changedAfterPlan, false);
+  assert.deepEqual(result.services[0].importContext, {
+    importId: "sheet-import-1",
+    status: "planned",
+    importedAt: "2026-04-23T00:00:00.000Z",
+    sourceType: "spreadsheet_export",
+    sourceName: "Music Ministry - Master Data",
+    sourceSheetName: "PROPOSED SCHEDULES"
+  });
+});
+
+test("future spreadsheet-imported services do not appear in default history results", async () => {
+  const deps = createDeps({
+    services: {
+      future: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24"
+      })
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    },
+    now: () => new Date("2026-04-23T12:00:00.000Z")
+  });
+
+  const result = await searchServices(
+    {
+      filters: {
+        serviceType: "sunday_morning"
+      }
+    },
+    deps
+  );
+
+  assert.equal(result.count, 0);
+});
+
+test("upcoming planned service song events preserve special-music fields", async () => {
+  const deps = createDeps({
+    services: {
+      future: buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24"
+      })
+    },
+    serviceSongEvents: {
+      assignmentOnly: buildSpreadsheetSongEvent({
+        serviceSongEventId: "sse-plan-2026-04-24-special-1",
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24",
+        slotIndex: 60,
+        usageRole: "special_music",
+        title: "",
+        songTitleCandidate: "",
+        songTitleConfidence: "low",
+        assignedPersonOrGroupRaw: "Gabe & Abby D",
+        detailNote: "",
+        sourceColumnName: "Special #1",
+        sourceCell: "H4"
+      }),
+      performerPlusTitle: buildSpreadsheetSongEvent({
+        serviceSongEventId: "sse-plan-2026-04-24-special-2",
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24",
+        slotIndex: 70,
+        usageRole: "special_music",
+        title: "Around the Corner",
+        songTitleCandidate: "Around the Corner",
+        songTitleConfidence: "medium",
+        assignedPersonOrGroupRaw: "Gendro family",
+        sourceColumnName: "Special #2",
+        sourceCell: "I4"
+      }),
+      detailNote: buildSpreadsheetSongEvent({
+        serviceSongEventId: "sse-plan-2026-04-24-special-3",
+        serviceId: "svc-plan-2026-04-24-sunday-morning",
+        serviceDate: "2026-04-24",
+        slotIndex: 80,
+        usageRole: "special_music",
+        title: "",
+        songTitleCandidate: "",
+        songTitleConfidence: "low",
+        assignedPersonOrGroupRaw: "FBCA Elementary",
+        detailNote: "K-2",
+        sourceColumnName: "Special #3",
+        sourceCell: "J4"
+      })
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    },
+    now: () => new Date("2026-04-23T12:00:00.000Z")
+  });
+
+  const result = await searchServices(
+    {
+      filters: {
+        dateScope: "upcoming",
+        serviceDate: "2026-04-24"
+      }
+    },
+    deps
+  );
+
+  const songs = result.services[0].songs;
+  assert.equal(songs[0].assignedPersonOrGroupRaw, "Gabe & Abby D");
+  assert.equal(songs[0].songTitleCandidate, "");
+  assert.equal(songs[0].sourceColumnName, "Special #1");
+  assert.equal(songs[0].sourceCell, "H4");
+  assert.equal(songs[1].assignedPersonOrGroupRaw, "Gendro family");
+  assert.equal(songs[1].songTitleCandidate, "Around the Corner");
+  assert.equal(songs[1].songTitleConfidence, "medium");
+  assert.equal(songs[2].assignedPersonOrGroupRaw, "FBCA Elementary");
+  assert.equal(songs[2].detailNote, "K-2");
 });
 
 test("getServiceById returns the normalized service detail with songs and import context", async () => {
@@ -361,9 +743,40 @@ test("getServiceById returns the normalized service detail with songs and import
   );
   assert.deepEqual(result.service.importContext, {
     importId: "breeze-import-1",
+    sourceType: "breeze",
     status: "completed",
     importedAt: "2026-04-23T00:00:00.000Z"
   });
+});
+
+test("getServiceById returns planned spreadsheet detail with sourceImports context", async () => {
+  const deps = createDeps({
+    services: {
+      "svc-plan-2026-04-22-sunday-morning": buildSpreadsheetService()
+    },
+    serviceSongEvents: {
+      pastEvent: buildSpreadsheetSongEvent()
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    }
+  });
+
+  const result = await getServiceById(
+    {
+      serviceId: "svc-plan-2026-04-22-sunday-morning"
+    },
+    deps
+  );
+
+  assert.equal(result.service.planningStatus, "planned");
+  assert.equal(result.service.actualStatus, "unknown");
+  assert.equal(result.service.changedAfterPlan, false);
+  assert.equal(result.service.sourceType, "spreadsheet_export");
+  assert.equal(result.service.sourceSheetName, "PROPOSED SCHEDULES");
+  assert.equal(result.service.sourceRowNumber, 4);
+  assert.equal(result.service.sourceCell, "B4");
+  assert.equal(result.service.importContext.sourceType, "spreadsheet_export");
 });
 
 test("searchServices rejects requests with no query and no filters", async () => {

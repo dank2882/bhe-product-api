@@ -139,6 +139,7 @@ const songMetadataAuditCollection = db.collection("songMetadataAudit");
 const servicesCollection = db.collection("services");
 const serviceSongEventsCollection = db.collection("serviceSongEvents");
 const breezeImportsCollection = db.collection("breezeImports");
+const sourceImportsCollection = db.collection("sourceImports");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }
@@ -2002,6 +2003,7 @@ function getServiceHistoryDependencies(overrides = {}) {
     servicesCollection,
     serviceSongEventsCollection,
     breezeImportsCollection,
+    sourceImportsCollection,
     ...overrides
   };
 }
