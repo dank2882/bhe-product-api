@@ -152,6 +152,10 @@ const {
   prepareSermonPresentationTemplateImport
 } = require("./lib/sermon-presentation-template-import");
 const {
+  createPresentationTemplateUpload,
+  importPresentationTemplateUpload
+} = require("./lib/sermon-presentation-template-upload-service");
+const {
   processSermonTranscriptionJob
 } = require("./lib/sermon-transcription-job-service");
 const {
@@ -10852,6 +10856,54 @@ app.post("/sermon-workspace/scripture-note-uploads/:uploadId/import", async (req
       .json(buildStructuredErrorResponse(error, {
         fallbackCode: "scripture_note_upload_import_failed",
         fallbackMessage: "The staged Scripture notes file could not be imported"
+      }));
+  }
+});
+
+app.post("/sermon-workspace/presentation-template-uploads", async (req, res) => {
+  const requestId = randomUUID();
+  try {
+    const result = await createPresentationTemplateUpload(req.body || {}, {
+      bucket: storage.bucket(BUCKET_NAME)
+    });
+    return res.status(201).json({ ok: true, requestId, result });
+  } catch (error) {
+    console.error("Error creating staged presentation-template upload:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(buildStructuredErrorResponse(error, {
+        fallbackCode: "presentation_template_upload_create_failed",
+        fallbackMessage: "Presentation-template upload could not be created"
+      }));
+  }
+});
+
+app.post("/sermon-workspace/presentation-template-uploads/:uploadId/import", async (req, res) => {
+  const requestId = randomUUID();
+  try {
+    const operationDeps = getSermonWorkspaceDependencies();
+    const result = await importPresentationTemplateUpload({
+      ...(req.body || {}),
+      uploadId: req.params.uploadId
+    }, {
+      bucket: storage.bucket(BUCKET_NAME),
+      runImport: ({ arguments: operationArguments, idempotencyKey }) => (
+        runIdempotentSermonWorkspaceOperation({
+          mode: "command",
+          operation: "importSermonPresentationTemplate",
+          arguments: operationArguments,
+          idempotencyKey
+        }, operationDeps)
+      )
+    });
+    return res.status(200).json({ ok: true, requestId, ...result });
+  } catch (error) {
+    console.error("Error importing staged presentation-template upload:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(buildStructuredErrorResponse(error, {
+        fallbackCode: "presentation_template_upload_import_failed",
+        fallbackMessage: "The staged presentation-template file could not be imported"
       }));
   }
 });
