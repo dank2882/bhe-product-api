@@ -24,9 +24,9 @@ Dispatcher request shape:
 }
 ```
 
-Catalog version: `1-212020f3be3a`
+Catalog version: `1-96ee2cfebecf`
 
-Catalog hash: `212020f3be3ac92a16f42338ac68a86fb16acd8d846026aca64568b9ec15cc25`
+Catalog hash: `96ee2cfebecf0953f0eebf292a0bf77d03b9858ad3aece50a472f321621acae7`
 
 The registry currently exposes 89 operations. Adding registry operations does not add OpenAPI operations.
 
@@ -1328,7 +1328,7 @@ Import old chats, notes, transcripts, Logos exports, or documents into a sermon 
 
 Required: none
 
-Optional: `sermonId`, `title`, `scriptureText`, `bigIdea`, `outline`, `notes`, `developmentNotes`, `importedSummary`, `importedMaterial`, `sourceType`, `sourceLabel`, `sourceRefs`, `occasions`, `updateMode`, `replaceExisting`, `status`, `seriesId`, `seriesTitle`, `seriesSlug`, `seriesNumber`, `tags`
+Optional: `sermonId`, `title`, `scriptureText`, `bigIdea`, `outline`, `notes`, `developmentNotes`, `importedSummary`, `importedMaterial`, `sourceType`, `sourceLabel`, `sourceRefs`, `occasions`, `updateMode`, `replaceExisting`, `status`, `targetDate`, `preachedDate`, `occasion`, `snapshotReason`, `seriesId`, `seriesTitle`, `seriesSlug`, `seriesNumber`, `tags`
 
 ```json
 {

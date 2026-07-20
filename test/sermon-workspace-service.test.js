@@ -3237,6 +3237,43 @@ test("imports sermon material into an existing sermon without overwriting outlin
   assert.equal(result.source.sourceType, "study_notes");
 });
 
+test("preached transcript imports mark the sermon and imported occasion preached by default", async () => {
+  const deps = createDeps({
+    sermons: {
+      "sermon-season-in-egypt": {
+        sermonId: "sermon-season-in-egypt",
+        title: "Season in Egypt",
+        status: "developing",
+        targetDate: "2026-07-19",
+        updatedAt: "2026-07-19T16:00:00.000Z"
+      }
+    }
+  });
+
+  const result = await importSermonMaterial(
+    {
+      sermonId: "sermon-season-in-egypt",
+      sourceType: "preached_transcript",
+      sourceLabel: "Sunday morning transcript — July 19, 2026",
+      importedMaterial: "The preached transcript.",
+      occasions: [
+        {
+          date: "2026-07-19",
+          time: "11:00",
+          venue: "Faith Baptist Church",
+          service: "Sunday Morning"
+        }
+      ]
+    },
+    deps
+  );
+
+  assert.equal(result.sermon.status, "preached");
+  assert.equal(result.sermon.preachedDate, "2026-07-19");
+  assert.equal(result.occasions.length, 1);
+  assert.equal(result.occasions[0].status, "preached");
+});
+
 test("batch imports Logos sermon material and rebuilds chunks", async () => {
   const deps = createDeps({
     folders: {
