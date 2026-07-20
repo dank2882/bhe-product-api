@@ -246,6 +246,7 @@ test("applies a confirmed reflection with analysis, exact live language, comment
   assert.equal(applied.liveLanguage.savedCount, 1);
   assert.equal(applied.scriptureNotes.createdNoteCount, 2);
   assert.equal(applied.chunksRebuilt, true);
+  assert.ok(applied.chunkCount > 0);
   const analysis = Array.from(deps.preachingAnalysesCollection.store.values())[0];
   assert.equal(analysis.reflectionProposalId, proposed.proposal.proposalId);
   assert.equal(analysis.sourceRefs[1].sourceId, "source-cleaned");
