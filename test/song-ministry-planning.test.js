@@ -35,6 +35,7 @@ test("normalizeSongMinistryPlanning normalizes hard planning guardrails", () => 
   assert.deepEqual(result, {
     schemaVersion: "song-ministry-planning-v1",
     useStatus: "do_not_use",
+    occasionOnly: false,
     allowedUsageRoles: ["congregational", "invitation"],
     blockedUsageRoles: ["offertory"],
     seasonalUse: ["children", "christmas", "military", "mother_day"],
@@ -108,6 +109,42 @@ test("evaluateSongActiveCongregationalPool accepts standard ready congregational
 
   assert.equal(result.active, true);
   assert.deepEqual(result.blockedReasons, []);
+});
+
+test("evaluateSongActiveCongregationalPool keeps Rejoice 680 active when occasion topics are descriptive", () => {
+  const result = evaluateSongActiveCongregationalPool({
+    songId: "rejoice-0680",
+    topics: ["Joy", "Temptation and Trials", "Funeral and Memorial"],
+    ministryPlanning: {
+      leaderReadiness: {
+        dan: "ready_now"
+      },
+      congregationFit: "strong",
+      energy: "reflective",
+      rotationStrength: "solid_rotation"
+    }
+  });
+
+  assert.equal(result.active, true);
+  assert.deepEqual(result.blockedReasons, []);
+  assert.deepEqual(result.warnings, ["use_status_unknown", "tempo_unknown"]);
+});
+
+test("evaluateSongActiveCongregationalPool excludes explicit occasion-only songs", () => {
+  const result = evaluateSongActiveCongregationalPool({
+    songId: "rejoice-0400",
+    topics: ["Joy", "Wedding"],
+    ministryPlanning: {
+      useStatus: "active",
+      occasionOnly: true,
+      leaderReadiness: {
+        dan: "ready_now"
+      }
+    }
+  });
+
+  assert.equal(result.active, false);
+  assert.deepEqual(result.blockedReasons, ["occasion_only"]);
 });
 
 test("evaluateSongActiveCongregationalPool excludes non-active or occasion-only songs", () => {

@@ -39,6 +39,7 @@ Recommended shape:
 {
   "schemaVersion": "song-ministry-planning-v1",
   "useStatus": "active",
+  "occasionOnly": false,
   "allowedUsageRoles": ["congregational"],
   "blockedUsageRoles": [],
   "seasonalUse": [],
@@ -67,6 +68,13 @@ Recommended shape:
 * `do_not_use`: never suggest or plan this song
 * `inactive`: out of rotation unless Dan intentionally restores it
 * `unknown`: no local decision recorded yet
+
+`occasionOnly`:
+
+* `true`: hard-exclude the song from the ordinary-service active pool
+* `false`: allow ordinary-service consideration unless another hard guardrail blocks it
+
+Hymnal topics are descriptive and may show several valid contexts for the same song. A topic such as `Funeral and Memorial`, `Wedding`, or `Thanksgiving` does not by itself mean the song is restricted to that occasion. Use `occasionOnly: true` or a non-empty `seasonalUse` list for an actual hard restriction.
 
 `allowedUsageRoles`:
 
@@ -247,13 +255,15 @@ A song is in the active congregational pool when all of these are true:
 * `ministryPlanning.worshipFunctions` does not contain `chorus_append`
 * the song is not in the hymnal `Choruses` topic
 * `ministryPlanning.seasonalUse` is empty for ordinary services
-* the song is not an occasion-only topic such as Christmas, Easter, Thanksgiving, Patriotic, Missions, Children, Wedding, Funeral/Memorial, Communion, New Year, Mother's Day, Father's Day, Dedication of Children, or Baptism
+* `ministryPlanning.occasionOnly` is not `true`
+
+Hymnal topics are recommendation signals, not hard restrictions. For example, a song tagged `Funeral and Memorial` may still belong in the ordinary pool when it is also a strong general congregational song. Hard occasion restrictions must be recorded through `occasionOnly` or `seasonalUse`.
 
 Use the active pool as a starting point, not as the whole planning decision. Songs marked `rotationStrength: rare` may still be used, but the GPT should downweight them unless Dan asks for one or the theme strongly warrants it.
 
 Use the dispatcher operation `buildActiveCongregationalPool` to compute the count and candidate list. Do not manually approximate this pool from `queryData`; manual filtering is too easy to drift from the canonical backend rule.
 
-For special services, start from the same guardrails but intentionally allow matching `seasonalUse` or occasion topics. For example, Christmas planning may include `seasonalUse: christmas` and Christmas-topic songs.
+For special services, start from the same guardrails but intentionally allow matching `seasonalUse`, explicit occasion-only songs, or relevant occasion topics. For example, Christmas planning may include `seasonalUse: christmas` and Christmas-topic songs.
 
 ## Common Song Rule Examples
 

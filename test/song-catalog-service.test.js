@@ -317,9 +317,24 @@ test("buildActiveCongregationalPool returns backend-computed ordinary-service po
       topics: ["Christmas"],
       ministryPlanning: {
         useStatus: "active",
+        seasonalUse: ["christmas"],
         leaderReadiness: {
           dan: "ready_now"
         }
+      }
+    }),
+    "rejoice-0680": buildSong({
+      songId: "rejoice-0680",
+      hymnalNumber: 680,
+      canonicalTitle: "Rejoice in the Lord",
+      topics: ["Joy", "Temptation and Trials", "Funeral and Memorial"],
+      ministryPlanning: {
+        leaderReadiness: {
+          dan: "ready_now"
+        },
+        congregationFit: "strong",
+        energy: "reflective",
+        rotationStrength: "solid_rotation"
       }
     }),
     "rejoice-0300": buildSong({
@@ -349,10 +364,10 @@ test("buildActiveCongregationalPool returns backend-computed ordinary-service po
 
   const result = await buildActiveCongregationalPool({ limit: 10 }, deps);
 
-  assert.equal(result.count, 2);
+  assert.equal(result.count, 3);
   assert.deepEqual(
     result.songs.map((song) => song.songId),
-    ["rejoice-0001", "rejoice-0002"]
+    ["rejoice-0001", "rejoice-0002", "rejoice-0680"]
   );
   assert.deepEqual(result.songs[1].activePool.warnings, [
     "rare_rotation",
@@ -360,7 +375,7 @@ test("buildActiveCongregationalPool returns backend-computed ordinary-service po
     "tempo_unknown",
     "congregation_fit_unknown"
   ]);
-  assert.equal(result.exclusionCounts.occasion_topic, 1);
+  assert.equal(result.exclusionCounts.seasonal_or_occasion_only, 1);
   assert.equal(result.exclusionCounts.usage_role_not_allowed, 1);
 });
 
