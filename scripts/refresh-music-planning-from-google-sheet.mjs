@@ -52,6 +52,7 @@ function printHelp() {
   console.log("  --year <year>                   Planning year. Default: 2026");
   console.log("  --out-dir <path>                Artifact directory. Default: tmp");
   console.log("  --allow-planned-updates         Required when commit plan includes planned updates.");
+  console.log("  --allow-partial-conflicts       Commit safe rows while reporting known-safe unrelated conflicts.");
   console.log("  --confirm-source-import-id <id> Required exact source import ID confirmation for --commit.");
   console.log("  --project <id>                  Google Cloud project. Default: location-map-985");
   console.log("  --database <id>                 Firestore database. Default: chatgptstorage");
@@ -219,6 +220,7 @@ async function applyClassifiedTargets(db, classifications) {
 
 function buildCommitResult({ plan, validation, classifications, writeResult, options, planPath }) {
   const summary = summarizeCommitClassifications(classifications);
+  const planConflicts = Array.isArray(plan.conflicts) ? plan.conflicts : [];
 
   return {
     sourceImportId: validation.sourceImportId,
@@ -239,6 +241,13 @@ function buildCommitResult({ plan, validation, classifications, writeResult, opt
         kind: item.target.kind,
         reason: item.reason
       })),
+    planConflictsSkipped: planConflicts.map((item) => ({
+      id: item.id,
+      action: item.action,
+      reason: item.reason,
+      serviceDate: item.proposed?.serviceDate || item.existing?.serviceDate || "",
+      serviceType: item.proposed?.serviceType || item.existing?.serviceType || ""
+    })),
     safety: {
       updatesPerformed: writeResult.updated.length,
       plannedUpdatesPerformed: writeResult.updated.length,
@@ -246,7 +255,9 @@ function buildCommitResult({ plan, validation, classifications, writeResult, opt
       completionChangesPerformed: 0,
       catalogMatchesPerformed: 0,
       gptArtifactsChanged: false,
-      deploymentsPerformed: 0
+      deploymentsPerformed: 0,
+      partialConflictsAllowed: options.allowPartialConflicts === true,
+      planConflictsSkipped: planConflicts.length
     }
   };
 }

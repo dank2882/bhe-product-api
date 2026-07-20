@@ -1,0 +1,965 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sermon Workspace Dispatcher API",
+    "version": "2.5.0",
+    "description": "Stable Custom GPT contract routing an extensible backend sermon operation catalog, with specialized typed Actions for high-value workflows."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/sermon-workspace/operations": {
+      "get": {
+        "operationId": "listSermonWorkspaceOperations",
+        "summary": "List the live sermon workspace operation catalog and argument requirements",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "query",
+                "artifact",
+                "command"
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation catalog returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationCatalogResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-workspace/query": {
+      "post": {
+        "operationId": "runSermonWorkspaceQuery",
+        "summary": "Run one read-only operation from the sermon workspace catalog",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation completed or returned a structured operation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-workspace/artifact": {
+      "post": {
+        "operationId": "runSermonWorkspaceArtifact",
+        "summary": "Generate one downloadable artifact using an operation from the sermon workspace catalog",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation completed or returned a structured operation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-presentations/from-lookup": {
+      "post": {
+        "operationId": "runSermonSlides",
+        "summary": "Run the /slides backend command and return its editable 16:9 sermon deck",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "title",
+                  "idempotencyKey"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "description": "Exact YYYY-MM-DD target or preached date."
+                  },
+                  "dateField": {
+                    "type": "string",
+                    "enum": [
+                      "either",
+                      "preachedDate",
+                      "targetDate"
+                    ],
+                    "default": "either"
+                  },
+                  "preachedDate": {
+                    "type": "string"
+                  },
+                  "scriptureText": {
+                    "type": "string"
+                  },
+                  "occasion": {
+                    "type": "string"
+                  },
+                  "seriesTitle": {
+                    "type": "string"
+                  },
+                  "presentationTitle": {
+                    "type": "string"
+                  },
+                  "templateId": {
+                    "type": "string"
+                  },
+                  "compact": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Presentation created or a structured operation error returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SermonPresentationActionResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-workspace/command": {
+      "post": {
+        "operationId": "runSermonWorkspaceCommand",
+        "summary": "Run one durable create, import, append, update, or indexing operation from the sermon workspace catalog",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation completed or returned a structured operation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/walk-sessions": {
+      "post": {
+        "operationId": "createSermonWalkSession",
+        "summary": "Create a lossless sermon-development walk session",
+        "description": "Starts an append-only sermon walk capture and returns a scoped mobile launch URL. The walk app durably records audio, exact transcript turns, save receipts, and an integrity manifest before the session can close.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": { "type": "string" },
+                  "context": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sermon walk session and scoped launch URL created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GenericResponse" }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/manuscript-draft": {
+      "post": {
+        "operationId": "createSermonManuscriptDraft",
+        "summary": "Create a backend-selected sermon manuscript DOCX draft",
+        "responses": {
+          "200": {
+            "description": "Dry-run context stats returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "DOCX manuscript draft created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false,
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dryRun": {
+                    "type": "boolean"
+                  },
+                  "runAiSelectionInDryRun": {
+                    "type": "boolean"
+                  },
+                  "docTitle": {
+                    "type": "string"
+                  },
+                  "targetLength": {
+                    "type": "string"
+                  },
+                  "tone": {
+                    "type": "string"
+                  },
+                  "focusNotes": {
+                    "type": "string"
+                  },
+                  "manuscriptFormat": {
+                    "type": "string"
+                  },
+                  "includeSourceMaterial": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "sourceLimit": {
+                    "type": "integer",
+                    "default": 100,
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "maxSelectedSources": {
+                    "type": "integer",
+                    "default": 24,
+                    "minimum": 1,
+                    "maximum": 50
+                  },
+                  "useAiSourceSelection": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "semanticLimit": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 0,
+                    "maximum": 20
+                  },
+                  "semanticQuery": {
+                    "type": "string"
+                  },
+                  "sourceMaterialBudget": {
+                    "type": "integer",
+                    "minimum": 6000,
+                    "maximum": 600000
+                  },
+                  "maxOutputTokens": {
+                    "type": "integer",
+                    "minimum": 2000,
+                    "maximum": 128000
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "seriesId": {
+                    "type": "string"
+                  },
+                  "seriesTitle": {
+                    "type": "string"
+                  },
+                  "seriesSlug": {
+                    "type": "string"
+                  },
+                  "seriesNumber": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "manuscriptMode": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "assembly"
+                    ],
+                    "default": "draft",
+                    "description": "Use assembly when Dan wants the manuscript assembled from supplied development material with minimal connective prose and no invented fuller sermon."
+                  },
+                  "excludeGeneratedManuscriptSources": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Generated prior manuscript drafts are excluded by default to avoid feedback-loop poisoning."
+                  },
+                  "includeGeneratedManuscriptSources": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Explicit opt-in to allow prior generated manuscript drafts as source material."
+                  },
+                  "includePriorManuscriptSources": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Alias for explicit opt-in to allow prior generated manuscript drafts as source material."
+                  },
+                  "requireReliefEnding": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "In assembly mode, enforce a relief-shaped ending instead of a long instruction/application list."
+                  },
+                  "requireSimpleFinalPosture": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "In assembly mode, require the simple final posture from Dan’s material when present."
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sermon-media/{mediaId}/transcribe": {
+      "post": {
+        "operationId": "transcribeSermonMedia",
+        "summary": "Transcribe sermon media",
+        "responses": {
+          "201": {
+            "description": "Media transcribed and source saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false,
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "sourceLabel": {
+                    "type": "string"
+                  },
+                  "rebuildChunks": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "embedChunks": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "embedLimit": {
+                    "type": "integer",
+                    "default": 50,
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sermons/{sermonId}/media/upload-url": {
+      "post": {
+        "operationId": "createSermonMediaUploadUrl",
+        "summary": "Create sermon media upload URL",
+        "responses": {
+          "201": {
+            "description": "Media record and signed upload URL created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false,
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filename": {
+                    "type": "string"
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "recordedAt": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "filename",
+                  "contentType"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sermons/{sermonId}/media/import-url": {
+      "post": {
+        "operationId": "importSermonMediaFromUrl",
+        "summary": "Import sermon media from a public URL",
+        "responses": {
+          "201": {
+            "description": "Media imported and optionally transcribed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false,
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "filename": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "recordedAt": {
+                    "type": "string"
+                  },
+                  "startSeconds": {
+                    "type": "number"
+                  },
+                  "endSeconds": {
+                    "type": "number"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "transcribe": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "rebuildChunks": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "embedChunks": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "embedLimit": {
+                    "type": "integer",
+                    "default": 50,
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "url"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DispatchRequest": {
+        "type": "object",
+        "required": [
+          "operation",
+          "arguments"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "Exact operation name from the live or uploaded sermon workspace operation catalog."
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "openaiFileIdRefs": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Files attached in this ChatGPT conversation. Keep this parameter name exact. At runtime ChatGPT supplies file-reference objects with name, mime_type, and temporary download_link fields.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "For artifact and command calls, use one stable unique key per user intent and reuse it only when retrying that same intent."
+          }
+        }
+      },
+      "DispatchResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "query",
+              "artifact",
+              "command"
+            ]
+          },
+          "result": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "status": {
+                "type": "integer"
+              },
+              "details": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              },
+              "requestId": {
+                "type": "string"
+              }
+            }
+          },
+          "idempotency": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "protected": {
+                "type": "boolean"
+              },
+              "replayed": {
+                "type": "boolean"
+              },
+              "executionId": {
+                "type": "string"
+              },
+              "keyHash": {
+                "type": "string"
+              }
+            }
+          },
+          "openaiFileResponse": {
+            "type": "array",
+            "description": "Files returned to ChatGPT for download.",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "maxItems": 10
+          }
+        }
+      },
+      "SermonPresentationActionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "requestId",
+          "operation"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "presentationId": {
+            "type": "string"
+          },
+          "sermonId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "aspectRatio": {
+            "type": "string"
+          },
+          "slideCount": {
+            "type": "integer"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "downloadUrlExpiresAt": {
+            "type": "string"
+          },
+          "templateId": {
+            "type": "string"
+          },
+          "templateName": {
+            "type": "string"
+          },
+          "idempotencyReplayed": {
+            "type": "boolean"
+          },
+          "executionId": {
+            "type": "string"
+          },
+          "openaiFileResponse": {
+            "type": "array",
+            "description": "Editable PPTX files returned to ChatGPT for download.",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "maxItems": 10
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "errorStatus": {
+            "type": "integer"
+          }
+        }
+      },
+      "OperationCatalogResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "count": {
+            "type": "integer"
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "operation": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "optional": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "exampleArguments": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "status": {
+                "type": "integer"
+              },
+              "details": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              },
+              "requestId": {
+                "type": "string"
+              }
+            }
+          },
+          "catalogHash": {
+            "type": "string"
+          }
+        }
+      },
+      "GenericResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  }
+}

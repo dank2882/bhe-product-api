@@ -285,6 +285,7 @@
       "post": {
         "operationId": "getAssetDownloadUrl",
         "summary": "Get a signed download URL for an existing product asset",
+        "description": "Use this to retrieve or view an attached product file. Prefer assetId from the product asset record when available; otherwise use storagePath or storageKey from getProductAssets.",
         "parameters": [
           {
             "name": "slug",
@@ -383,7 +384,7 @@
     "/products/{slug}/assets/import-openai-files": {
       "post": {
         "operationId": "importOpenAiFilesToProduct",
-        "summary": "Legacy alias for uploading chat file references into backend-managed asset storage",
+        "summary": "Deprecated legacy alias. Do not use for normal product uploads; use uploadAssetsToStorage instead.",
         "parameters": [
           {
             "name": "slug",
@@ -763,7 +764,8 @@
     "/products/{slug}/assets/upload-openai-files": {
       "post": {
         "operationId": "uploadAssetsToStorage",
-        "summary": "Upload conversation file refs into backend-managed asset storage; requires openaiFileIdRefs from the ChatGPT action payload",
+        "summary": "Upload attached conversation files to backend storage for a product",
+        "description": "Use this action whenever the user provides a PDF, image, or document that must be saved to a product. Populate openaiFileIdRefs from files attached in this ChatGPT conversation.",
         "parameters": [
           {
             "name": "slug",
@@ -862,7 +864,7 @@
     "/debug/cloud-run-action-payload-inspect": {
       "post": {
         "operationId": "inspectCloudRunActionPayload",
-        "summary": "Run this diagnostic only through the Cloud Run action payload path. Do not satisfy it with local /mnt/data file inspection.",
+        "summary": "Diagnostic only. Inspect the raw ChatGPT action payload for file handoff debugging.",
         "requestBody": {
           "required": true,
           "content": {
@@ -880,7 +882,8 @@
           "400": {
             "description": "Invalid request"
           }
-        }
+        },
+        "deprecated": true
       }
     }
   },
@@ -908,8 +911,7 @@
       "GetAssetDownloadUrlRequest": {
         "type": "object",
         "required": [
-          "assetType",
-          "storagePath"
+          "assetType"
         ],
         "properties": {
           "assetType": {
@@ -919,10 +921,20 @@
               "imagesRaw",
               "imagesEdited",
               "exports"
-            ]
+            ],
+            "description": "The product asset bucket that contains the attached file."
+          },
+          "assetId": {
+            "type": "string",
+            "description": "Backend assetId from the attached product asset record. Prefer this when available."
           },
           "storagePath": {
-            "type": "string"
+            "type": "string",
+            "description": "Attached product asset storagePath. Supports both legacy product asset folders and upload-first asset-library paths."
+          },
+          "storageKey": {
+            "type": "string",
+            "description": "Attached product asset storageKey. Use this if the asset record exposes storageKey instead of storagePath."
           }
         }
       },
@@ -1114,17 +1126,9 @@
           },
           "openaiFileIdRefs": {
             "type": "array",
-            "description": "Legacy alias. This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads. At runtime the action may receive objects containing fields such as id, name, mime_type, and download_link.",
+            "description": "OpenAI file references supplied by ChatGPT for files attached in this conversation.",
             "items": {
-              "oneOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              ]
+              "type": "string"
             }
           }
         }
@@ -1161,6 +1165,65 @@
           },
           "isbn13": {
             "type": "string"
+          },
+          "identifiers": {
+            "type": "object",
+            "properties": {
+              "bheSku": {
+                "type": "string"
+              },
+              "isbn10": {
+                "type": "string"
+              },
+              "isbn13": {
+                "type": "string"
+              },
+              "upc": {
+                "type": "string"
+              },
+              "gtin": {
+                "type": "string"
+              },
+              "amazonAsin": {
+                "type": "string"
+              },
+              "manufacturerPartNumber": {
+                "type": "string"
+              },
+              "shopifyProductId": {
+                "type": "string"
+              },
+              "shopifyVariantId": {
+                "type": "string"
+              },
+              "ebayItemNumber": {
+                "type": "string"
+              },
+              "sourceSku": {
+                "type": "string"
+              },
+              "legacySku": {
+                "type": "string"
+              }
+            }
+          },
+          "marketplace": {
+            "type": "object",
+            "properties": {
+              "shopifyHandle": {
+                "type": "string"
+              },
+              "importedFrom": {
+                "type": "string"
+              }
+            }
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
           },
           "binding": {
             "type": "string"
@@ -1550,17 +1613,9 @@
           "openaiFileIdRefs": {
             "type": "array",
             "items": {
-              "oneOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              ]
+              "type": "string"
             },
-            "description": "This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads. At runtime the action may receive objects containing fields such as id, name, mime_type, and download_link. If openaiFileIdRefs is absent, chat-visible images alone cannot be persisted."
+            "description": "Array of OpenAI file references for files attached in this conversation. This field must be populated from user-uploaded files when saving PDFs, images, or documents to product storage."
           }
         }
       },
@@ -1620,17 +1675,9 @@
           "openaiFileIdRefs": {
             "type": "array",
             "items": {
-              "oneOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              ]
+              "type": "string"
             },
-            "description": "This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads for diagnostics. The runtime payload may contain objects with fields such as id, name, mime_type, and download_link."
+            "description": "OpenAI file references supplied by ChatGPT for files attached in this conversation. Use only when deliberately debugging action payload file handoff."
           },
           "note": {
             "type": "string",

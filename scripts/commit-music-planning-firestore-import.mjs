@@ -30,6 +30,7 @@ function parseArgs(argv) {
     confirmSourceImportId: "",
     commit: false,
     allowPlannedUpdates: false,
+    allowPartialConflicts: false,
     help: false
   };
 
@@ -77,6 +78,11 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === "--allow-partial-conflicts") {
+      options.allowPartialConflicts = true;
+      continue;
+    }
+
     if (arg === "--help" || arg === "-h") {
       options.help = true;
       continue;
@@ -97,6 +103,7 @@ function printHelp() {
   console.log("  --confirm-source-import-id <id>     Required exact source import ID confirmation.");
   console.log("  --commit                            Required flag to perform Firestore writes.");
   console.log("  --allow-planned-updates             Allow updates to spreadsheet-owned planned/unknown records.");
+  console.log("  --allow-partial-conflicts           Commit safe create/update rows while reporting known-safe unrelated conflicts.");
   console.log(`  --project <id>                      Google Cloud project. Default: ${DEFAULT_PROJECT_ID}`);
   console.log(`  --database <id>                     Firestore database. Default: ${DEFAULT_DATABASE_ID}`);
   console.log("  --help, -h                          Show this help.");
@@ -236,7 +243,8 @@ function buildResult({ plan, validation, classifications, writeResult, options }
       completionChangesPerformed: 0,
       catalogMatchesPerformed: 0,
       gptArtifactsChanged: false,
-      createOnly: writeResult.updated.length === 0
+      createOnly: writeResult.updated.length === 0,
+      partialConflictsAllowed: options.allowPartialConflicts === true
     }
   };
 }
@@ -275,7 +283,8 @@ async function main() {
   const validation = validateMusicPlanningCommitPlan(plan, {
     commit: options.commit,
     confirmSourceImportId: options.confirmSourceImportId,
-    allowPlannedUpdates: options.allowPlannedUpdates
+    allowPlannedUpdates: options.allowPlannedUpdates,
+    allowPartialConflicts: options.allowPartialConflicts
   });
 
   if (!validation.ok) {

@@ -13,6 +13,7 @@ const {
   getFinalAiCorrectionSourceText,
   getOcrModeForMimeType,
   getNormalizationSourceText,
+  resolveProductAssetDownloadTarget,
   uploadAssetsToStorage
 } = require("../index.js");
 
@@ -363,6 +364,51 @@ test("attached PDF from asset library remains OCR-eligible as a registered sourc
   assert.ok(matchingAsset);
   assert.equal(attachedAsset.storagePath.includes("/asset-library/"), true);
   assert.equal(attachedAsset.mimeType, "application/pdf");
+});
+
+test("asset-library attachments can be resolved for download by storagePath or assetId", async () => {
+  const { slug, deps } = createDeps();
+  const uploadResult = await uploadAssetsToStorage(
+    {
+      slug,
+      assetType: "sourceFiles",
+      purpose: "source-document",
+      openaiFileIdRefs: [
+        {
+          name: "tyndale-note.pdf",
+          mime_type: "application/pdf",
+          download_link: "https://files.example/tyndale-note.pdf"
+        }
+      ]
+    },
+    deps
+  );
+
+  const assetId = uploadResult.persistedAssets[0].assetId;
+  const attachResult = await attachAssetsToProduct(
+    {
+      slug,
+      assetIds: [assetId],
+      assetRole: "source_note"
+    },
+    deps
+  );
+  const attachedAsset = attachResult.attachedAssets[0];
+  const savedProduct = (await deps.productsCollection.doc(slug).get()).data();
+
+  const byStoragePath = resolveProductAssetDownloadTarget(savedProduct, slug, {
+    assetType: "sourceFiles",
+    storagePath: attachedAsset.storagePath
+  });
+  const byAssetId = resolveProductAssetDownloadTarget(savedProduct, slug, {
+    assetType: "sourceFiles",
+    assetId
+  });
+
+  assert.equal(byStoragePath.storagePath, attachedAsset.storagePath);
+  assert.equal(byStoragePath.storagePath.includes("/asset-library/"), true);
+  assert.equal(byAssetId.storagePath, attachedAsset.storagePath);
+  assert.equal(byAssetId.asset.filename, "tyndale-note.pdf");
 });
 
 test("getOcrModeForMimeType routes PDFs to the PDF OCR mode", async () => {

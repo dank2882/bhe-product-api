@@ -1,0 +1,712 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sermon Workspace API - Extended Upload Fresh",
+    "version": "1.0.0",
+    "description": "Supplemental Custom GPT Action schema for lower-frequency sermon media, chunk, snapshot, and presentation listing actions."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-265001256563.us-west1.run.app"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/sermons/{sermonId}/snapshots": {
+      "get": {
+        "operationId": "listSermonSnapshots",
+        "summary": "List saved snapshots for a sermon",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sermon snapshots returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-presentations": {
+      "get": {
+        "operationId": "listSermonPresentations",
+        "summary": "List generated sermon PowerPoint decks",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "templateId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "planned",
+                "rendered",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presentations returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/chunks/rebuild": {
+      "post": {
+        "operationId": "rebuildSermonChunks",
+        "summary": "Rebuild indexed chunks for a sermon",
+        "description": "Rebuilds keyword-search chunks for one sermon from its canonical sermon record, source records, and preaching analyses. This prepares the sermon for later embedding/vector retrieval.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rebuilt sermon chunks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "sermonId": {
+                      "type": "string"
+                    },
+                    "chunkCount": {
+                      "type": "integer"
+                    },
+                    "deletedChunkCount": {
+                      "type": "integer"
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chunkId": {
+                            "type": "string"
+                          },
+                          "sourceKind": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "analysisId": {
+                            "type": "string"
+                          },
+                          "chunkType": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "scriptureText": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "textHash": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-chunks/embed": {
+      "post": {
+        "operationId": "embedSermonChunks",
+        "summary": "Embed indexed sermon chunks with Vertex AI",
+        "description": "Generates and stores embeddings for pending sermon chunks. Skips chunks whose stored embedding matches the current text hash and embedding model unless force is true.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sermonId": {
+                    "type": "string"
+                  },
+                  "sourceKind": {
+                    "type": "string",
+                    "enum": [
+                      "sermon",
+                      "source",
+                      "analysis"
+                    ]
+                  },
+                  "chunkType": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "force": {
+                    "type": "boolean"
+                  },
+                  "embeddingModel": {
+                    "type": "string"
+                  },
+                  "taskType": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Embedding job result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "embeddedCount": {
+                      "type": "integer"
+                    },
+                    "matchingChunkCount": {
+                      "type": "integer"
+                    },
+                    "pendingChunkCount": {
+                      "type": "integer"
+                    },
+                    "embeddingModel": {
+                      "type": "string"
+                    },
+                    "taskType": {
+                      "type": "string"
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chunkId": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceKind": {
+                            "type": "string"
+                          },
+                          "chunkType": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "textHash": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-semantic-search": {
+      "get": {
+        "operationId": "semanticSearchSermonChunks",
+        "summary": "Semantically search embedded sermon chunks",
+        "description": "Embeds the query with Vertex AI and uses Firestore vector search over embedded sermon chunks. Use this for meaning-based retrieval across sermons, source materials, and preaching analyses.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Concept, topic, passage, phrase, or ministry question to search semantically."
+          },
+          {
+            "name": "sermonId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceKind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sermon",
+                "source",
+                "analysis"
+              ]
+            }
+          },
+          {
+            "name": "chunkType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "distanceMeasure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "COSINE",
+                "EUCLIDEAN",
+                "DOT_PRODUCT"
+              ]
+            }
+          },
+          {
+            "name": "embeddingModel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nearest embedded sermon chunks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "query": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "candidateCount": {
+                      "type": "integer"
+                    },
+                    "embeddingModel": {
+                      "type": "string"
+                    },
+                    "taskType": {
+                      "type": "string"
+                    },
+                    "distanceMeasure": {
+                      "type": "string"
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chunkId": {
+                            "type": "string"
+                          },
+                          "sourceKind": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "analysisId": {
+                            "type": "string"
+                          },
+                          "chunkType": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "scriptureText": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "textHash": {
+                            "type": "string"
+                          },
+                          "vectorDistance": {
+                            "type": "number"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-media/{mediaId}/transcribe": {
+      "post": {
+        "operationId": "transcribeSermonMedia",
+        "summary": "Transcribe sermon media",
+        "description": "Transcribes uploaded audio or video sermon media, saves a raw transcript source, and can rebuild chunks.",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "Optional transcription prompt with names or terms."
+                  },
+                  "sourceLabel": {
+                    "type": "string"
+                  },
+                  "rebuildChunks": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "embedChunks": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "embedLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Media transcribed and source saved"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/media/upload-url": {
+      "post": {
+        "operationId": "createSermonMediaUploadUrl",
+        "summary": "Create sermon media upload URL",
+        "description": "Creates a signed upload URL for local audio or video and attaches the media record.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filename": {
+                    "type": "string"
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "description": "Audio or video MIME type such as audio/mpeg, audio/mp4, audio/wav, or video/mp4."
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "recordedAt": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "filename",
+                  "contentType"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Media record and signed upload URL created"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/media/import-url": {
+      "post": {
+        "operationId": "importSermonMediaFromUrl",
+        "summary": "Import sermon media from a public URL",
+        "description": "Downloads public media, stores it, attaches it to a sermon, and can transcribe it.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "filename": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "recordedAt": {
+                    "type": "string"
+                  },
+                  "startSeconds": {
+                    "type": "number",
+                    "description": "Sermon start offset in seconds for timestamped media."
+                  },
+                  "endSeconds": {
+                    "type": "number",
+                    "description": "Optional sermon end offset in seconds for clipping media transcripts."
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "transcribe": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "rebuildChunks": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "embedChunks": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "embedLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 50
+                  }
+                },
+                "required": [
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Media imported and optionally transcribed"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    }
+  },
+  "components": {
+    "schemas": {},
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  }
+}

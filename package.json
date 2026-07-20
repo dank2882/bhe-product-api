@@ -5,16 +5,38 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "check": "node --check index.js",
+    "check": "node --check index.js && npm run ministry:check-builder-config && npm run ministry:check-operation-catalog && npm run sermon:check-operation-catalog && npm run sermon:check-stable-gpt-config",
     "test": "node --test",
-    "deploy": "gcloud run deploy bhe-product-api --source . --region us-west1 --project location-map-985",
+    "logos:extract": "node scripts/extract-logos-sermons.mjs",
+    "sermon:check-operation-catalog": "node scripts/generate-sermon-workspace-operation-catalog.mjs --check",
+    "sermon:check-stable-gpt-config": "node scripts/check-sermon-workspace-stable-config.mjs",
+    "sermon:generate-operation-catalog": "node scripts/generate-sermon-workspace-operation-catalog.mjs",
+    "ministry:check-operation-catalog": "node scripts/generate-ministry-planning-operation-catalog.mjs --check",
+    "ministry:check-builder-config": "node scripts/check-ministry-planner-builder-config.mjs",
+    "ministry:generate-operation-catalog": "node scripts/generate-ministry-planning-operation-catalog.mjs",
+    "ministry:sync-config": "node scripts/sync-ministry-planning-config.mjs --commit",
+    "sermon:import-scripture-notes": "node scripts/import-scripture-notes-live.mjs",
+    "sermon:audit-backups": "node scripts/audit-sermon-archive-backups.mjs",
+    "sermon:refresh-stable-gpt-config": "node scripts/check-sermon-workspace-stable-config.mjs --refresh",
+    "sermon:smoke-live": "node scripts/smoke-sermon-workspace-live.mjs",
+    "sermon:accept-inbox-live": "node scripts/accept-sermon-recording-inbox-live.mjs",
+    "sermon:upload-media": "node scripts/upload-sermon-media-file.mjs",
+    "report:active-pool": "node scripts/report-rejoice-active-pool.mjs",
+    "deploy": "gcloud run deploy bhe-product-api --source . --region us-west1 --project location-map-985 --timeout 900",
     "deploy:describe": "gcloud run services describe bhe-product-api --region us-west1 --project location-map-985"
   },
   "dependencies": {
     "@google-cloud/documentai": "^9.6.0",
     "@google-cloud/firestore": "^7.11.0",
     "@google-cloud/storage": "^7.16.0",
+    "docx": "^9.7.1",
     "express": "^4.21.2",
-    "multer": "^2.1.1"
+    "google-auth-library": "^9.15.1",
+    "jszip": "^3.10.1",
+    "multer": "^2.1.1",
+    "pptxgenjs": "^4.0.1"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.3.0"
   }
 }

@@ -1,0 +1,2138 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Task Manager Minimal API",
+    "version": "1.0.0",
+    "description": "Minimal Custom GPT Action schema for daily brief plus task create/list."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+    }
+  ],
+  "paths": {
+    "/daily-brief": {
+      "get": {
+        "operationId": "getDailyBrief",
+        "summary": "Get Dan's simple daily brief",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": false,
+            "description": "Optional date in YYYY-MM-DD format.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily brief returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "today": {
+                      "type": "string"
+                    },
+                    "briefText": {
+                      "type": "string"
+                    },
+                    "openTaskCount": {
+                      "type": "integer"
+                    },
+                    "overdueCount": {
+                      "type": "integer"
+                    },
+                    "dueTodayCount": {
+                      "type": "integer"
+                    },
+                    "highPriorityNextCount": {
+                      "type": "integer"
+                    },
+                    "sarahRequestedOpenCount": {
+                      "type": "integer"
+                    },
+                    "highPriorityProjectCount": {
+                      "type": "integer"
+                    },
+                    "projectTargetDueCount": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks": {
+      "get": {
+        "operationId": "listTasks",
+        "summary": "List tasks with optional filters",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "next",
+                "waiting",
+                "scheduled",
+                "done",
+                "dropped"
+              ]
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            }
+          },
+          {
+            "name": "lifeArea",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "work",
+                "home",
+                "church",
+                "personal"
+              ]
+            }
+          },
+          {
+            "name": "eventId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestedBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dueOnOrBefore",
+            "in": "query",
+            "required": false,
+            "description": "YYYY-MM-DD",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "followUpOnOrBefore",
+            "in": "query",
+            "required": false,
+            "description": "Return tasks with followUpDate on or before this YYYY-MM-DD date.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tasks returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "taskId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "lifeArea": {
+                            "type": "string",
+                            "enum": [
+                              "work",
+                              "home",
+                              "church",
+                              "personal"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "next",
+                              "waiting",
+                              "scheduled",
+                              "done",
+                              "dropped"
+                            ]
+                          },
+                          "priority": {
+                            "type": "string",
+                            "enum": [
+                              "low",
+                              "medium",
+                              "high"
+                            ]
+                          },
+                          "dueDate": {
+                            "type": "string"
+                          },
+                          "scheduledDate": {
+                            "type": "string"
+                          },
+                          "requestedBy": {
+                            "type": "string"
+                          },
+                          "assignedTo": {
+                            "type": "string"
+                          },
+                          "context": {
+                            "type": "string"
+                          },
+                          "eventId": {
+                            "type": "string",
+                            "description": "Optional linked calendar event id."
+                          },
+                          "autoCompleteAfterEvent": {
+                            "type": "boolean",
+                            "description": "When true, mark this task done after the linked event has passed."
+                          },
+                          "completedByEventId": {
+                            "type": "string"
+                          },
+                          "followUpDate": {
+                            "type": "string",
+                            "description": "YYYY-MM-DD date to check back on a waiting task."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createTask",
+        "summary": "Create a task for Dan, Sarah, work, home, church, or personal use",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "projectId": {
+                    "type": "string"
+                  },
+                  "lifeArea": {
+                    "type": "string",
+                    "enum": [
+                      "work",
+                      "home",
+                      "church",
+                      "personal"
+                    ],
+                    "default": "work"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "next",
+                      "waiting",
+                      "scheduled",
+                      "done",
+                      "dropped"
+                    ],
+                    "default": "next"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ],
+                    "default": "medium"
+                  },
+                  "dueDate": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                  },
+                  "scheduledDate": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                  },
+                  "scheduledTime": {
+                    "type": "string",
+                    "description": "Optional local time such as HH:MM."
+                  },
+                  "timeWindow": {
+                    "type": "string",
+                    "description": "Flexible timing note such as morning, after work, or before bed."
+                  },
+                  "waitingOn": {
+                    "type": "string"
+                  },
+                  "requestedBy": {
+                    "type": "string",
+                    "default": "Dan"
+                  },
+                  "assignedTo": {
+                    "type": "string",
+                    "default": "Dan"
+                  },
+                  "context": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "eventId": {
+                    "type": "string",
+                    "description": "Optional linked calendar event id."
+                  },
+                  "autoCompleteAfterEvent": {
+                    "type": "boolean",
+                    "description": "When true, mark this task done after the linked event has passed."
+                  },
+                  "completedByEventId": {
+                    "type": "string"
+                  },
+                  "followUpDate": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD date to check back on a waiting task."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Task created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "task": {
+                      "type": "object",
+                      "properties": {
+                        "taskId": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "lifeArea": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "home",
+                            "church",
+                            "personal"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "next",
+                            "waiting",
+                            "scheduled",
+                            "done",
+                            "dropped"
+                          ]
+                        },
+                        "priority": {
+                          "type": "string",
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": "string"
+                        },
+                        "scheduledDate": {
+                          "type": "string"
+                        },
+                        "requestedBy": {
+                          "type": "string"
+                        },
+                        "assignedTo": {
+                          "type": "string"
+                        },
+                        "context": {
+                          "type": "string"
+                        },
+                        "eventId": {
+                          "type": "string",
+                          "description": "Optional linked calendar event id."
+                        },
+                        "autoCompleteAfterEvent": {
+                          "type": "boolean",
+                          "description": "When true, mark this task done after the linked event has passed."
+                        },
+                        "completedByEventId": {
+                          "type": "string"
+                        },
+                        "followUpDate": {
+                          "type": "string",
+                          "description": "YYYY-MM-DD date to check back on a waiting task."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/daily-brief-simple": {
+      "get": {
+        "operationId": "getDailyBriefSimple",
+        "summary": "Get Dan daily brief as a single result string",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": false,
+            "description": "Optional date in YYYY-MM-DD format.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Simple daily brief returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/calendar-events": {
+      "get": {
+        "operationId": "listCalendarEvents",
+        "summary": "List calendar events with optional filters",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "scheduled",
+                "cancelled",
+                "done"
+              ]
+            }
+          },
+          {
+            "name": "lifeArea",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "work",
+                "home",
+                "church",
+                "personal"
+              ]
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "description": "YYYY-MM-DD",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fromDate",
+            "in": "query",
+            "required": false,
+            "description": "YYYY-MM-DD",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "toDate",
+            "in": "query",
+            "required": false,
+            "description": "YYYY-MM-DD",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendar events returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "eventId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "lifeArea": {
+                            "type": "string",
+                            "enum": [
+                              "work",
+                              "home",
+                              "church",
+                              "personal"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "scheduled",
+                              "cancelled",
+                              "done"
+                            ]
+                          },
+                          "startDateTime": {
+                            "type": "string"
+                          },
+                          "endDateTime": {
+                            "type": "string"
+                          },
+                          "allDay": {
+                            "type": "boolean"
+                          },
+                          "location": {
+                            "type": "string"
+                          },
+                          "notes": {
+                            "type": "string"
+                          },
+                          "recurrence": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "daily",
+                              "weekly",
+                              "monthly",
+                              "custom"
+                            ]
+                          },
+                          "recurrenceNotes": {
+                            "type": "string"
+                          },
+                          "requestedBy": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCalendarEvent",
+        "summary": "Create a calendar event or scheduled household/work item",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "lifeArea": {
+                    "type": "string",
+                    "enum": [
+                      "work",
+                      "home",
+                      "church",
+                      "personal"
+                    ],
+                    "default": "home"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "scheduled",
+                      "cancelled",
+                      "done"
+                    ],
+                    "default": "scheduled"
+                  },
+                  "startDateTime": {
+                    "type": "string",
+                    "description": "ISO-8601 date/time, such as 2026-07-02T18:00:00-07:00"
+                  },
+                  "endDateTime": {
+                    "type": "string",
+                    "description": "Optional ISO-8601 date/time"
+                  },
+                  "allDay": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "location": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "recurrence": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "daily",
+                      "weekly",
+                      "monthly",
+                      "custom"
+                    ],
+                    "default": "none"
+                  },
+                  "recurrenceNotes": {
+                    "type": "string"
+                  },
+                  "requestedBy": {
+                    "type": "string",
+                    "default": "Dan"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Calendar event created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "event": {
+                      "type": "object",
+                      "properties": {
+                        "eventId": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "lifeArea": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "home",
+                            "church",
+                            "personal"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "scheduled",
+                            "cancelled",
+                            "done"
+                          ]
+                        },
+                        "startDateTime": {
+                          "type": "string"
+                        },
+                        "endDateTime": {
+                          "type": "string"
+                        },
+                        "allDay": {
+                          "type": "boolean"
+                        },
+                        "location": {
+                          "type": "string"
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "recurrence": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "daily",
+                            "weekly",
+                            "monthly",
+                            "custom"
+                          ]
+                        },
+                        "requestedBy": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/routines": {
+      "get": {
+        "operationId": "listRoutines",
+        "summary": "List recurring routines for daily reviews",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "paused",
+                "archived"
+              ]
+            }
+          },
+          {
+            "name": "lifeArea",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "work",
+                "home",
+                "church",
+                "personal"
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Routines returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "routines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "routineId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "lifeArea": {
+                            "type": "string",
+                            "enum": [
+                              "work",
+                              "home",
+                              "church",
+                              "personal"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "paused",
+                              "archived"
+                            ]
+                          },
+                          "recurrence": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "daily",
+                              "weekly",
+                              "monthly",
+                              "custom"
+                            ]
+                          },
+                          "recurrenceNotes": {
+                            "type": "string"
+                          },
+                          "preferredTime": {
+                            "type": "string"
+                          },
+                          "assignedTo": {
+                            "type": "string"
+                          },
+                          "requestedBy": {
+                            "type": "string"
+                          },
+                          "notes": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRoutine",
+        "summary": "Create a recurring routine item",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "lifeArea": {
+                    "type": "string",
+                    "enum": [
+                      "work",
+                      "home",
+                      "church",
+                      "personal"
+                    ],
+                    "default": "home"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "paused",
+                      "archived"
+                    ],
+                    "default": "active"
+                  },
+                  "recurrence": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "daily",
+                      "weekly",
+                      "monthly",
+                      "custom"
+                    ],
+                    "default": "daily"
+                  },
+                  "recurrenceNotes": {
+                    "type": "string"
+                  },
+                  "preferredTime": {
+                    "type": "string",
+                    "description": "Optional local time such as HH:MM or a phrase such as after work."
+                  },
+                  "assignedTo": {
+                    "type": "string",
+                    "default": "Dan"
+                  },
+                  "requestedBy": {
+                    "type": "string",
+                    "default": "Dan"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Routine created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "routine": {
+                      "type": "object",
+                      "properties": {
+                        "routineId": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "lifeArea": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "home",
+                            "church",
+                            "personal"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "paused",
+                            "archived"
+                          ]
+                        },
+                        "recurrence": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "daily",
+                            "weekly",
+                            "monthly",
+                            "custom"
+                          ]
+                        },
+                        "recurrenceNotes": {
+                          "type": "string"
+                        },
+                        "preferredTime": {
+                          "type": "string"
+                        },
+                        "assignedTo": {
+                          "type": "string"
+                        },
+                        "requestedBy": {
+                          "type": "string"
+                        },
+                        "notes": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{taskId}": {
+      "patch": {
+        "operationId": "updateTask",
+        "summary": "Update a task status, schedule, priority, notes, or assignment",
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "changes": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "projectId": {
+                        "type": "string"
+                      },
+                      "lifeArea": {
+                        "type": "string",
+                        "enum": [
+                          "work",
+                          "home",
+                          "church",
+                          "personal"
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "next",
+                          "waiting",
+                          "scheduled",
+                          "done",
+                          "dropped"
+                        ]
+                      },
+                      "priority": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "dueDate": {
+                        "type": "string",
+                        "description": "YYYY-MM-DD"
+                      },
+                      "scheduledDate": {
+                        "type": "string",
+                        "description": "YYYY-MM-DD"
+                      },
+                      "scheduledTime": {
+                        "type": "string"
+                      },
+                      "timeWindow": {
+                        "type": "string"
+                      },
+                      "waitingOn": {
+                        "type": "string"
+                      },
+                      "requestedBy": {
+                        "type": "string"
+                      },
+                      "assignedTo": {
+                        "type": "string"
+                      },
+                      "context": {
+                        "type": "string"
+                      },
+                      "notes": {
+                        "type": "string"
+                      },
+                      "eventId": {
+                        "type": "string",
+                        "description": "Optional linked calendar event id."
+                      },
+                      "autoCompleteAfterEvent": {
+                        "type": "boolean",
+                        "description": "When true, mark this task done after the linked event has passed."
+                      },
+                      "completedByEventId": {
+                        "type": "string"
+                      },
+                      "followUpDate": {
+                        "type": "string",
+                        "description": "YYYY-MM-DD date to check back on a waiting task."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "task": {
+                      "type": "object",
+                      "properties": {
+                        "taskId": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "lifeArea": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "home",
+                            "church",
+                            "personal"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "next",
+                            "waiting",
+                            "scheduled",
+                            "done",
+                            "dropped"
+                          ]
+                        },
+                        "priority": {
+                          "type": "string",
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": "string"
+                        },
+                        "scheduledDate": {
+                          "type": "string"
+                        },
+                        "requestedBy": {
+                          "type": "string"
+                        },
+                        "assignedTo": {
+                          "type": "string"
+                        },
+                        "context": {
+                          "type": "string"
+                        },
+                        "eventId": {
+                          "type": "string",
+                          "description": "Optional linked calendar event id."
+                        },
+                        "autoCompleteAfterEvent": {
+                          "type": "boolean",
+                          "description": "When true, mark this task done after the linked event has passed."
+                        },
+                        "completedByEventId": {
+                          "type": "string"
+                        },
+                        "followUpDate": {
+                          "type": "string",
+                          "description": "YYYY-MM-DD date to check back on a waiting task."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/calendar-events/{eventId}": {
+      "patch": {
+        "operationId": "updateCalendarEvent",
+        "summary": "Update or cancel a calendar event",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "changes": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "lifeArea": {
+                        "type": "string",
+                        "enum": [
+                          "work",
+                          "home",
+                          "church",
+                          "personal"
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "scheduled",
+                          "cancelled",
+                          "done"
+                        ]
+                      },
+                      "startDateTime": {
+                        "type": "string"
+                      },
+                      "endDateTime": {
+                        "type": "string"
+                      },
+                      "allDay": {
+                        "type": "boolean"
+                      },
+                      "location": {
+                        "type": "string"
+                      },
+                      "notes": {
+                        "type": "string"
+                      },
+                      "recurrence": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "daily",
+                          "weekly",
+                          "monthly",
+                          "custom"
+                        ]
+                      },
+                      "recurrenceNotes": {
+                        "type": "string"
+                      },
+                      "requestedBy": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Calendar event updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "event": {
+                      "type": "object",
+                      "properties": {
+                        "eventId": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "lifeArea": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "home",
+                            "church",
+                            "personal"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "scheduled",
+                            "cancelled",
+                            "done"
+                          ]
+                        },
+                        "startDateTime": {
+                          "type": "string"
+                        },
+                        "endDateTime": {
+                          "type": "string"
+                        },
+                        "requestedBy": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/routines/{routineId}": {
+      "patch": {
+        "operationId": "updateRoutine",
+        "summary": "Update, pause, or archive a recurring routine",
+        "parameters": [
+          {
+            "name": "routineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "changes": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "lifeArea": {
+                        "type": "string",
+                        "enum": [
+                          "work",
+                          "home",
+                          "church",
+                          "personal"
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "paused",
+                          "archived"
+                        ]
+                      },
+                      "recurrence": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "daily",
+                          "weekly",
+                          "monthly",
+                          "custom"
+                        ]
+                      },
+                      "recurrenceNotes": {
+                        "type": "string"
+                      },
+                      "preferredTime": {
+                        "type": "string"
+                      },
+                      "assignedTo": {
+                        "type": "string"
+                      },
+                      "requestedBy": {
+                        "type": "string"
+                      },
+                      "notes": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Routine updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "routine": {
+                      "type": "object",
+                      "properties": {
+                        "routineId": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "lifeArea": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "home",
+                            "church",
+                            "personal"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "paused",
+                            "archived"
+                          ]
+                        },
+                        "recurrence": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "daily",
+                            "weekly",
+                            "monthly",
+                            "custom"
+                          ]
+                        },
+                        "preferredTime": {
+                          "type": "string"
+                        },
+                        "assignedTo": {
+                          "type": "string"
+                        },
+                        "requestedBy": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "summary": "List projects with optional filters",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "paused",
+                "done",
+                "archived"
+              ]
+            }
+          },
+          {
+            "name": "lifeArea",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "work",
+                "home",
+                "church",
+                "personal"
+              ]
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            }
+          },
+          {
+            "name": "targetOnOrBefore",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Return projects with targetDate on or before this YYYY-MM-DD date."
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projects returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "projects": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "lifeArea": {
+                            "type": "string",
+                            "enum": [
+                              "work",
+                              "home",
+                              "church",
+                              "personal"
+                            ]
+                          },
+                          "outcome": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "paused",
+                              "done",
+                              "archived"
+                            ]
+                          },
+                          "requestedBy": {
+                            "type": "string"
+                          },
+                          "notes": {
+                            "type": "string"
+                          },
+                          "priority": {
+                            "type": "string",
+                            "enum": [
+                              "low",
+                              "medium",
+                              "high"
+                            ]
+                          },
+                          "targetDate": {
+                            "type": "string",
+                            "description": "Project target date in YYYY-MM-DD format."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProject",
+        "summary": "Create a project or larger multi-step outcome",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "lifeArea": {
+                    "type": "string",
+                    "enum": [
+                      "work",
+                      "home",
+                      "church",
+                      "personal"
+                    ],
+                    "default": "work"
+                  },
+                  "outcome": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "paused",
+                      "done",
+                      "archived"
+                    ],
+                    "default": "active"
+                  },
+                  "requestedBy": {
+                    "type": "string",
+                    "default": "Dan"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ],
+                    "default": "medium"
+                  },
+                  "targetDate": {
+                    "type": "string",
+                    "description": "Project target date in YYYY-MM-DD format."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "project": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "lifeArea": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "home",
+                            "church",
+                            "personal"
+                          ]
+                        },
+                        "outcome": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "paused",
+                            "done",
+                            "archived"
+                          ]
+                        },
+                        "requestedBy": {
+                          "type": "string"
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "priority": {
+                          "type": "string",
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high"
+                          ]
+                        },
+                        "targetDate": {
+                          "type": "string",
+                          "description": "Project target date in YYYY-MM-DD format."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{projectId}": {
+      "get": {
+        "operationId": "getProject",
+        "summary": "Get one project by projectId",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "project": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "lifeArea": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "home",
+                            "church",
+                            "personal"
+                          ]
+                        },
+                        "outcome": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "paused",
+                            "done",
+                            "archived"
+                          ]
+                        },
+                        "requestedBy": {
+                          "type": "string"
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "priority": {
+                          "type": "string",
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high"
+                          ]
+                        },
+                        "targetDate": {
+                          "type": "string",
+                          "description": "Project target date in YYYY-MM-DD format."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateProject",
+        "summary": "Update, pause, finish, or archive a project",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "changes": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "lifeArea": {
+                        "type": "string",
+                        "enum": [
+                          "work",
+                          "home",
+                          "church",
+                          "personal"
+                        ]
+                      },
+                      "outcome": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "paused",
+                          "done",
+                          "archived"
+                        ]
+                      },
+                      "requestedBy": {
+                        "type": "string"
+                      },
+                      "notes": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "string",
+                        "enum": [
+                          "low",
+                          "medium",
+                          "high"
+                        ]
+                      },
+                      "targetDate": {
+                        "type": "string",
+                        "description": "Project target date in YYYY-MM-DD format."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "project": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "lifeArea": {
+                          "type": "string",
+                          "enum": [
+                            "work",
+                            "home",
+                            "church",
+                            "personal"
+                          ]
+                        },
+                        "outcome": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "paused",
+                            "done",
+                            "archived"
+                          ]
+                        },
+                        "requestedBy": {
+                          "type": "string"
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "priority": {
+                          "type": "string",
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high"
+                          ]
+                        },
+                        "targetDate": {
+                          "type": "string",
+                          "description": "Project target date in YYYY-MM-DD format."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/event-task-completion": {
+      "post": {
+        "operationId": "completeTasksForPastEvents",
+        "summary": "Mark linked event-bound tasks done after their event has passed",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nowIso": {
+                    "type": "string",
+                    "description": "Optional ISO-8601 timestamp override for testing."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event-bound task completion result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "completedCount": {
+                      "type": "integer"
+                    },
+                    "completedTasks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "taskId": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "eventId": {
+                            "type": "string"
+                          },
+                          "completedByEventId": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {},
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  },
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ]
+}

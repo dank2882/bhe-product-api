@@ -249,6 +249,70 @@ test("buildPlanningPreviewFromWorksheetRows creates planned services and music s
   ));
 });
 
+test("buildPlanningPreviewFromWorksheetRows imports optional message fields from service rows", () => {
+  const worksheet = {
+    sheetName: "PROPOSED SCHEDULES",
+    maxRow: 3,
+    rows: [
+      {
+        rowNumber: 1,
+        cells: {
+          2: cell(1, 2, "April")
+        }
+      },
+      {
+        rowNumber: 2,
+        cells: {
+          1: cell(2, 1, "THEME"),
+          2: cell(2, 2, "Date/Service"),
+          3: cell(2, 3, "Speaker"),
+          4: cell(2, 4, "Message Text"),
+          5: cell(2, 5, "Message Title"),
+          6: cell(2, 6, "Message Topic"),
+          7: cell(2, 7, "Message Notes URL")
+        }
+      },
+      {
+        rowNumber: 3,
+        cells: {
+          1: cell(3, 1, "Grace"),
+          2: cell(3, 2, "April 12th AM"),
+          3: cell(3, 3, "Pastor Smith"),
+          4: cell(3, 4, "John 3:16-21"),
+          5: cell(3, 5, "For God So Loved"),
+          6: cell(3, 6, "Salvation"),
+          7: cell(3, 7, "https://docs.google.com/document/d/example")
+        }
+      }
+    ]
+  };
+
+  const preview = buildPlanningPreviewFromWorksheetRows({
+    worksheet,
+    planningYear: 2026,
+    sourceName: "Music Ministry - Master Data"
+  });
+
+  assert.equal(preview.importableServices.length, 1);
+  assert.deepEqual(preview.importableServices[0].planningSignals, ["theme", "message"]);
+  assert.deepEqual(preview.importableServices[0].message, {
+    speakerName: "Pastor Smith",
+    scriptureText: "John 3:16-21",
+    sermonTitle: "For God So Loved",
+    topic: "Salvation",
+    notesUrl: "https://docs.google.com/document/d/example",
+    sourceCells: {
+      speakerName: "C3",
+      scriptureText: "D3",
+      sermonTitle: "E3",
+      topic: "F3",
+      notesUrl: "G3"
+    }
+  });
+  assert.equal(preview.summary.importableServicesWithMessage, 1);
+  assert.equal(preview.sourceImportPreview.importableServicesWithMessage, 1);
+});
+
 test("buildPlanningPreviewFromWorksheetRows classifies warning severities", () => {
   const worksheet = {
     sheetName: "PROPOSED SCHEDULES",

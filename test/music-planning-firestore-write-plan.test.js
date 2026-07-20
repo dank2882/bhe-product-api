@@ -155,6 +155,39 @@ test("proposed service missing plans a create", () => {
   assert.equal(result.services.create[0].proposed.planningStatus, "planned");
 });
 
+test("proposed service carries optional message fields", () => {
+  const preview = buildPreview();
+  preview.importableServices[0] = {
+    ...preview.importableServices[0],
+    message: {
+      speakerName: "Pastor Smith",
+      scriptureText: "John 3:16-21",
+      sermonTitle: "For God So Loved",
+      topic: "Salvation",
+      notesUrl: "https://docs.google.com/document/d/example",
+      sourceCells: {
+        speakerName: "J4",
+        scriptureText: "K4"
+      }
+    },
+    planningSignals: ["planned_music_slot", "message"]
+  };
+  const result = plan(preview);
+
+  assert.deepEqual(result.services.create[0].proposed.message, {
+    speakerName: "Pastor Smith",
+    scriptureText: "John 3:16-21",
+    sermonTitle: "For God So Loved",
+    topic: "Salvation",
+    notesUrl: "https://docs.google.com/document/d/example",
+    sourceCells: {
+      speakerName: "J4",
+      scriptureText: "K4"
+    }
+  });
+  assert.ok(result.services.create[0].proposed.planningSignals.includes("message"));
+});
+
 test("proposed service exists and remains planned plans an update", () => {
   const result = plan(buildPreview(), {
     services: [buildExistingService({ theme: "Old Theme" })]

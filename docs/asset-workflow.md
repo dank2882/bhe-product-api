@@ -6,6 +6,8 @@ Chat-visible images and backend-persisted assets are different objects with diff
 
 For ChatGPT Actions, the upload step only works when the action call includes `openaiFileIdRefs`. Seeing an image in chat is not enough by itself to attach it to a product.
 
+The GPT-facing OpenAPI schema intentionally models `openaiFileIdRefs` as an array of strings so ChatGPT recognizes the file-handoff field. At runtime, ChatGPT may populate that same field with objects containing file metadata and a short-lived `download_link`; the backend is responsible for handling the runtime object shape.
+
 - `analyzeUploadedImages` works on chat-visible image context and returns analysis-only data.
 - `uploadAssetsToStorage` persists downloadable chat file references into backend storage and returns stable backend asset references.
 - `attachAssetsToProduct` attaches only backend-persisted asset references to a product record.

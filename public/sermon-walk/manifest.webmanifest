@@ -1,0 +1,9 @@
+{
+  "name": "Sermon Walk",
+  "short_name": "Sermon Walk",
+  "start_url": "/sermon-walk/",
+  "display": "standalone",
+  "background_color": "#f7f8f6",
+  "theme_color": "#171918",
+  "description": "Durable voice capture for sermon development walks"
+}

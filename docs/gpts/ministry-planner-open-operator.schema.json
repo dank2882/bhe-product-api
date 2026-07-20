@@ -1,0 +1,982 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Ministry Planner Open Operator API",
+    "version": "1.0.10",
+    "description": "Minimal Custom GPT Action schema for ministry planning. Uses no components or $refs, and keeps explicit response properties so the GPT Action importer can load the broad operator tools reliably."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-265001256563.us-west1.run.app"
+    }
+  ],
+  "paths": {
+    "/operator/collections": {
+      "get": {
+        "operationId": "listDataCollections",
+        "summary": "List approved Firestore collections available to the broad data operator",
+        "responses": {
+          "200": {
+            "description": "Approved collections returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "collections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "collection": {
+                            "type": "string"
+                          },
+                          "canQuery": {
+                            "type": "boolean"
+                          },
+                          "canCreate": {
+                            "type": "boolean"
+                          },
+                          "canSet": {
+                            "type": "boolean"
+                          },
+                          "canUpdate": {
+                            "type": "boolean"
+                          },
+                          "canDelete": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/operator/query": {
+      "post": {
+        "operationId": "queryData",
+        "summary": "Read, list, search, filter, sort, and select documents from approved collections",
+        "description": "Use this for flexible reads. It can read exact doc IDs, list records, search free text, filter arbitrary fields, sort, select fields, and limit results.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "collection"
+                ],
+                "properties": {
+                  "collection": {
+                    "type": "string",
+                    "enum": [
+                      "products",
+                      "productAssetLibrary",
+                      "repositoryDocuments",
+                      "repositoryItems",
+                      "songs",
+                      "songPairings",
+                      "songMetadataAudit",
+                      "services",
+                      "serviceOrderItems",
+                      "serviceMoments",
+                      "serviceSongEvents",
+                      "breezeImports",
+                      "sourceImports"
+                    ]
+                  },
+                  "docId": {
+                    "type": "string",
+                    "description": "Optional exact document ID to read."
+                  },
+                  "docIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Optional exact document IDs to read."
+                  },
+                  "filters": {
+                    "type": "array",
+                    "description": "Optional arbitrary field filters evaluated over scanned documents.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "fieldPath",
+                        "operator"
+                      ],
+                      "properties": {
+                        "fieldPath": {
+                          "type": "string",
+                          "description": "Dot-path field name, or id/docId/documentId/__name__ for the document ID."
+                        },
+                        "operator": {
+                          "type": "string",
+                          "enum": [
+                            "==",
+                            "!=",
+                            "<",
+                            "<=",
+                            ">",
+                            ">=",
+                            "in",
+                            "not-in",
+                            "array-contains",
+                            "array-contains-any",
+                            "contains",
+                            "exists"
+                          ]
+                        },
+                        "value": {
+                          "description": "Any JSON value used by the filter."
+                        }
+                      }
+                    }
+                  },
+                  "freeText": {
+                    "type": "object",
+                    "description": "Optional free-text search. Omit fields to search all serialized document values plus doc ID.",
+                    "properties": {
+                      "query": {
+                        "type": "string"
+                      },
+                      "fields": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "matchMode": {
+                        "type": "string",
+                        "enum": [
+                          "all",
+                          "any",
+                          "phrase"
+                        ],
+                        "default": "all"
+                      }
+                    }
+                  },
+                  "orderBy": {
+                    "type": "array",
+                    "description": "Optional sort fields. For one sort, still send an array with one item.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "fieldPath"
+                      ],
+                      "properties": {
+                        "fieldPath": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "asc",
+                            "desc"
+                          ],
+                          "default": "asc"
+                        }
+                      }
+                    }
+                  },
+                  "select": {
+                    "type": "array",
+                    "description": "Optional field paths to return. Omit to return full document data.",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 25
+                  },
+                  "scanLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5000,
+                    "default": 500,
+                    "description": "Maximum documents to scan before filtering when not reading exact doc IDs."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operator query returned documents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "collection": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "matchedCount": {
+                      "type": "integer"
+                    },
+                    "scannedCount": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "scanLimit": {
+                      "type": "integer"
+                    },
+                    "documents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "collection": {
+                            "type": "string"
+                          },
+                          "docId": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "object",
+                            "additionalProperties": true
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/operator/commit": {
+      "post": {
+        "operationId": "commitDataChange",
+        "summary": "Create, set, update, or permanently delete a document after explicit human confirmation",
+        "description": "Use only after human confirmation. For create/set, send the full document in data. For update, prefer fieldPatches and send data as {} when no direct fields are needed. For delete, send data as {}.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "collection",
+                  "operation",
+                  "data",
+                  "humanConfirmed",
+                  "confirmationSummary"
+                ],
+                "properties": {
+                  "collection": {
+                    "type": "string",
+                    "enum": [
+                      "products",
+                      "productAssetLibrary",
+                      "repositoryDocuments",
+                      "repositoryItems",
+                      "songs",
+                      "songPairings",
+                      "songMetadataAudit",
+                      "services",
+                      "serviceOrderItems",
+                      "serviceMoments",
+                      "serviceSongEvents",
+                      "breezeImports",
+                      "sourceImports"
+                    ]
+                  },
+                  "docId": {
+                    "type": "string",
+                    "description": "Target document ID. Required except create may generate an ID when omitted."
+                  },
+                  "operation": {
+                    "type": "string",
+                    "enum": [
+                      "create",
+                      "set",
+                      "update",
+                      "delete"
+                    ]
+                  },
+                  "data": {
+                    "type": "object",
+                    "description": "Full document data for create/set. Required for create and set. For update with fieldPatches or delete, send an empty object if no direct data fields are needed.",
+                    "properties": {
+                      "documentType": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "schemaVersion": {
+                        "type": "string"
+                      },
+                      "copyrightSafetyNote": {
+                        "type": "string"
+                      },
+                      "recommendedSongFields": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "recommendedServiceFields": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "initialScope": {
+                        "type": "string"
+                      },
+                      "notes": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "fieldPatches": {
+                    "type": "array",
+                    "description": "Optional dot-path field updates/deletes for update operations.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "fieldPath"
+                      ],
+                      "properties": {
+                        "fieldPath": {
+                          "type": "string"
+                        },
+                        "action": {
+                          "type": "string",
+                          "enum": [
+                            "set",
+                            "delete"
+                          ],
+                          "default": "set"
+                        },
+                        "value": {
+                          "description": "Any JSON value to set when action is set."
+                        }
+                      }
+                    }
+                  },
+                  "merge": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "For set operations, merge the supplied data into the existing document."
+                  },
+                  "humanConfirmed": {
+                    "type": "boolean",
+                    "description": "Must be true only after the human has explicitly approved the exact change."
+                  },
+                  "confirmationSummary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Plain-language summary of what the human confirmed, including collection, docId, operation, and material fields or permanent delete target."
+                  },
+                  "changedBy": {
+                    "type": "string",
+                    "default": "custom-gpt"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Data change committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "collection": {
+                      "type": "string"
+                    },
+                    "docId": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "operation": {
+                      "type": "string"
+                    },
+                    "committed": {
+                      "type": "boolean"
+                    },
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "previousExists": {
+                      "type": "boolean"
+                    },
+                    "previousData": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "newData": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "humanConfirmation": {
+                      "type": "object",
+                      "properties": {
+                        "confirmed": {
+                          "type": "boolean"
+                        },
+                        "summary": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "changedBy": {
+                      "type": "string"
+                    },
+                    "changedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/search": {
+      "post": {
+        "operationId": "searchSongs",
+        "summary": "Convenience search/list action for the canonical hymnal catalog",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "filters": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 25,
+                    "default": 10
+                  },
+                  "sort": {
+                    "type": "string",
+                    "enum": [
+                      "relevance",
+                      "title_asc",
+                      "hymnal_number_asc"
+                    ],
+                    "default": "relevance"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Songs returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "query": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "songs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "songId": {
+                            "type": "string"
+                          },
+                          "hymnalNumber": {
+                            "type": "integer"
+                          },
+                          "canonicalTitle": {
+                            "type": "string"
+                          },
+                          "topics": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "ministryMetadata": {
+                            "type": "object",
+                            "additionalProperties": true
+                          },
+                          "ministryPlanning": {
+                            "type": "object",
+                            "description": "Local planning guardrails and song judgments such as useStatus, allowedUsageRoles, seasonalUse, worshipFunctions, serviceFit, leaderReadiness, learningInterest, congregationFit, energy, tempo, rotationStrength, blockReason, and notes.",
+                            "additionalProperties": true
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "appliedFilters": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/active-congregational-pool": {
+      "post": {
+        "operationId": "buildActiveCongregationalPool",
+        "summary": "Build the backend-computed active congregational song pool for ordinary service planning",
+        "description": "Use this instead of manually filtering queryData when Dan asks for the active congregational pool or ordinary Sunday congregational candidates.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 250,
+                    "default": 25
+                  },
+                  "leaderId": {
+                    "type": "string",
+                    "default": "dan"
+                  },
+                  "usageRole": {
+                    "type": "string",
+                    "default": "congregational"
+                  },
+                  "includeExcluded": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Active congregational pool returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "rule": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "songs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "excludedCount": {
+                      "type": "integer"
+                    },
+                    "excludedSongs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "exclusionCounts": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "warningCounts": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/music-planning/spreadsheet-refresh": {
+      "post": {
+        "operationId": "refreshMusicPlanningSpreadsheet",
+        "summary": "Preview, plan, or commit the live Google Sheet refresh for music planning services",
+        "description": "Use plan-only first to import the live Google Sheet into a reviewable write plan. Commit only after Dan explicitly confirms the returned sourceImportId, and do not commit if the plan says it is not eligible.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "preview-only",
+                      "plan-only",
+                      "commit",
+                      "preview",
+                      "plan"
+                    ],
+                    "default": "plan-only",
+                    "description": "Use plan-only for normal checks. Use commit only after explicit human confirmation."
+                  },
+                  "googleSheetUrl": {
+                    "type": "string",
+                    "description": "Optional full Google Sheets URL. Defaults to Dan's music ministry planning sheet."
+                  },
+                  "googleSheetId": {
+                    "type": "string",
+                    "description": "Optional Google Sheet ID. Defaults to Dan's music ministry planning sheet."
+                  },
+                  "sheet": {
+                    "type": "string",
+                    "default": "PROPOSED SCHEDULES"
+                  },
+                  "planningYear": {
+                    "type": "integer",
+                    "default": 2026,
+                    "minimum": 2000,
+                    "maximum": 2100
+                  },
+                  "focusDate": {
+                    "type": "string",
+                    "description": "Optional service date in YYYY-MM-DD format. When provided, the response includes date-specific service and song-event plan details from the spreadsheet refresh plan."
+                  },
+                  "focusServiceType": {
+                    "type": "string",
+                    "description": "Optional service type such as sunday_morning, sunday_evening, midweek, or prayer_service. Use with focusDate to narrow plan details."
+                  },
+                  "allowPlannedUpdates": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Required as true for commit when planned spreadsheet-owned records will be refreshed."
+                  },
+                  "allowPartialConflicts": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Required as true for commit when known-safe unrelated conflicts should be reported and skipped instead of blocking safe planned rows."
+                  },
+                  "confirmSourceImportId": {
+                    "type": "string",
+                    "description": "Required for commit. Must exactly match the sourceImportId returned by the plan."
+                  },
+                  "humanConfirmed": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Required as true for commit after Dan explicitly confirms."
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Spreadsheet refresh preview, plan, or commit result returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "mode": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "sourceImportId": {
+                      "type": "string"
+                    },
+                    "requiredCommitConfirmation": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "summary": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "plan": {
+                      "type": "object",
+                      "properties": {
+                        "eligibleForCommit": {
+                          "type": "boolean"
+                        },
+                        "actionSummary": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "conflicts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": true
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "focus": {
+                      "type": "object",
+                      "properties": {
+                        "serviceDate": {
+                          "type": "string"
+                        },
+                        "serviceType": {
+                          "type": "string"
+                        },
+                        "services": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "serviceSongEvents": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "counts": {
+                          "type": "object",
+                          "additionalProperties": true
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "commitResult": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "log": {
+                      "type": "string"
+                    },
+                    "warningLog": {
+                      "type": "string"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/search": {
+      "post": {
+        "operationId": "searchServices",
+        "summary": "Convenience search action for normalized service history and upcoming planned services",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "filters": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 25,
+                    "default": 10
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Services returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "query": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "services": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "serviceId": {
+                            "type": "string"
+                          },
+                          "serviceDate": {
+                            "type": "string"
+                          },
+                          "serviceType": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "theme": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "object",
+                            "properties": {
+                              "speakerName": {
+                                "type": "string"
+                              },
+                              "scriptureText": {
+                                "type": "string"
+                              },
+                              "sermonTitle": {
+                                "type": "string"
+                              },
+                              "topic": {
+                                "type": "string"
+                              },
+                              "notes": {
+                                "type": "string"
+                              },
+                              "notesUrl": {
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": true
+                          },
+                          "songs": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          },
+                          "songCount": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "appliedFilters": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

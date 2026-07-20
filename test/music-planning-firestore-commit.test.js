@@ -150,6 +150,77 @@ test("validateMusicPlanningCommitPlan accepts planned updates when explicitly al
   assert.equal(result.ok, true);
 });
 
+test("validateMusicPlanningCommitPlan accepts safe partial conflict commits when explicitly allowed", () => {
+  const plan = buildPlan({
+    services: {
+      create: buildPlan().services.create,
+      update: [],
+      preserve: [],
+      conflict: [
+        {
+          action: "conflict",
+          id: "svc-plan-2026-05-03-sunday-morning",
+          reason: "existing_record_not_spreadsheet_owned_planned"
+        }
+      ],
+      missingFromSource: []
+    },
+    conflicts: [
+      {
+        action: "conflict",
+        id: "svc-plan-2026-05-03-sunday-morning",
+        reason: "existing_record_not_spreadsheet_owned_planned"
+      }
+    ],
+    eligibleForCommit: false
+  });
+
+  const result = validateMusicPlanningCommitPlan(plan, {
+    commit: true,
+    confirmSourceImportId: SOURCE_IMPORT_ID,
+    allowPlannedUpdates: true,
+    allowPartialConflicts: true
+  });
+
+  assert.equal(result.ok, true);
+});
+
+test("validateMusicPlanningCommitPlan rejects unsafe partial conflict commits", () => {
+  const plan = buildPlan({
+    services: {
+      create: buildPlan().services.create,
+      update: [],
+      preserve: [],
+      conflict: [
+        {
+          action: "conflict",
+          id: "svc-plan-2026-01-11-sunday-morning",
+          reason: "duplicate_proposed_deterministic_id"
+        }
+      ],
+      missingFromSource: []
+    },
+    conflicts: [
+      {
+        action: "conflict",
+        id: "svc-plan-2026-01-11-sunday-morning",
+        reason: "duplicate_proposed_deterministic_id"
+      }
+    ],
+    eligibleForCommit: false
+  });
+
+  const result = validateMusicPlanningCommitPlan(plan, {
+    commit: true,
+    confirmSourceImportId: SOURCE_IMPORT_ID,
+    allowPlannedUpdates: true,
+    allowPartialConflicts: true
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.includes("not safe for partial commit")));
+});
+
 test("validateCreateOnlyCommitPlan accepts create-only plan", () => {
   const result = validate();
 

@@ -410,6 +410,62 @@ test("searchServices supports Sunday night services this month lookup", async ()
   );
 });
 
+test("searchServices scans beyond first 500 service records for recent imported history", async () => {
+  const services = {};
+
+  for (let index = 0; index < 520; index += 1) {
+    services[`old-${String(index).padStart(3, "0")}`] = buildService({
+      serviceId: `old-${String(index).padStart(3, "0")}`,
+      serviceDate: "2025-01-05",
+      serviceType: "Sunday Morning",
+      title: "Older Imported Service",
+      sourceImportId: "breeze-import-1"
+    });
+  }
+
+  services["svc-2026-07-12-pm"] = buildService({
+    serviceId: "svc-2026-07-12-pm",
+    serviceDate: "2026-07-12",
+    serviceType: "Sunday Night",
+    title: "Sunday Evening Worship",
+    source: "spreadsheet_import",
+    sourceType: "spreadsheet_export",
+    sourceName: "Music Ministry - Master Data",
+    sourceImportId: "sheet-import-1",
+    planningStatus: "planned",
+    actualStatus: "unknown"
+  });
+
+  const deps = createDeps({
+    services,
+    serviceSongEvents: {
+      "event-2026-07-12-pm": buildSpreadsheetSongEvent({
+        serviceSongEventId: "event-2026-07-12-pm",
+        serviceId: "svc-2026-07-12-pm",
+        serviceDate: "2026-07-12",
+        serviceType: "Sunday Night",
+        title: "Revive Us Again",
+        songTitleCandidate: "Revive Us Again"
+      })
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    },
+    now: () => new Date("2026-07-15T12:00:00.000Z")
+  });
+
+  const result = await searchServices(
+    {
+      query: "What songs were used last Sunday night?"
+    },
+    deps
+  );
+
+  assert.equal(result.count, 1);
+  assert.equal(result.services[0].serviceId, "svc-2026-07-12-pm");
+  assert.equal(result.services[0].songs[0].title, "Revive Us Again");
+});
+
 test("searchServices defaults to past services and excludes today/future services", async () => {
   const deps = createDeps({
     services: {
@@ -539,6 +595,49 @@ test("searchServices supports upcoming dateScope for today and future planned se
       "svc-plan-2026-04-23-sunday-morning"
     ]
   );
+});
+
+test("searchServices returns message details for planned services", async () => {
+  const deps = createDeps({
+    services: {
+      "svc-plan-2026-04-26-sunday-morning": buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-26-sunday-morning",
+        serviceDate: "2026-04-26",
+        message: {
+          speakerName: "Pastor Smith",
+          scriptureText: "John 3:16-21",
+          sermonTitle: "For God So Loved",
+          topic: "Salvation",
+          notesUrl: "https://docs.google.com/document/d/example",
+          sourceCells: {
+            speakerName: "J4"
+          }
+        }
+      })
+    },
+    sourceImports: {
+      "sheet-import-1": buildSourceImport()
+    }
+  });
+
+  const result = await searchServices(
+    {
+      filters: {
+        dateScope: "upcoming",
+        serviceDate: "2026-04-26"
+      }
+    },
+    deps
+  );
+
+  assert.equal(result.services.length, 1);
+  assert.deepEqual(result.services[0].message, {
+    speakerName: "Pastor Smith",
+    scriptureText: "John 3:16-21",
+    sermonTitle: "For God So Loved",
+    topic: "Salvation",
+    notesUrl: "https://docs.google.com/document/d/example"
+  });
 });
 
 test("searchServices supports any dateScope for past and upcoming services", async () => {
@@ -722,6 +821,57 @@ test("upcoming planned service song events preserve special-music fields", async
   assert.equal(songs[1].songTitleConfidence, "medium");
   assert.equal(songs[2].assignedPersonOrGroupRaw, "FBCA Elementary");
   assert.equal(songs[2].detailNote, "K-2");
+});
+
+test("service history ignores spreadsheet song events superseded by service-order PDF import", async () => {
+  const deps = createDeps({
+    services: {
+      "svc-plan-2026-04-22-sunday-morning": buildSpreadsheetService({
+        serviceId: "svc-plan-2026-04-22-sunday-morning",
+        serviceDate: "2026-04-22"
+      })
+    },
+    serviceSongEvents: {
+      spreadsheet: buildSpreadsheetSongEvent({
+        serviceSongEventId: "sse-plan-2026-04-22-c1",
+        serviceId: "svc-plan-2026-04-22-sunday-morning",
+        serviceDate: "2026-04-22",
+        slotIndex: 10,
+        title: "Old Spreadsheet Title",
+        songTitleCandidate: "Old Spreadsheet Title",
+        historyVisibility: "superseded",
+        supersededBySourceImportId: "srcimp-order-of-service-pdf-ytd"
+      }),
+      serviceOrder: buildSpreadsheetSongEvent({
+        serviceSongEventId: "sse-order-2026-04-22-c1",
+        serviceId: "svc-plan-2026-04-22-sunday-morning",
+        serviceDate: "2026-04-22",
+        slotIndex: 10,
+        title: "PDF Title",
+        songTitleCandidate: "PDF Title",
+        source: "service_order_pdf_import",
+        sourceType: "order_of_service_pdf",
+        sourceImportId: "srcimp-order-of-service-pdf-ytd"
+      })
+    },
+    sourceImports: {
+      "srcimp-order-of-service-pdf-ytd": buildSourceImport({
+        sourceImportId: "srcimp-order-of-service-pdf-ytd",
+        sourceType: "order_of_service_pdf",
+        sourceName: "2026 YTD Service Order PDFs"
+      })
+    }
+  });
+
+  const result = await getServiceById(
+    {
+      serviceId: "svc-plan-2026-04-22-sunday-morning"
+    },
+    deps
+  );
+
+  assert.equal(result.service.songCount, 1);
+  assert.equal(result.service.songs[0].songTitleCandidate, "PDF Title");
 });
 
 test("getServiceById returns the normalized service detail with songs and import context", async () => {

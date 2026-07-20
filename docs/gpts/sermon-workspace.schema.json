@@ -1,0 +1,3341 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sermon Workspace API",
+    "version": "1.1.1",
+    "description": "Custom GPT Action schema for sermon hubs, series metadata, source material, media, chunks, snapshots, and preaching analysis."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/sermons": {
+      "get": {
+        "operationId": "listSermons",
+        "summary": "List or search sermons",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "idea",
+                "developing",
+                "draft",
+                "ready",
+                "preached",
+                "archived"
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesTitle",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sermons returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      },
+      "post": {
+        "operationId": "createSermon",
+        "summary": "Create a sermon idea or draft",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "idea",
+                      "developing",
+                      "draft",
+                      "ready",
+                      "preached",
+                      "archived"
+                    ],
+                    "default": "idea"
+                  },
+                  "scriptureText": {
+                    "type": "string"
+                  },
+                  "bigIdea": {
+                    "type": "string"
+                  },
+                  "targetDate": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                  },
+                  "preachedDate": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                  },
+                  "occasion": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "outline": {
+                    "type": "string"
+                  },
+                  "sourceRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "seriesId": {
+                    "type": "string",
+                    "description": "Stable series id, for example series-james-living-our-faith."
+                  },
+                  "seriesTitle": {
+                    "type": "string",
+                    "description": "Human-readable series title, for example James — Living Our Faith."
+                  },
+                  "seriesSlug": {
+                    "type": "string",
+                    "description": "Stable series slug, for example james-living-our-faith."
+                  },
+                  "seriesNumber": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Message number within the series when known."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Searchable metadata tags such as james, mercy, wednesday-evening, old-chat."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sermon created"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/import": {
+      "post": {
+        "operationId": "importSermonMaterial",
+        "summary": "Import old chat or source material into a new or existing sermon record",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "updateMode": {
+                    "type": "string",
+                    "enum": [
+                      "create_or_update",
+                      "create_only",
+                      "update_only"
+                    ],
+                    "default": "create_or_update"
+                  },
+                  "replaceExisting": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "sermonId": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "idea",
+                      "developing",
+                      "draft",
+                      "ready",
+                      "preached",
+                      "archived"
+                    ]
+                  },
+                  "scriptureText": {
+                    "type": "string"
+                  },
+                  "bigIdea": {
+                    "type": "string"
+                  },
+                  "targetDate": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                  },
+                  "preachedDate": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD"
+                  },
+                  "occasion": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "outline": {
+                    "type": "string"
+                  },
+                  "importedSummary": {
+                    "type": "string",
+                    "description": "GPT-created concise summary of the imported sermon material"
+                  },
+                  "importedMaterial": {
+                    "type": "string",
+                    "description": "Raw or lightly cleaned old-chat/source material to preserve"
+                  },
+                  "sourceLabel": {
+                    "type": "string",
+                    "description": "Short label for where this import came from"
+                  },
+                  "developmentNotes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "content": {
+                          "type": "string"
+                        },
+                        "noteType": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "sourceRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "sourceType": {
+                    "type": "string",
+                    "enum": [
+                      "old_chat",
+                      "transcript",
+                      "pdf",
+                      "doc",
+                      "logos_export",
+                      "study_notes",
+                      "other"
+                    ],
+                    "description": "Type of imported source material. Defaults to old_chat."
+                  },
+                  "seriesId": {
+                    "type": "string",
+                    "description": "Stable series id, for example series-james-living-our-faith."
+                  },
+                  "seriesTitle": {
+                    "type": "string",
+                    "description": "Human-readable series title, for example James — Living Our Faith."
+                  },
+                  "seriesSlug": {
+                    "type": "string",
+                    "description": "Stable series slug, for example james-living-our-faith."
+                  },
+                  "seriesNumber": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Message number within the series when known."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Searchable metadata tags such as james, mercy, wednesday-evening, old-chat."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sermon material imported into an existing sermon"
+          },
+          "201": {
+            "description": "Sermon created from imported material"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-presentation-templates": {
+      "get": {
+        "operationId": "listSermonPresentationTemplates",
+        "summary": "List reusable sermon PowerPoint templates",
+        "parameters": [
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "archived"
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presentation templates returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      },
+      "post": {
+        "operationId": "createSermonPresentationTemplate",
+        "summary": "Create a reusable editable 16:9 sermon PowerPoint template, usually for a series",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "templateId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "seriesId": {
+                    "type": "string"
+                  },
+                  "seriesTitle": {
+                    "type": "string"
+                  },
+                  "seriesSlug": {
+                    "type": "string"
+                  },
+                  "aspectRatio": {
+                    "type": "string",
+                    "enum": [
+                      "16:9"
+                    ],
+                    "default": "16:9"
+                  },
+                  "theme": {
+                    "type": "object",
+                    "description": "Editable template styling: fonts.heading, fonts.body, and colors.background/surface/primary/text/muted/accent as hex values."
+                  },
+                  "layouts": {
+                    "type": "object",
+                    "description": "Optional layout settings by slide type."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Presentation template created"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-presentation-templates/{templateId}": {
+      "get": {
+        "operationId": "getSermonPresentationTemplate",
+        "summary": "Get a sermon PowerPoint template",
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presentation template returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      },
+      "patch": {
+        "operationId": "updateSermonPresentationTemplate",
+        "summary": "Update a sermon PowerPoint template for future generated decks",
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "changes": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "archived"
+                        ]
+                      },
+                      "theme": {
+                        "type": "object"
+                      },
+                      "layouts": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Presentation template updated"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-presentations": {
+      "get": {
+        "operationId": "listSermonPresentations",
+        "summary": "List generated sermon PowerPoint decks",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "templateId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "planned",
+                "rendered",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presentations returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-presentations/{presentationId}": {
+      "get": {
+        "operationId": "getSermonPresentation",
+        "summary": "Get a generated sermon PowerPoint deck record",
+        "parameters": [
+          {
+            "name": "presentationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presentation returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}": {
+      "get": {
+        "operationId": "getSermon",
+        "summary": "Get sermon detail by sermonId",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sermon returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      },
+      "patch": {
+        "operationId": "updateSermon",
+        "summary": "Update a sermon idea or draft",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "changes": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "idea",
+                          "developing",
+                          "draft",
+                          "ready",
+                          "preached",
+                          "archived"
+                        ]
+                      },
+                      "scriptureText": {
+                        "type": "string"
+                      },
+                      "bigIdea": {
+                        "type": "string"
+                      },
+                      "targetDate": {
+                        "type": "string",
+                        "description": "YYYY-MM-DD"
+                      },
+                      "preachedDate": {
+                        "type": "string",
+                        "description": "YYYY-MM-DD"
+                      },
+                      "occasion": {
+                        "type": "string"
+                      },
+                      "notes": {
+                        "type": "string"
+                      },
+                      "outline": {
+                        "type": "string"
+                      },
+                      "sourceRefs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      },
+                      "primaryManuscriptSourceId": {
+                        "type": "string",
+                        "description": "Source id of the manuscript/synthesis record that should be preferred for future preaching of this sermon."
+                      },
+                      "seriesId": {
+                        "type": "string",
+                        "description": "Stable series id, for example series-james-living-our-faith."
+                      },
+                      "seriesTitle": {
+                        "type": "string",
+                        "description": "Human-readable series title, for example James — Living Our Faith."
+                      },
+                      "seriesSlug": {
+                        "type": "string",
+                        "description": "Stable series slug, for example james-living-our-faith."
+                      },
+                      "seriesNumber": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Message number within the series when known."
+                      },
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Searchable metadata tags such as james, mercy, wednesday-evening, old-chat."
+                      }
+                    }
+                  },
+                  "seriesId": {
+                    "type": "string",
+                    "description": "Stable series id, for example series-james-living-our-faith."
+                  },
+                  "seriesTitle": {
+                    "type": "string",
+                    "description": "Human-readable series title, for example James — Living Our Faith."
+                  },
+                  "seriesSlug": {
+                    "type": "string",
+                    "description": "Stable series slug, for example james-living-our-faith."
+                  },
+                  "seriesNumber": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Message number within the series when known."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Searchable metadata tags such as james, mercy, wednesday-evening, old-chat."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sermon updated"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/development-notes": {
+      "post": {
+        "operationId": "addSermonDevelopmentNote",
+        "summary": "Append a development note to a sermon",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "content"
+                ],
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  },
+                  "noteType": {
+                    "type": "string",
+                    "default": "development"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Development note added"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/append": {
+      "post": {
+        "operationId": "appendSermonContent",
+        "summary": "Append sermon development content without replacing existing sermon fields",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "appendType",
+                  "content"
+                ],
+                "properties": {
+                  "appendType": {
+                    "type": "string",
+                    "enum": [
+                      "note",
+                      "outline",
+                      "application",
+                      "illustration",
+                      "question",
+                      "transition",
+                      "source_material"
+                    ]
+                  },
+                  "heading": {
+                    "type": "string",
+                    "description": "Optional section heading used when appending outline or source material"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "sourceLabel": {
+                    "type": "string"
+                  },
+                  "sourceType": {
+                    "type": "string",
+                    "enum": [
+                      "old_chat",
+                      "transcript",
+                      "preached_transcript",
+                      "cleaned_transcript",
+                      "youtube_caption",
+                      "vimeo_transcript",
+                      "media_audio",
+                      "pdf",
+                      "doc",
+                      "logos_export",
+                      "study_notes",
+                      "other"
+                    ],
+                    "description": "Used when appendType is source_material; defaults to study_notes."
+                  },
+                  "snapshotReason": {
+                    "type": "string",
+                    "description": "Optional human-readable reason saved with the pre-append snapshot"
+                  },
+                  "sourceRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "seriesId": {
+                    "type": "string",
+                    "description": "Stable series id, for example series-james-living-our-faith."
+                  },
+                  "seriesTitle": {
+                    "type": "string",
+                    "description": "Human-readable series title, for example James — Living Our Faith."
+                  },
+                  "seriesSlug": {
+                    "type": "string",
+                    "description": "Stable series slug, for example james-living-our-faith."
+                  },
+                  "seriesNumber": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Message number within the series when known."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Searchable metadata tags such as james, mercy, wednesday-evening, old-chat."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sermon content appended"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/snapshots": {
+      "get": {
+        "operationId": "listSermonSnapshots",
+        "summary": "List saved snapshots for a sermon",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sermon snapshots returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/preaching-profile": {
+      "get": {
+        "operationId": "getPreachingProfile",
+        "summary": "Get Dan's durable preaching style profile",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preaching profile returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      },
+      "patch": {
+        "operationId": "updatePreachingProfile",
+        "summary": "Update Dan's durable preaching style profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "profileId": {
+                    "type": "string",
+                    "default": "default"
+                  },
+                  "changes": {
+                    "type": "object",
+                    "properties": {
+                      "summary": {
+                        "type": "string"
+                      },
+                      "tone": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "strengths": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "recurringPatterns": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "cautions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "draftingGuidance": {
+                        "type": "string"
+                      },
+                      "observations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "category": {
+                              "type": "string"
+                            },
+                            "observation": {
+                              "type": "string"
+                            },
+                            "confidence": {
+                              "type": "string",
+                              "enum": [
+                                "observed_once",
+                                "recurring",
+                                "established"
+                              ]
+                            },
+                            "evidence": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "replaceObservations": {
+                        "type": "boolean",
+                        "default": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preaching profile updated"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/preaching-analysis": {
+      "post": {
+        "operationId": "createPreachingAnalysis",
+        "summary": "Save preaching style and improvement analysis for a sermon",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "sourceLabel": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "strengths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "improvements": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "styleObservations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "structureNotes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "applicationNotes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deliveryNotes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "profileCandidates": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "category": {
+                          "type": "string"
+                        },
+                        "observation": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "observed_once",
+                            "recurring",
+                            "established"
+                          ]
+                        },
+                        "evidence": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "applyProfileCandidates": {
+                    "type": "boolean",
+                    "description": "When true, append profileCandidates to the durable preaching profile.",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Preaching analysis saved"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-archive/stats": {
+      "get": {
+        "operationId": "getSermonArchiveStats",
+        "summary": "Get exact sermon archive counts and optional query match counts",
+        "description": "Use first for exact archive, source, chunk, status, embedding, and topic counts. Use scriptureStats for Bible-book counts and queryStats for broader searches.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional topic, passage, phrase, Bible book, or series term to count across sermons, sources, and chunks."
+          },
+          {
+            "name": "scriptureBook",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional Bible book name, such as James, Romans, or Psalms. This is treated as a count/search filter."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "idea",
+                "developing",
+                "draft",
+                "ready",
+                "preached",
+                "archived"
+              ]
+            }
+          },
+          {
+            "name": "sourceType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "old_chat",
+                "transcript",
+                "pdf",
+                "doc",
+                "logos_export",
+                "study_notes",
+                "other"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact sermon archive stats returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "totals": {
+                      "type": "object"
+                    },
+                    "sermons": {
+                      "type": "object"
+                    },
+                    "sources": {
+                      "type": "object"
+                    },
+                    "chunks": {
+                      "type": "object"
+                    },
+                    "queryStats": {
+                      "type": "object"
+                    },
+                    "scriptureStats": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-workspace/capabilities": {
+      "get": {
+        "operationId": "getSermonWorkspaceCapabilities",
+        "summary": "Get live sermon workspace backend capabilities",
+        "description": "Use to verify the deployed backend limits and source-selection capabilities, including maximum saved source material length and primary manuscript pointer support.",
+        "responses": {
+          "200": {
+            "description": "Live sermon workspace capability flags",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "maxImportedTextLength": {
+                      "type": "integer"
+                    },
+                    "manuscriptModel": {
+                      "type": "string"
+                    },
+                    "sourceSelectionModel": {
+                      "type": "string"
+                    },
+                    "sourceSelection": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "primaryManuscriptPointer": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/sources": {
+      "get": {
+        "operationId": "listSermonSources",
+        "summary": "List source material records for a sermon",
+        "description": "Lists imported or manually saved source material records for a sermon, optionally filtered by source type or query.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "old_chat",
+                "transcript",
+                "pdf",
+                "doc",
+                "logos_export",
+                "study_notes",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sermon source records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceType": {
+                            "type": "string",
+                            "enum": [
+                              "old_chat",
+                              "transcript",
+                              "pdf",
+                              "doc",
+                              "logos_export",
+                              "study_notes",
+                              "other"
+                            ]
+                          },
+                          "sourceLabel": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "material": {
+                            "type": "string"
+                          },
+                          "sourceRefs": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      },
+      "post": {
+        "operationId": "createSermonSource",
+        "summary": "Create a source material record for a sermon",
+        "description": "Stores source material such as old chats, transcripts, PDFs, documents, Logos exports, or study notes for later retrieval.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sourceType": {
+                    "type": "string",
+                    "enum": [
+                      "old_chat",
+                      "transcript",
+                      "pdf",
+                      "doc",
+                      "logos_export",
+                      "study_notes",
+                      "other"
+                    ]
+                  },
+                  "sourceLabel": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "material": {
+                    "type": "string"
+                  },
+                  "sourceRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  },
+                  "seriesId": {
+                    "type": "string",
+                    "description": "Stable series id, for example series-james-living-our-faith."
+                  },
+                  "seriesTitle": {
+                    "type": "string",
+                    "description": "Human-readable series title, for example James — Living Our Faith."
+                  },
+                  "seriesSlug": {
+                    "type": "string",
+                    "description": "Stable series slug, for example james-living-our-faith."
+                  },
+                  "seriesNumber": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Message number within the series when known."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Searchable metadata tags such as james, mercy, wednesday-evening, old-chat."
+                  }
+                },
+                "required": [
+                  "sourceLabel"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created sermon source record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "sourceId": {
+                          "type": "string"
+                        },
+                        "sermonId": {
+                          "type": "string"
+                        },
+                        "sourceType": {
+                          "type": "string",
+                          "enum": [
+                            "old_chat",
+                            "transcript",
+                            "pdf",
+                            "doc",
+                            "logos_export",
+                            "study_notes",
+                            "other"
+                          ]
+                        },
+                        "sourceLabel": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "material": {
+                          "type": "string"
+                        },
+                        "sourceRefs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": true
+                          }
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/media": {
+      "get": {
+        "operationId": "listSermonMedia",
+        "summary": "List media attached to a sermon",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mediaType",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "youtube",
+                "vimeo",
+                "audio",
+                "video",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "transcriptStatus",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "none",
+                "pending",
+                "raw_saved",
+                "cleaned",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sermon media records returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      },
+      "post": {
+        "operationId": "createSermonMedia",
+        "summary": "Attach media to a sermon",
+        "description": "Adds a YouTube, Vimeo, audio, video, or other media reference to a sermon hub.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mediaType": {
+                    "type": "string",
+                    "enum": [
+                      "youtube",
+                      "vimeo",
+                      "audio",
+                      "video",
+                      "other"
+                    ]
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "externalId": {
+                    "type": "string"
+                  },
+                  "startSeconds": {
+                    "type": "number",
+                    "description": "Sermon start offset in seconds for timestamped media such as YouTube livestreams."
+                  },
+                  "endSeconds": {
+                    "type": "number",
+                    "description": "Optional sermon end offset in seconds for clipping media transcripts."
+                  },
+                  "recordedAt": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "seriesId": {
+                    "type": "string",
+                    "description": "Stable series id, for example series-james-living-our-faith."
+                  },
+                  "seriesTitle": {
+                    "type": "string",
+                    "description": "Human-readable series title, for example James — Living Our Faith."
+                  },
+                  "seriesSlug": {
+                    "type": "string",
+                    "description": "Stable series slug, for example james-living-our-faith."
+                  },
+                  "seriesNumber": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Message number within the series when known."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Searchable metadata tags such as james, mercy, wednesday-evening, old-chat."
+                  }
+                },
+                "required": [
+                  "mediaType"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sermon media attached"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/walk-sessions": {
+      "post": {
+        "operationId": "createSermonWalkSession",
+        "summary": "Create a lossless sermon-development walk session",
+        "description": "Starts an append-only sermon walk capture and returns a scoped mobile launch URL. The walk app durably records audio, exact transcript turns, save receipts, and an integrity manifest before the session can close.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "context": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sermon walk session and scoped launch URL created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/manuscript-draft": {
+      "post": {
+        "operationId": "createSermonManuscriptDraft",
+        "summary": "Create a backend-selected sermon manuscript DOCX draft",
+        "description": "Server-side workflow that selects the right sermon source layers from a compact manifest, generates a refined manuscript, saves it as source material, returns a downloadable DOCX export, and marks it as the primary future-preaching manuscript.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dryRun": {
+                    "type": "boolean",
+                    "description": "When true, returns backend source-selection stats and skips manuscript writing and DOCX export."
+                  },
+                  "runAiSelectionInDryRun": {
+                    "type": "boolean",
+                    "description": "When dryRun is true, set this true only if AI source selection should be tested. Otherwise dryRun uses deterministic backend selection."
+                  },
+                  "docTitle": {
+                    "type": "string"
+                  },
+                  "targetLength": {
+                    "type": "string",
+                    "description": "Desired manuscript length, such as full sermon manuscript or 3500 words."
+                  },
+                  "tone": {
+                    "type": "string"
+                  },
+                  "focusNotes": {
+                    "type": "string",
+                    "description": "Dan's extra direction for this draft."
+                  },
+                  "manuscriptFormat": {
+                    "type": "string",
+                    "description": "Optional custom format instructions. Omit to use Dan's standard preaching manuscript format."
+                  },
+                  "includeSourceMaterial": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Deprecated for this endpoint; source material is selected and hydrated server-side."
+                  },
+                  "sourceLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 100,
+                    "description": "Maximum source summaries to consider in the backend selection manifest."
+                  },
+                  "maxSelectedSources": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 24,
+                    "description": "Maximum full source records the backend should hydrate for manuscript generation after selection."
+                  },
+                  "useAiSourceSelection": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "When false, use deterministic backend source selection only."
+                  },
+                  "semanticLimit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20,
+                    "default": 10
+                  },
+                  "semanticQuery": {
+                    "type": "string"
+                  },
+                  "sourceMaterialBudget": {
+                    "type": "integer",
+                    "minimum": 6000,
+                    "maximum": 600000,
+                    "description": "Character budget for selected source material included in the server-side manuscript prompt."
+                  },
+                  "maxOutputTokens": {
+                    "type": "integer",
+                    "minimum": 2000,
+                    "maximum": 128000
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Optional override for the backend manuscript generation model. Omit to use the server default."
+                  },
+                  "seriesId": {
+                    "type": "string",
+                    "description": "Stable series id, for example series-james-living-our-faith."
+                  },
+                  "seriesTitle": {
+                    "type": "string",
+                    "description": "Human-readable series title, for example James — Living Our Faith."
+                  },
+                  "seriesSlug": {
+                    "type": "string",
+                    "description": "Stable series slug, for example james-living-our-faith."
+                  },
+                  "seriesNumber": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Message number within the series when known."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Searchable metadata tags such as james, mercy, wednesday-evening, old-chat."
+                  },
+                  "manuscriptMode": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "assembly"
+                    ],
+                    "default": "draft",
+                    "description": "Use assembly when Dan wants the manuscript assembled from supplied development material with minimal connective prose and no invented fuller sermon."
+                  },
+                  "excludeGeneratedManuscriptSources": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Generated prior manuscript drafts are excluded by default to avoid feedback-loop poisoning."
+                  },
+                  "includeGeneratedManuscriptSources": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Explicit opt-in to allow prior generated manuscript drafts as source material."
+                  },
+                  "includePriorManuscriptSources": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Alias for explicit opt-in to allow prior generated manuscript drafts as source material."
+                  },
+                  "requireReliefEnding": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "In assembly mode, enforce a relief-shaped ending instead of a long instruction/application list."
+                  },
+                  "requireSimpleFinalPosture": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "In assembly mode, require the simple final posture from Dan’s material when present."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dry-run context stats returned"
+          },
+          "201": {
+            "description": "DOCX manuscript draft created"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-sources/{sourceId}": {
+      "get": {
+        "operationId": "getSermonSource",
+        "summary": "Get one sermon source material record",
+        "description": "Retrieves the full saved source material record, including material text and references.",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sermon source record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "sourceId": {
+                          "type": "string"
+                        },
+                        "sermonId": {
+                          "type": "string"
+                        },
+                        "sourceType": {
+                          "type": "string",
+                          "enum": [
+                            "old_chat",
+                            "transcript",
+                            "pdf",
+                            "doc",
+                            "logos_export",
+                            "study_notes",
+                            "other"
+                          ]
+                        },
+                        "sourceLabel": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "material": {
+                          "type": "string"
+                        },
+                        "sourceRefs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": true
+                          }
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-media/{mediaId}/transcript-source": {
+      "post": {
+        "operationId": "createSermonMediaTranscriptSource",
+        "summary": "Save a media transcript as sermon source material",
+        "description": "Stores raw or cleaned transcript text as source material connected to a sermon media record.",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "transcriptKind": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "cleaned"
+                    ],
+                    "default": "raw"
+                  },
+                  "transcriptText": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "sourceLabel": {
+                    "type": "string"
+                  },
+                  "rebuildChunks": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "transcriptText"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transcript source material saved"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/context": {
+      "get": {
+        "operationId": "getSermonContext",
+        "summary": "Get full sermon context for continuing development",
+        "description": "Retrieves sermon hub detail plus source summaries, recent snapshots, recent preaching analyses, and preaching profile context in one call. Use before continuing sermon development when continuity matters.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeSourceMaterial",
+            "in": "query",
+            "required": false,
+            "description": "Set true only when full saved source material text is needed. Default returns source summaries only.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "includePreachingProfile",
+            "in": "query",
+            "required": false,
+            "description": "Set false to omit preaching profile context. Defaults to included.",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "sourceLimit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          {
+            "name": "snapshotLimit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 5
+            }
+          },
+          {
+            "name": "analysisLimit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 5
+            }
+          },
+          {
+            "name": "profileId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full sermon context package",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "sermon": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceType": {
+                            "type": "string",
+                            "enum": [
+                              "old_chat",
+                              "transcript",
+                              "pdf",
+                              "doc",
+                              "logos_export",
+                              "study_notes",
+                              "other"
+                            ]
+                          },
+                          "sourceLabel": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "material": {
+                            "type": "string"
+                          },
+                          "sourceRefs": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "recentSnapshots": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "preachingAnalyses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "preachingProfile": {
+                      "type": "object",
+                      "nullable": true,
+                      "additionalProperties": true
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "sourceCount": {
+                          "type": "integer"
+                        },
+                        "returnedSourceCount": {
+                          "type": "integer"
+                        },
+                        "snapshotCount": {
+                          "type": "integer"
+                        },
+                        "preachingAnalysisCount": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/presentations": {
+      "get": {
+        "operationId": "listSermonPresentationsForSermon",
+        "summary": "List generated editable PowerPoint decks for one sermon",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "templateId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "planned",
+                "rendered",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presentations returned"
+          }
+        },
+        "x-openai-isConsequential": false
+      },
+      "post": {
+        "operationId": "createSermonPresentation",
+        "summary": "Create an editable 16:9 PPTX deck for a sermon, reusing the series template when available",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "templateId": {
+                    "type": "string",
+                    "description": "Optional template override. Omit to reuse or create the active template for the sermon series."
+                  },
+                  "theme": {
+                    "type": "object",
+                    "description": "Optional theme override used only when the backend creates a new template."
+                  },
+                  "slidePlan": {
+                    "type": "object",
+                    "description": "Optional full slide plan. Omit for a backend-generated plan from sermon title, passage, big idea, and outline.",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "slides": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "title",
+                                "scripture",
+                                "big_idea",
+                                "section",
+                                "main_point",
+                                "quote",
+                                "application",
+                                "closing",
+                                "blank"
+                              ]
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "subtitle": {
+                              "type": "string"
+                            },
+                            "heading": {
+                              "type": "string"
+                            },
+                            "body": {
+                              "type": "string"
+                            },
+                            "reference": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": "string"
+                            },
+                            "citation": {
+                              "type": "string"
+                            },
+                            "bullets": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "notes": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "slides": {
+                    "type": "array",
+                    "description": "Shortcut for slidePlan.slides.",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Editable PPTX generated and saved"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-source-search": {
+      "get": {
+        "operationId": "searchSermonSources",
+        "summary": "Search sermon source material records across the archive",
+        "description": "Searches saved sermon source material records across all sermons. Use one short topic, phrase, passage, or keyword at a time.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Short topic, phrase, passage, or keyword to search in saved sermon source records."
+          },
+          {
+            "name": "sermonId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "old_chat",
+                "transcript",
+                "pdf",
+                "doc",
+                "logos_export",
+                "study_notes",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching sermon source records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceType": {
+                            "type": "string",
+                            "enum": [
+                              "old_chat",
+                              "transcript",
+                              "pdf",
+                              "doc",
+                              "logos_export",
+                              "study_notes",
+                              "other"
+                            ]
+                          },
+                          "sourceLabel": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-chunk-search": {
+      "get": {
+        "operationId": "searchSermonChunks",
+        "summary": "Search indexed sermon knowledge chunks",
+        "description": "Searches the sermon chunk index across sermons, source materials, and preaching analyses. This is the keyword-search foundation for later semantic/vector retrieval.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Short topic, phrase, passage, or keyword to search in indexed sermon chunks."
+          },
+          {
+            "name": "sermonId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceKind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sermon",
+                "source",
+                "analysis"
+              ]
+            }
+          },
+          {
+            "name": "chunkType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching sermon chunks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chunkId": {
+                            "type": "string"
+                          },
+                          "sourceKind": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "analysisId": {
+                            "type": "string"
+                          },
+                          "chunkType": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "scriptureText": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "textHash": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/chunks/rebuild": {
+      "post": {
+        "operationId": "rebuildSermonChunks",
+        "summary": "Rebuild indexed chunks for a sermon",
+        "description": "Rebuilds keyword-search chunks for one sermon from its canonical sermon record, source records, and preaching analyses. This prepares the sermon for later embedding/vector retrieval.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rebuilt sermon chunks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "sermonId": {
+                      "type": "string"
+                    },
+                    "chunkCount": {
+                      "type": "integer"
+                    },
+                    "deletedChunkCount": {
+                      "type": "integer"
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chunkId": {
+                            "type": "string"
+                          },
+                          "sourceKind": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "analysisId": {
+                            "type": "string"
+                          },
+                          "chunkType": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "scriptureText": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "textHash": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-chunks/embed": {
+      "post": {
+        "operationId": "embedSermonChunks",
+        "summary": "Embed indexed sermon chunks with Vertex AI",
+        "description": "Generates and stores embeddings for pending sermon chunks. Skips chunks whose stored embedding matches the current text hash and embedding model unless force is true.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sermonId": {
+                    "type": "string"
+                  },
+                  "sourceKind": {
+                    "type": "string",
+                    "enum": [
+                      "sermon",
+                      "source",
+                      "analysis"
+                    ]
+                  },
+                  "chunkType": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "force": {
+                    "type": "boolean"
+                  },
+                  "embeddingModel": {
+                    "type": "string"
+                  },
+                  "taskType": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Embedding job result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "embeddedCount": {
+                      "type": "integer"
+                    },
+                    "matchingChunkCount": {
+                      "type": "integer"
+                    },
+                    "pendingChunkCount": {
+                      "type": "integer"
+                    },
+                    "embeddingModel": {
+                      "type": "string"
+                    },
+                    "taskType": {
+                      "type": "string"
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chunkId": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceKind": {
+                            "type": "string"
+                          },
+                          "chunkType": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "textHash": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-semantic-search": {
+      "get": {
+        "operationId": "semanticSearchSermonChunks",
+        "summary": "Semantically search embedded sermon chunks",
+        "description": "Embeds the query with Vertex AI and uses Firestore vector search over embedded sermon chunks. Use this for meaning-based retrieval across sermons, source materials, and preaching analyses.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Concept, topic, passage, phrase, or ministry question to search semantically."
+          },
+          {
+            "name": "sermonId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceKind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sermon",
+                "source",
+                "analysis"
+              ]
+            }
+          },
+          {
+            "name": "chunkType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "distanceMeasure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "COSINE",
+                "EUCLIDEAN",
+                "DOT_PRODUCT"
+              ]
+            }
+          },
+          {
+            "name": "embeddingModel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nearest embedded sermon chunks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "query": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "candidateCount": {
+                      "type": "integer"
+                    },
+                    "embeddingModel": {
+                      "type": "string"
+                    },
+                    "taskType": {
+                      "type": "string"
+                    },
+                    "distanceMeasure": {
+                      "type": "string"
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chunkId": {
+                            "type": "string"
+                          },
+                          "sourceKind": {
+                            "type": "string"
+                          },
+                          "sermonId": {
+                            "type": "string"
+                          },
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "analysisId": {
+                            "type": "string"
+                          },
+                          "chunkType": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "scriptureText": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "textHash": {
+                            "type": "string"
+                          },
+                          "vectorDistance": {
+                            "type": "number"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-media/{mediaId}/transcribe": {
+      "post": {
+        "operationId": "transcribeSermonMedia",
+        "summary": "Transcribe sermon media",
+        "description": "Transcribes uploaded audio or video sermon media, saves a raw transcript source, and can rebuild chunks.",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "Optional transcription prompt with names or terms."
+                  },
+                  "sourceLabel": {
+                    "type": "string"
+                  },
+                  "rebuildChunks": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "embedChunks": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "embedLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Media transcribed and source saved"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/media/upload-url": {
+      "post": {
+        "operationId": "createSermonMediaUploadUrl",
+        "summary": "Create sermon media upload URL",
+        "description": "Creates a signed upload URL for local audio or video and attaches the media record.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filename": {
+                    "type": "string"
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "description": "Audio or video MIME type such as audio/mpeg, audio/mp4, audio/wav, or video/mp4."
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "recordedAt": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "filename",
+                  "contentType"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Media record and signed upload URL created"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/media/import-url": {
+      "post": {
+        "operationId": "importSermonMediaFromUrl",
+        "summary": "Import sermon media from a public URL",
+        "description": "Downloads public media, stores it, attaches it to a sermon, and can transcribe it.",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "filename": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "recordedAt": {
+                    "type": "string"
+                  },
+                  "startSeconds": {
+                    "type": "number",
+                    "description": "Sermon start offset in seconds for timestamped media."
+                  },
+                  "endSeconds": {
+                    "type": "number",
+                    "description": "Optional sermon end offset in seconds for clipping media transcripts."
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "transcribe": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "rebuildChunks": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "embedChunks": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "embedLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 50
+                  }
+                },
+                "required": [
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Media imported and optionally transcribed"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    }
+  },
+  "components": {
+    "schemas": {},
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  }
+}

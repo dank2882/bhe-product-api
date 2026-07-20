@@ -1,0 +1,41 @@
+{
+  "contractVersion": "1",
+  "purpose": "Keep the Custom GPT schema and instructions stable while backend operations and knowledge files continue to evolve.",
+  "schema": {
+    "path": "docs/gpts/sermon-workspace.schema.dispatcher-upload.json",
+    "openapi": "3.1.0",
+    "apiVersion": "2.5.0",
+    "sha256": "dc764469325c070e0fe2f285c0a4f95328001ec712731488fde4c82c2e4283eb",
+    "operationIds": [
+      "listSermonWorkspaceOperations",
+      "runSermonWorkspaceQuery",
+      "runSermonWorkspaceArtifact",
+      "runSermonSlides",
+      "runSermonWorkspaceCommand",
+      "createSermonWalkSession",
+      "createSermonManuscriptDraft",
+      "transcribeSermonMedia",
+      "createSermonMediaUploadUrl",
+      "importSermonMediaFromUrl"
+    ]
+  },
+  "instructions": {
+    "path": "docs/gpts/sermon-workspace.instructions.upload.md",
+    "maximumBytes": 8000,
+    "bytes": 7952,
+    "sha256": "dcc975b27fb515d5c4b49285967574149e2046451fbc6c76cc025a4d0ab01dfc"
+  },
+  "updatableKnowledgeFiles": [
+    "docs/gpts/sermon-workspace.operation-catalog.md",
+    "docs/gpts/sermon-workspace.supplemental.md"
+  ],
+  "compatibilityRules": [
+    "Add normal backend capabilities as registry operations in query, artifact, or command mode.",
+    "Use a specialized direct OpenAPI Action when stronger typing, file transport, reliability, latency, or confirmation behavior materially improves the workflow.",
+    "Keep useful headroom under the 30-Action platform limit without treating a low Action count as an objective.",
+    "Keep existing direct specialized actions backward compatible.",
+    "Update the operation catalog when registry metadata changes.",
+    "Update the supplemental knowledge file when workflows or preferences change.",
+    "Change the frozen schema or instructions only for a true compatibility or security requirement."
+  ]
+}

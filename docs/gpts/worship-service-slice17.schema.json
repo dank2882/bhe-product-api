@@ -1,0 +1,1306 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Church Song Catalog and Date-Scoped Service History API - Slice 17",
+    "version": "6.0.0",
+    "description": "Music ministry API for canonical song catalog reads, controlled song metadata and identity updates, and date-scoped read-only service history/planning reads. Slice 17 keeps catalog cleanup focused on title and alias corrections rather than review-status workflows."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-265001256563.us-west1.run.app"
+    }
+  ],
+  "paths": {
+    "/songs/search": {
+      "post": {
+        "operationId": "searchSongs",
+        "summary": "Search the canonical hymnal catalog using free text, structured filters, or both",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSongsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching songs returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchSongsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing query or filters, or invalid filter values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Song search failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/{songId}": {
+      "get": {
+        "operationId": "getSong",
+        "summary": "Get a canonical song record by songId",
+        "parameters": [
+          {
+            "name": "songId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Song returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSongResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid songId",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Song not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Song fetch failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/{songId}/ministry-metadata": {
+      "patch": {
+        "operationId": "updateSongMinistryMetadata",
+        "summary": "Apply a controlled partial update to approved ministry metadata fields on a canonical song",
+        "parameters": [
+          {
+            "name": "songId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSongMinistryMetadataRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metadata updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateSongMinistryMetadataResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid metadata update request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Song not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Song metadata update failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/{songId}/identity": {
+      "patch": {
+        "operationId": "updateSongIdentity",
+        "summary": "Apply a controlled partial update to approved identity fields on a canonical song",
+        "parameters": [
+          {
+            "name": "songId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSongIdentityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Song identity updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateSongIdentityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid identity update request, unsupported field, or protected field edit attempt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Song not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Song identity update failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/search": {
+      "post": {
+        "operationId": "searchServices",
+        "summary": "Search normalized read-only services with date scope for past history, upcoming planned services, or both",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchServicesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching normalized services returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchServicesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing query or filters, or invalid service-history filter values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Service search failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{serviceId}": {
+      "get": {
+        "operationId": "getService",
+        "summary": "Get a single normalized read-only service by serviceId",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Normalized service returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetServiceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid serviceId",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Service fetch failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SearchSongsRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Optional free-text query for titles, aliases, or topics."
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchSongFilters"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 10
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "relevance",
+              "title_asc",
+              "hymnal_number_asc"
+            ],
+            "default": "relevance"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "query"
+            ]
+          },
+          {
+            "required": [
+              "filters"
+            ]
+          }
+        ]
+      },
+      "SearchSongFilters": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "string",
+            "description": "Topic filter such as Trust or Adoration and Praise."
+          },
+          "hymnalNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "leaderReadiness": {
+            "$ref": "#/components/schemas/LeaderReadiness"
+          },
+          "strength": {
+            "$ref": "#/components/schemas/Strength"
+          },
+          "feelsDated": {
+            "$ref": "#/components/schemas/FeelsDated"
+          },
+          "situationalUse": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SituationalUse"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SituationalUse"
+                }
+              }
+            ],
+            "description": "Exact ministry-use metadata tags. Use only supported values."
+          },
+          "developmentPotential": {
+            "$ref": "#/components/schemas/DevelopmentPotential"
+          }
+        }
+      },
+      "SearchSongsResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "count",
+          "songs"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "query": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "songs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongSummary"
+            }
+          },
+          "appliedFilters": {
+            "$ref": "#/components/schemas/SearchSongFilters"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SongSummary": {
+        "type": "object",
+        "required": [
+          "songId",
+          "hymnalNumber",
+          "canonicalTitle",
+          "topics",
+          "ministryMetadata"
+        ],
+        "properties": {
+          "songId": {
+            "type": "string"
+          },
+          "hymnalNumber": {
+            "type": "integer"
+          },
+          "canonicalTitle": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ministryMetadata": {
+            "$ref": "#/components/schemas/MinistryMetadata"
+          }
+        }
+      },
+      "GetSongResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "song"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "song": {
+            "$ref": "#/components/schemas/SongDetail"
+          }
+        }
+      },
+      "SongDetail": {
+        "type": "object",
+        "required": [
+          "songId",
+          "hymnalId",
+          "hymnalNumber",
+          "canonicalTitle",
+          "topics",
+          "titleAliases",
+          "normalizedLookupKeys",
+          "ministryMetadata",
+          "sourceEvidence",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "songId": {
+            "type": "string"
+          },
+          "hymnalId": {
+            "type": "string"
+          },
+          "hymnalNumber": {
+            "type": "integer"
+          },
+          "canonicalTitle": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "titleAliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "normalizedLookupKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ministryMetadata": {
+            "$ref": "#/components/schemas/MinistryMetadata"
+          },
+          "sourceEvidence": {
+            "type": "object"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "MinistryMetadata": {
+        "type": "object",
+        "required": [
+          "leaderReadiness",
+          "strength",
+          "feelsDated",
+          "situationalUse",
+          "developmentPotential"
+        ],
+        "properties": {
+          "leaderReadiness": {
+            "$ref": "#/components/schemas/LeaderReadiness"
+          },
+          "strength": {
+            "$ref": "#/components/schemas/Strength"
+          },
+          "feelsDated": {
+            "$ref": "#/components/schemas/FeelsDated"
+          },
+          "situationalUse": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SituationalUse"
+            }
+          },
+          "developmentPotential": {
+            "$ref": "#/components/schemas/DevelopmentPotential"
+          }
+        }
+      },
+      "UpdateSongMinistryMetadataRequest": {
+        "type": "object",
+        "required": [
+          "changes",
+          "changeReason"
+        ],
+        "properties": {
+          "changes": {
+            "$ref": "#/components/schemas/MinistryMetadataChanges"
+          },
+          "changeReason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Required non-empty reason for the metadata change."
+          },
+          "changedBy": {
+            "type": "string",
+            "description": "Optional actor label. If omitted, the backend defaults to custom-gpt."
+          }
+        }
+      },
+      "MinistryMetadataChanges": {
+        "type": "object",
+        "description": "Partial update object. Only approved ministry metadata fields may be sent.",
+        "properties": {
+          "leaderReadiness": {
+            "$ref": "#/components/schemas/LeaderReadiness"
+          },
+          "strength": {
+            "$ref": "#/components/schemas/Strength"
+          },
+          "feelsDated": {
+            "$ref": "#/components/schemas/FeelsDated"
+          },
+          "situationalUse": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SituationalUse"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SituationalUse"
+                }
+              }
+            ]
+          },
+          "developmentPotential": {
+            "$ref": "#/components/schemas/DevelopmentPotential"
+          }
+        },
+        "additionalProperties": false,
+        "minProperties": 1
+      },
+      "UpdateSongMinistryMetadataResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "songId",
+          "ministryMetadata",
+          "auditEntry",
+          "updatedAt"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "songId": {
+            "type": "string"
+          },
+          "ministryMetadata": {
+            "$ref": "#/components/schemas/MinistryMetadata"
+          },
+          "auditEntry": {
+            "$ref": "#/components/schemas/SongMetadataAuditEntry"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "SongMetadataAuditEntry": {
+        "type": "object",
+        "required": [
+          "auditId",
+          "songId",
+          "changedAt",
+          "changedBy",
+          "changeReason",
+          "previousValues",
+          "newValues",
+          "changesApplied"
+        ],
+        "properties": {
+          "auditId": {
+            "type": "string"
+          },
+          "songId": {
+            "type": "string"
+          },
+          "changedAt": {
+            "type": "string"
+          },
+          "changedBy": {
+            "type": "string"
+          },
+          "changeReason": {
+            "type": "string"
+          },
+          "previousValues": {
+            "$ref": "#/components/schemas/MinistryMetadataChanges"
+          },
+          "newValues": {
+            "$ref": "#/components/schemas/MinistryMetadataChanges"
+          },
+          "changesApplied": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "leaderReadiness",
+                "strength",
+                "feelsDated",
+                "situationalUse",
+                "developmentPotential"
+              ]
+            }
+          }
+        }
+      },
+      "UpdateSongIdentityRequest": {
+        "type": "object",
+        "required": [
+          "changes"
+        ],
+        "properties": {
+          "changes": {
+            "$ref": "#/components/schemas/SongIdentityChanges"
+          },
+          "changeReason": {
+            "type": "string",
+            "description": "Optional reason for the identity change. The GPT should summarize the intended change and get explicit confirmation before calling this action."
+          },
+          "changedBy": {
+            "type": "string",
+            "description": "Optional actor label. If omitted, the backend defaults to custom-gpt."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SongIdentityChanges": {
+        "type": "object",
+        "description": "Partial identity update object. Only canonicalTitle and titleAliases may be sent. Do not send normalizedLookupKeys; the backend derives lookup keys.",
+        "properties": {
+          "canonicalTitle": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Canonical display title for the song."
+          },
+          "titleAliases": {
+            "type": "array",
+            "description": "Alternate titles for matching and lookup. Each alias must be a non-empty string.",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false,
+        "minProperties": 1
+      },
+      "UpdateSongIdentityResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "songId",
+          "canonicalTitle",
+          "titleAliases",
+          "normalizedLookupKeys",
+          "auditEntry",
+          "updatedAt"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "songId": {
+            "type": "string"
+          },
+          "canonicalTitle": {
+            "type": "string"
+          },
+          "titleAliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "normalizedLookupKeys": {
+            "type": "array",
+            "description": "Backend-derived lookup keys returned for inspection only. Do not send direct lookup-key writes.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "auditEntry": {
+            "$ref": "#/components/schemas/SongIdentityAuditEntry"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "SongIdentityAuditEntry": {
+        "type": "object",
+        "required": [
+          "auditId",
+          "auditType",
+          "songId",
+          "changedAt",
+          "changedBy",
+          "changeReason",
+          "previousValues",
+          "newValues",
+          "changesApplied"
+        ],
+        "properties": {
+          "auditId": {
+            "type": "string"
+          },
+          "auditType": {
+            "type": "string",
+            "const": "song_identity"
+          },
+          "songId": {
+            "type": "string"
+          },
+          "changedAt": {
+            "type": "string"
+          },
+          "changedBy": {
+            "type": "string"
+          },
+          "changeReason": {
+            "type": "string"
+          },
+          "previousValues": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "newValues": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "changesApplied": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "canonicalTitle",
+                "titleAliases",
+                "normalizedLookupKeys"
+              ]
+            }
+          }
+        }
+      },
+      "SearchServicesRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Optional natural-language query for normalized service history or planned services, such as last Sunday morning, Easter Sunday morning from 2025, Lord's Supper evening service songs, Sunday night services this month, or what is planned next Sunday morning."
+          },
+          "filters": {
+            "$ref": "#/components/schemas/SearchServiceFilters"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25,
+            "default": 10
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "query"
+            ]
+          },
+          {
+            "required": [
+              "filters"
+            ]
+          }
+        ]
+      },
+      "SearchServiceFilters": {
+        "type": "object",
+        "properties": {
+          "serviceType": {
+            "$ref": "#/components/schemas/ServiceType"
+          },
+          "serviceDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Exact service date in YYYY-MM-DD format."
+          },
+          "dateFrom": {
+            "type": "string",
+            "format": "date",
+            "description": "Inclusive start date in YYYY-MM-DD format."
+          },
+          "dateTo": {
+            "type": "string",
+            "format": "date",
+            "description": "Inclusive end date in YYYY-MM-DD format."
+          },
+          "labels": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "description": "Normalized service labels. Common labels include easter and lords_supper."
+          },
+          "dateScope": {
+            "type": "string",
+            "enum": [
+              "past",
+              "upcoming",
+              "any"
+            ],
+            "default": "past",
+            "description": "Controls whether service search returns past/history services, upcoming/planned services, or both. Omitted/default is past. past means serviceDate before today. upcoming means serviceDate today or later. any means both past and upcoming."
+          }
+        },
+        "description": "Structured service filters. dateScope defaults to past when omitted."
+      },
+      "SearchServicesResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "count",
+          "services"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "query": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceSummary"
+            }
+          },
+          "appliedFilters": {
+            "$ref": "#/components/schemas/SearchServiceFilters"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GetServiceResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "service"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "service": {
+            "$ref": "#/components/schemas/ServiceDetail"
+          }
+        }
+      },
+      "ServiceSummary": {
+        "type": "object",
+        "required": [
+          "serviceId",
+          "serviceDate",
+          "serviceType",
+          "title",
+          "theme",
+          "source",
+          "sourceImportId",
+          "serviceLabels",
+          "songs",
+          "songCount",
+          "importContext",
+          "planningStatus",
+          "actualStatus",
+          "changedAfterPlan"
+        ],
+        "properties": {
+          "serviceId": {
+            "type": "string"
+          },
+          "serviceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "serviceType": {
+            "$ref": "#/components/schemas/ServiceType"
+          },
+          "title": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "Normalized internal source marker. Service reads use internal normalized data, not live Breeze."
+          },
+          "sourceImportId": {
+            "type": "string"
+          },
+          "serviceLabels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "songs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceSong"
+            }
+          },
+          "songCount": {
+            "type": "integer"
+          },
+          "importContext": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ImportContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceType": {
+            "type": "string",
+            "description": "Source type when available, such as breeze or spreadsheet_export."
+          },
+          "sourceName": {
+            "type": "string",
+            "description": "Human-readable source name when available."
+          },
+          "planningStatus": {
+            "type": "string",
+            "description": "Planning status when available, such as planned."
+          },
+          "actualStatus": {
+            "type": "string",
+            "description": "Actual/completion status when available, such as unknown."
+          },
+          "changedAfterPlan": {
+            "type": "boolean",
+            "description": "Whether the service or slot is known to have changed after the plan."
+          }
+        }
+      },
+      "ServiceDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ServiceSummary"
+          },
+          {
+            "type": "object",
+            "required": [
+              "createdAt",
+              "updatedAt"
+            ],
+            "properties": {
+              "createdAt": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "type": "string"
+              },
+              "rawBreezeReference": {
+                "type": "string"
+              },
+              "sourceSheetName": {
+                "type": "string"
+              },
+              "sourceRowNumber": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "sourceCell": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ServiceSong": {
+        "type": "object",
+        "required": [
+          "songId",
+          "hymnalNumber",
+          "title",
+          "slotIndex",
+          "usageRole"
+        ],
+        "properties": {
+          "songId": {
+            "type": "string"
+          },
+          "hymnalNumber": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "slotIndex": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "usageRole": {
+            "type": "string"
+          },
+          "songTitleCandidate": {
+            "type": "string",
+            "description": "Spreadsheet-planned title candidate when present. Empty when a special-music cell is assignment-only."
+          },
+          "songTitleConfidence": {
+            "type": "string",
+            "description": "Parser confidence for songTitleCandidate when present."
+          },
+          "assignedPersonOrGroupRaw": {
+            "type": "string",
+            "description": "Raw performer/person/group assignment from planning source when present."
+          },
+          "detailNote": {
+            "type": "string",
+            "description": "Detail note from planning source, such as grade-band parenthetical text."
+          },
+          "sourceColumnName": {
+            "type": "string"
+          },
+          "sourceCell": {
+            "type": "string"
+          },
+          "planningStatus": {
+            "type": "string"
+          },
+          "actualStatus": {
+            "type": "string"
+          },
+          "changedAfterPlan": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ImportContext": {
+        "type": "object",
+        "required": [
+          "importId"
+        ],
+        "properties": {
+          "importId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "importedAt": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "sourceSheetName": {
+            "type": "string"
+          }
+        }
+      },
+      "ServiceType": {
+        "type": "string",
+        "description": "Normalized service type. Common values include sunday_morning, sunday_night, and wednesday_night."
+      },
+      "LeaderReadiness": {
+        "type": "string",
+        "enum": [
+          "ready_now",
+          "learnable_soon",
+          "not_ready",
+          "unknown"
+        ]
+      },
+      "Strength": {
+        "type": "string",
+        "enum": [
+          "core",
+          "solid_rotation",
+          "situational",
+          "unknown"
+        ]
+      },
+      "FeelsDated": {
+        "type": "string",
+        "enum": [
+          "yes",
+          "no",
+          "mixed",
+          "unknown"
+        ]
+      },
+      "SituationalUse": {
+        "type": "string",
+        "enum": [
+          "invitation",
+          "reflective",
+          "revival"
+        ]
+      },
+      "DevelopmentPotential": {
+        "type": "string",
+        "enum": [
+          "high",
+          "medium",
+          "low",
+          "unknown"
+        ]
+      },
+      "ErrorObject": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "error"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": false
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorObject"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sermon Workspace Search Test API",
+    "version": "1.0.0",
+    "description": "Minimal Custom GPT Action schema for isolating sermon search."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/sermons": {
+      "get": {
+        "operationId": "listSermons",
+        "summary": "Search sermons by title, passage, topic, or phrase",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compact sermon search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSermonsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ListSermonsResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "count",
+          "sermons"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "sermons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SermonSummary"
+            }
+          }
+        }
+      },
+      "SermonSummary": {
+        "type": "object",
+        "properties": {
+          "sermonId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "scriptureText": {
+            "type": "string"
+          },
+          "bigIdea": {
+            "type": "string"
+          },
+          "preachedDate": {
+            "type": "string"
+          },
+          "seriesId": {
+            "type": "string"
+          },
+          "seriesTitle": {
+            "type": "string"
+          },
+          "seriesSlug": {
+            "type": "string"
+          },
+          "seriesNumber": {
+            "type": "integer"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "outline": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  }
+}

@@ -1,0 +1,407 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sermon Action Transport Diagnostic",
+    "version": "1.2.0",
+    "description": "Isolated GET and POST probes for diagnosing Custom GPT Action transport independently of sermon data and artifact generation."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/gpt-action-diagnostics/ping": {
+      "get": {
+        "operationId": "pingGptActionTransport",
+        "summary": "Run a tiny authenticated GET transport probe",
+        "responses": {
+          "200": {
+            "description": "Diagnostic GET succeeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PingResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/gpt-action-diagnostics/probe": {
+      "post": {
+        "operationId": "runGptActionTransportProbe",
+        "summary": "Run one controlled authenticated POST transport scenario",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProbeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Diagnostic POST succeeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid diagnostic request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "418": {
+            "description": "Intentional diagnostic HTTP error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-presentations/from-lookup": {
+      "post": {
+        "operationId": "createSermonPresentationFromLookupDirect",
+        "summary": "Control test for the existing direct editable 16:9 PowerPoint workflow",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresentationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Presentation created or replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentationResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-workspace/query": {
+      "post": {
+        "operationId": "runSermonWorkspaceQuery",
+        "summary": "Control test for the scalable read-only sermon operation dispatcher",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Query operation completed or returned a structured operation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-workspace/artifact": {
+      "post": {
+        "operationId": "runSermonWorkspaceArtifact",
+        "summary": "Control test for the scalable sermon artifact dispatcher",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Artifact operation completed or returned a structured operation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    },
+    "schemas": {
+      "ProbeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "marker",
+          "scenario"
+        ],
+        "properties": {
+          "marker": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "scenario": {
+            "type": "string",
+            "enum": [
+              "plain_json",
+              "same_domain_url",
+              "long_external_url",
+              "delayed_json",
+              "http_error"
+            ]
+          },
+          "delayMs": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 10000,
+            "default": 1500
+          }
+        }
+      },
+      "PresentationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "idempotencyKey"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "dateField": {
+            "type": "string",
+            "enum": [
+              "either",
+              "preachedDate",
+              "targetDate"
+            ],
+            "default": "either"
+          },
+          "compact": {
+            "type": "boolean",
+            "default": true
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "DispatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "arguments"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string"
+          },
+          "arguments": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "PingResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "requestId",
+          "probe",
+          "method",
+          "receivedAt",
+          "serviceRevision",
+          "message"
+        ],
+        "properties": {
+          "ok": { "type": "boolean" },
+          "requestId": { "type": "string" },
+          "probe": { "type": "string" },
+          "method": { "type": "string" },
+          "receivedAt": { "type": "string" },
+          "serviceRevision": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
+      "ProbeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "requestId",
+          "marker",
+          "scenario",
+          "method",
+          "receivedAt",
+          "completedAt",
+          "delayMs",
+          "url",
+          "serviceRevision",
+          "message"
+        ],
+        "properties": {
+          "ok": { "type": "boolean" },
+          "requestId": { "type": "string" },
+          "marker": { "type": "string" },
+          "scenario": { "type": "string" },
+          "method": { "type": "string" },
+          "receivedAt": { "type": "string" },
+          "completedAt": { "type": "string" },
+          "delayMs": { "type": "integer" },
+          "url": { "type": "string" },
+          "serviceRevision": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
+      "PresentationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "requestId",
+          "operation"
+        ],
+        "properties": {
+          "ok": { "type": "boolean" },
+          "requestId": { "type": "string" },
+          "operation": { "type": "string" },
+          "presentationId": { "type": "string" },
+          "sermonId": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "string" },
+          "aspectRatio": { "type": "string" },
+          "slideCount": { "type": "integer" },
+          "filename": { "type": "string" },
+          "downloadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "downloadUrlExpiresAt": { "type": "string" },
+          "templateId": { "type": "string" },
+          "templateName": { "type": "string" },
+          "idempotencyReplayed": { "type": "boolean" },
+          "executionId": { "type": "string" },
+          "errorCode": { "type": "string" },
+          "errorMessage": { "type": "string" },
+          "errorStatus": { "type": "integer" }
+        }
+      },
+      "DispatchResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": { "type": "boolean" },
+          "requestId": { "type": "string" },
+          "operation": { "type": "string" },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "query",
+              "artifact",
+              "command"
+            ]
+          },
+          "result": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "error": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "idempotency": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "requestId",
+          "errorCode",
+          "errorMessage",
+          "errorStatus"
+        ],
+        "properties": {
+          "ok": { "type": "boolean" },
+          "requestId": { "type": "string" },
+          "errorCode": { "type": "string" },
+          "errorMessage": { "type": "string" },
+          "errorStatus": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

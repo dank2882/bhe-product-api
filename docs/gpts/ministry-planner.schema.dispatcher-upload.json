@@ -1,0 +1,524 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BHE Ministry Planning Dispatcher API",
+    "version": "2.6.0",
+    "description": "Stable Custom GPT contract for service schedules, song planning, feedback, and spreadsheet synchronization."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/ministry-planning/operations": {
+      "get": {
+        "operationId": "listMinistryPlanningOperations",
+        "summary": "List live ministry planning operations and argument requirements",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["query", "command"]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 100 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation catalog returned",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OperationCatalogResponse" }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/ministry-planning/query": {
+      "post": {
+        "operationId": "runMinistryPlanningQuery",
+        "summary": "Run one read-only schedule, song, or spreadsheet inspection operation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/QueryDispatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation completed or returned a structured error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DispatchResponse" }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/ministry-planning/command": {
+      "post": {
+        "operationId": "runMinistryPlanningCommand",
+        "summary": "Run one requested ministry planning update, feedback save, or spreadsheet sync",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CommandDispatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation completed or returned a structured error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DispatchResponse" }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "QueryDispatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation", "arguments"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "listDataCollections",
+              "getMinistryPlanningConfig",
+              "queryData",
+              "searchSongs",
+              "getSong",
+              "searchServices",
+              "getService",
+              "buildActiveCongregationalPool",
+              "inspectMusicPlanningSpreadsheet",
+              "listGoogleSheetBackups",
+              "readGoogleSheetRange",
+              "listPianists",
+              "getPianoServicePlan",
+              "getPianistWorkload",
+              "getServiceMinistryAssignments"
+            ],
+            "description": "Exact read-only operation name from listMinistryPlanningOperations."
+          },
+          "arguments": {
+            "$ref": "#/components/schemas/QueryDispatchArguments"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Optional trace key for this query."
+          }
+        }
+      },
+      "CommandDispatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation", "arguments", "idempotencyKey"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "syncMusicPlanningSpreadsheet",
+              "recordServiceSongFeedback",
+              "updateSongIdentity",
+              "mutateData",
+              "savePianistProfile",
+              "saveServicePianoAssignments",
+              "saveServiceCongregationalPlan",
+              "saveServiceMinistryAssignments",
+              "syncServiceAssignmentsToSpreadsheet",
+              "restoreGoogleSheetBackup",
+              "restoreGoogleSheetRange"
+            ],
+            "description": "Exact command operation name from listMinistryPlanningOperations."
+          },
+          "arguments": {
+            "$ref": "#/components/schemas/CommandDispatchArguments"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Use one stable value for each command intent and reuse it only for a retry."
+          }
+        }
+      },
+      "QueryDispatchArguments": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Arguments for the selected query operation. Send an empty object only for listDataCollections.",
+        "properties": {
+          "configId": { "type": "string" },
+          "section": { "type": "string" },
+          "sections": { "type": "array", "items": { "type": "string" } },
+          "collection": { "type": "string" },
+          "docId": { "type": "string" },
+          "docIds": { "type": "array", "items": { "type": "string" } },
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "dataFilters": {
+            "type": "array",
+            "description": "Field filters used only by queryData.",
+            "items": { "$ref": "#/components/schemas/DataFilter" }
+          },
+          "query": { "type": "string", "description": "Natural-language or free-text query." },
+          "fields": { "type": "array", "items": { "type": "string" } },
+          "orderBy": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/OrderBy" }
+          },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 250 },
+          "scanLimit": { "type": "integer", "minimum": 1 },
+          "sort": {
+            "type": "string",
+            "enum": ["relevance", "title_asc", "hymnal_number_asc"]
+          },
+          "songId": { "type": "string" },
+          "serviceId": { "type": "string" },
+          "serviceDate": { "type": "string", "format": "date" },
+          "serviceType": { "type": "string" },
+          "pianistId": { "type": "string" },
+          "capabilityLevel": {
+            "type": "string",
+            "enum": ["piano_1", "piano_2", "developing", "not_schedulable"]
+          },
+          "status": { "type": "string", "enum": ["active", "inactive"] },
+          "includeInactive": { "type": "boolean" },
+          "month": { "type": "string", "pattern": "^\\d{4}-(0[1-9]|1[0-2])$" },
+          "dateFrom": { "type": "string", "format": "date" },
+          "dateTo": { "type": "string", "format": "date" },
+          "leaderId": { "type": "string" },
+          "usageRole": { "type": "string" },
+          "includeExcluded": { "type": "boolean" },
+          "googleSheetId": { "type": "string" },
+          "googleSheetUrl": { "type": "string", "format": "uri" },
+          "sheet": { "type": "string" },
+          "year": { "type": "integer" },
+          "focusDate": { "type": "string", "format": "date" },
+          "focusServiceType": { "type": "string" },
+          "range": { "type": "string", "pattern": "^[A-Za-z]{1,3}[1-9][0-9]*(?::[A-Za-z]{1,3}[1-9][0-9]*)?$" }
+        }
+      },
+      "CommandDispatchArguments": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Arguments for the selected command operation.",
+        "properties": {
+          "googleSheetId": { "type": "string" },
+          "googleSheetUrl": { "type": "string", "format": "uri" },
+          "sheet": { "type": "string" },
+          "year": { "type": "integer" },
+          "focusDate": { "type": "string", "format": "date" },
+          "focusServiceType": { "type": "string" },
+          "backupSheetId": { "type": "integer" },
+          "backupTitle": { "type": "string" },
+          "serviceId": { "type": "string" },
+          "pianistId": { "type": "string" },
+          "displayName": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "inactive"] },
+          "capabilityLevel": {
+            "type": "string",
+            "enum": ["piano_1", "piano_2", "developing", "not_schedulable"]
+          },
+          "defaultAvailability": { "type": "string", "enum": ["available", "unavailable"] },
+          "recurringRules": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RecurringAvailabilityRule" }
+          },
+          "availabilityExceptions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AvailabilityException" }
+          },
+          "regularScheduleNotes": { "type": "string" },
+          "monthlyServiceLimit": { "type": "integer", "minimum": 1, "maximum": 31 },
+          "notes": { "type": "string" },
+          "assignments": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PianoAssignment" }
+          },
+          "songChanges": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CongregationalSongChange" }
+          },
+          "clearPositions": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["piano_1", "piano_2", "piano_3", "piano_4"] }
+          },
+          "replaceAssignments": { "type": "boolean" },
+          "writeToSpreadsheet": { "type": "boolean" },
+          "preacher": { "$ref": "#/components/schemas/PersonAssignment" },
+          "congregationalLeader": { "$ref": "#/components/schemas/PersonAssignment" },
+          "choirAccompanist": { "$ref": "#/components/schemas/PersonAssignment" },
+          "specialAccompanists": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SpecialAccompanist" }
+          },
+          "clearFields": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["preacher", "congregationalLeader", "choirAccompanist", "specialAccompanists"]
+            }
+          },
+          "feedback": { "type": "string" },
+          "treatment": { "type": "string", "enum": ["soft_downweight", "hard_block"] },
+          "changedBy": { "type": "string" },
+          "songId": { "type": "string" },
+          "changes": { "$ref": "#/components/schemas/SongIdentityChanges" },
+          "changeReason": { "type": "string" },
+          "collection": { "type": "string" },
+          "operation": { "type": "string", "enum": ["create", "set", "update", "delete"] },
+          "docId": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/MinistryData" },
+          "fieldPatches": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FieldPatch" }
+          },
+          "merge": { "type": "boolean" },
+          "confirmed": { "type": "boolean" },
+          "range": { "type": "string", "pattern": "^[A-Za-z]{1,3}[1-9][0-9]*(?::[A-Za-z]{1,3}[1-9][0-9]*)?$" }
+        }
+      },
+      "SearchFilters": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Known structured filters for searchServices and searchSongs.",
+        "properties": {
+          "serviceType": { "type": "string" },
+          "serviceDate": { "type": "string", "format": "date" },
+          "dateFrom": { "type": "string", "format": "date" },
+          "dateTo": { "type": "string", "format": "date" },
+          "labels": { "type": "array", "items": { "type": "string" } },
+          "dateScope": { "type": "string", "enum": ["past", "upcoming", "any"] },
+          "theme": { "type": "string" },
+          "hymnalNumber": { "type": "integer", "minimum": 1 },
+          "leaderReadiness": { "type": "string" },
+          "strength": { "type": "string" },
+          "feelsDated": { "type": "string" },
+          "situationalUse": { "type": "array", "items": { "type": "string" } },
+          "developmentPotential": { "type": "string" },
+          "useStatus": { "type": "string" },
+          "allowedUsageRole": { "type": "string" },
+          "blockedUsageRole": { "type": "string" },
+          "seasonalUse": { "type": "string" },
+          "worshipFunction": { "type": "string" },
+          "sourceStatus": { "type": "string" }
+        }
+      },
+      "RecurringAvailabilityRule": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ruleId": { "type": "string" },
+          "available": { "type": "boolean" },
+          "serviceTypes": { "type": "array", "items": { "type": "string" } },
+          "weeksOfMonth": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 5 }
+          },
+          "weekdays": {
+            "type": "array",
+            "description": "UTC weekday numbers: Sunday 0 through Saturday 6.",
+            "items": { "type": "integer", "minimum": 0, "maximum": 6 }
+          },
+          "months": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 12 }
+          },
+          "intervalWeeks": { "type": "integer", "minimum": 1, "maximum": 52 },
+          "anchorDate": { "type": "string", "format": "date" },
+          "effectiveFrom": { "type": "string", "format": "date" },
+          "effectiveTo": { "type": "string", "format": "date" },
+          "notes": { "type": "string" }
+        }
+      },
+      "CongregationalSongChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slot"],
+        "properties": {
+          "slot": {
+            "type": "string",
+            "enum": ["congregational_1", "congregational_2", "congregational_3"]
+          },
+          "serviceSongEventId": { "type": "string" },
+          "songId": { "type": "string" },
+          "hymnalNumber": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string" },
+          "clear": { "type": "boolean" },
+          "notes": { "type": "string" }
+        }
+      },
+      "AvailabilityException": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["serviceDate", "available"],
+        "properties": {
+          "serviceDate": { "type": "string", "format": "date" },
+          "serviceTypes": { "type": "array", "items": { "type": "string" } },
+          "available": { "type": "boolean" },
+          "reason": { "type": "string" }
+        }
+      },
+      "PianoAssignment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["position", "pianistId"],
+        "properties": {
+          "position": {
+            "type": "string",
+            "enum": ["piano_1", "piano_2", "piano_3", "piano_4"]
+          },
+          "pianistId": { "type": "string" }
+        }
+      },
+      "PersonAssignment": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "personId": { "type": "string" },
+          "pianistId": { "type": "string" },
+          "displayName": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      },
+      "SpecialAccompanist": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["serviceSongEventId"],
+        "properties": {
+          "serviceSongEventId": { "type": "string" },
+          "personId": { "type": "string" },
+          "pianistId": { "type": "string" },
+          "displayName": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      },
+      "DataFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fieldPath", "operator", "value"],
+        "properties": {
+          "fieldPath": { "type": "string" },
+          "operator": {
+            "type": "string",
+            "enum": ["==", "!=", "<", "<=", ">", ">=", "in", "not-in", "array-contains", "array-contains-any", "contains", "exists"]
+          },
+          "value": { "description": "JSON value to compare against." }
+        }
+      },
+      "OrderBy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fieldPath"],
+        "properties": {
+          "fieldPath": { "type": "string" },
+          "direction": { "type": "string", "enum": ["asc", "desc"] }
+        }
+      },
+      "SongIdentityChanges": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "canonicalTitle": { "type": "string" },
+          "titleAliases": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "FieldPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fieldPath", "action"],
+        "properties": {
+          "fieldPath": { "type": "string" },
+          "action": { "type": "string", "enum": ["set", "delete"] },
+          "value": { "description": "JSON value for a set action; omit for delete." }
+        }
+      },
+      "MinistryData": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Document fields for mutateData create, set, or update.",
+        "properties": {
+          "canonicalTitle": { "type": "string" },
+          "titleAliases": { "type": "array", "items": { "type": "string" } },
+          "ministryPlanning": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "useStatus": { "type": "string" },
+              "rotationStrength": { "type": "string" },
+              "notes": { "type": "string" },
+              "allowedUsageRoles": { "type": "array", "items": { "type": "string" } },
+              "blockedUsageRoles": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      },
+      "DispatchResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": { "type": "boolean" },
+          "requestId": { "type": "string" },
+          "operation": { "type": "string" },
+          "mode": { "type": "string" },
+          "result": { "type": "object", "additionalProperties": true },
+          "error": { "type": "object", "additionalProperties": true },
+          "idempotency": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "OperationCatalogResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": { "type": "boolean" },
+          "requestId": { "type": "string" },
+          "catalogVersion": { "type": "string" },
+          "catalogHash": { "type": "string" },
+          "modes": { "type": "array", "items": { "type": "string" } },
+          "count": { "type": "integer" },
+          "operations": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  }
+}

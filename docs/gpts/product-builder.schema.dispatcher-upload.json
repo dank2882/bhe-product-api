@@ -1,0 +1,393 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BHE Product Workspace Dispatcher API",
+    "version": "2.1.0",
+    "description": "Stable Custom GPT contract routing an extensible backend product operation catalog for records, identifiers, specifications, classification, and imports."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/product-workspace/operations": {
+      "get": {
+        "operationId": "listProductWorkspaceOperations",
+        "summary": "List the live product workspace operation catalog and argument requirements",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "query",
+                "command"
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation catalog returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationCatalogResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/product-workspace/query": {
+      "post": {
+        "operationId": "runProductWorkspaceQuery",
+        "summary": "Run one read-only operation from the product workspace catalog",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryDispatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation completed or returned a structured operation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/product-workspace/command": {
+      "post": {
+        "operationId": "runProductWorkspaceCommand",
+        "summary": "Run one durable product import, configuration, SKU, identifier, or specification update",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandDispatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation completed or returned a structured operation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": true
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "QueryDispatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "arguments"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "Exact read-only operation name from listProductWorkspaceOperations."
+          },
+          "arguments": {
+            "$ref": "#/components/schemas/QueryDispatchArguments"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Optional trace key for a query."
+          }
+        }
+      },
+      "CommandDispatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "arguments",
+          "idempotencyKey"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "Exact command operation name from listProductWorkspaceOperations."
+          },
+          "arguments": {
+            "$ref": "#/components/schemas/CommandDispatchArguments"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "description": "Stable key for one approved command intent. Reuse only when retrying that same intent."
+          }
+        }
+      },
+      "QueryDispatchArguments": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Arguments for the selected query. For searchProducts, always send query with the user's product title, ISBN, SKU, MPN, or other identifying text.",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Required by searchProducts. Product title, slug, ISBN, SKU, MPN, or identifying text."
+          },
+          "slug": { "type": "string" },
+          "status": { "type": "string" },
+          "productType": { "type": "string" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "scanLimit": { "type": "integer", "minimum": 1, "maximum": 1000 },
+          "configId": { "type": "string" },
+          "title": { "type": "string" },
+          "binding": { "type": "string" },
+          "variant": { "type": "string" },
+          "edition": { "type": "string" },
+          "workCode": { "type": "string" },
+          "year": { "type": "string", "pattern": "^\\d{4}$" },
+          "editionCode": { "type": "string" }
+        }
+      },
+      "CommandDispatchArguments": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Arguments for the selected command. Send only verified values and include every required field listed by the live operation catalog.",
+        "properties": {
+          "slug": { "type": "string" },
+          "bheSku": { "type": "string" },
+          "manufacturerPartNumber": { "type": "string" },
+          "allowDuplicate": { "type": "boolean" },
+          "isbn10": { "type": "string" },
+          "isbn13": { "type": "string" },
+          "upc": { "type": "string" },
+          "gtin": { "type": "string" },
+          "amazonAsin": { "type": "string" },
+          "shopifyProductId": { "type": "string" },
+          "shopifyVariantId": { "type": "string" },
+          "ebayItemNumber": { "type": "string" },
+          "identifiers": { "$ref": "#/components/schemas/ProductIdentifiers" },
+          "authors": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "specifications": { "$ref": "#/components/schemas/ProductSpecifications" },
+          "classification": { "$ref": "#/components/schemas/ProductClassification" },
+          "pageCount": { "type": ["integer", "null"], "minimum": 1 },
+          "pageCountUnit": { "type": ["string", "null"] },
+          "binding": { "type": ["string", "null"] },
+          "language": { "type": ["string", "null"] },
+          "languageType": { "type": ["string", "null"] },
+          "publicationDate": {
+            "type": ["string", "null"],
+            "description": "Verified modern reproduction publication date. Use YYYY, YYYY-MM, YYYY-MM-DD, or null; never use the historical work year as the modern publication date."
+          },
+          "bisacCode": { "type": ["string", "null"] },
+          "subjectCode": { "type": ["string", "null"] },
+          "subjectCodeType": { "type": ["string", "null"] },
+          "records": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ProductImportRecord" }
+          },
+          "dryRun": { "type": "boolean" },
+          "sourceName": { "type": "string" },
+          "configId": { "type": "string" },
+          "overwrite": { "type": "boolean" },
+          "updatedBy": { "type": "string" },
+          "patch": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Focused Product Workspace configuration patch."
+          }
+        }
+      },
+      "ProductIdentifiers": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "bheSku": { "type": "string" },
+          "isbn10": { "type": "string" },
+          "isbn13": { "type": "string" },
+          "upc": { "type": "string" },
+          "gtin": { "type": "string" },
+          "amazonAsin": { "type": "string" },
+          "manufacturerPartNumber": { "type": "string" },
+          "shopifyProductId": { "type": "string" },
+          "shopifyVariantId": { "type": "string" },
+          "ebayItemNumber": { "type": "string" },
+          "sourceSku": { "type": "string" },
+          "legacySku": { "type": "string" }
+        }
+      },
+      "ProductSpecifications": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "pageCount": { "type": ["integer", "null"], "minimum": 1 },
+          "pageCountUnit": { "type": ["string", "null"] },
+          "binding": { "type": ["string", "null"] },
+          "language": { "type": ["string", "null"] },
+          "languageType": { "type": ["string", "null"] },
+          "publicationDate": { "type": ["string", "null"] }
+        }
+      },
+      "ProductClassification": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "bisacCode": { "type": ["string", "null"] },
+          "subjectCode": { "type": ["string", "null"] },
+          "subjectCodeType": { "type": ["string", "null"] }
+        }
+      },
+      "ProductImportRecord": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "slug": { "type": "string" },
+          "title": { "type": "string" },
+          "subtitle": { "type": "string" },
+          "productType": { "type": "string" },
+          "status": { "type": "string" },
+          "binding": { "type": "string" },
+          "shopifyHandle": { "type": "string" },
+          "sku": { "type": "string" },
+          "bheSku": { "type": "string" },
+          "isbn10": { "type": "string" },
+          "isbn13": { "type": "string" },
+          "upc": { "type": "string" },
+          "gtin": { "type": "string" },
+          "amazonAsin": { "type": "string" },
+          "manufacturerPartNumber": { "type": "string" },
+          "shopifyProductId": { "type": "string" },
+          "shopifyVariantId": { "type": "string" },
+          "ebayItemNumber": { "type": "string" },
+          "variants": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "notes": { "type": "string" }
+        }
+      },
+      "DispatchResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "idempotency": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "OperationCatalogResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "catalogHash": {
+            "type": "string"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "count": {
+            "type": "integer"
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  }
+}

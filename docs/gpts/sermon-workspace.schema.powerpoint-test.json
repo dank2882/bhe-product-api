@@ -1,0 +1,471 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sermon Workspace PowerPoint Test API",
+    "version": "1.0.0",
+    "description": "Minimal Custom GPT Action schema for testing sermon search, context, and editable PPTX creation."
+  },
+  "servers": [
+    {
+      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/sermons": {
+      "get": {
+        "operationId": "listSermons",
+        "summary": "Search sermons",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seriesSlug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "idea",
+                "developing",
+                "draft",
+                "ready",
+                "preached",
+                "archived"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sermons returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSermonsResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermons/{sermonId}/presentations": {
+      "get": {
+        "operationId": "listSermonPresentationsForSermon",
+        "summary": "List PowerPoint decks for a sermon",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presentations returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPresentationsResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      },
+      "post": {
+        "operationId": "createSermonPresentation",
+        "summary": "Create editable 16:9 PPTX for a sermon",
+        "parameters": [
+          {
+            "name": "sermonId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "compact"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "templateId": {
+                    "type": "string"
+                  },
+                  "slidePlan": {
+                    "type": "object"
+                  },
+                  "compact": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Set true for GPT-friendly compact presentation responses."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Editable PPTX generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatePresentationResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    },
+    "/sermon-presentations/{presentationId}": {
+      "get": {
+        "operationId": "getSermonPresentation",
+        "summary": "Get PowerPoint deck record",
+        "parameters": [
+          {
+            "name": "presentationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presentation returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPresentationResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ListSermonsResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "sermons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SermonSummary"
+            }
+          }
+        }
+      },
+      "ListPresentationsResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "presentations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PresentationSummary"
+            }
+          }
+        }
+      },
+      "CreatePresentationResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "presentation": {
+            "$ref": "#/components/schemas/PresentationSummary"
+          },
+          "template": {
+            "$ref": "#/components/schemas/PresentationTemplateSummary"
+          }
+        }
+      },
+      "GetPresentationResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "presentation": {
+            "$ref": "#/components/schemas/PresentationSummary"
+          }
+        }
+      },
+      "SermonSummary": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "sermonId": {
+            "type": "string"
+          },
+          "folderId": {
+            "type": "string"
+          },
+          "primaryManuscriptSourceId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "scriptureText": {
+            "type": "string"
+          },
+          "bigIdea": {
+            "type": "string"
+          },
+          "preachedDate": {
+            "type": "string"
+          },
+          "targetDate": {
+            "type": "string"
+          },
+          "occasion": {
+            "type": "string"
+          },
+          "seriesId": {
+            "type": "string"
+          },
+          "seriesTitle": {
+            "type": "string"
+          },
+          "seriesSlug": {
+            "type": "string"
+          },
+          "seriesNumber": {
+            "type": "integer"
+          },
+          "series": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "seriesId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "number": {
+                "type": "integer"
+              }
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "PresentationSummary": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "presentationId": {
+            "type": "string"
+          },
+          "sermonId": {
+            "type": "string"
+          },
+          "templateId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "aspectRatio": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "slideCount": {
+            "type": "integer"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "storagePath": {
+            "type": "string"
+          },
+          "downloadUrl": {
+            "type": "string"
+          },
+          "downloadUrlExpiresAt": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "slidePlan": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "renderError": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "PresentationTemplateSummary": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "templateId": {
+            "type": "string"
+          },
+          "seriesId": {
+            "type": "string"
+          },
+          "seriesTitle": {
+            "type": "string"
+          },
+          "seriesSlug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "aspectRatio": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "layouts": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  }
+}

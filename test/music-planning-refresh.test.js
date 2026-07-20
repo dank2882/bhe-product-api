@@ -55,6 +55,7 @@ test("parseRefreshArgs accepts commit mode and confirmation flags", () => {
   const options = parseRefreshArgs([
     "--commit",
     "--allow-planned-updates",
+    "--allow-partial-conflicts",
     "--confirm-source-import-id",
     SOURCE_IMPORT_ID,
     "--out-dir",
@@ -63,6 +64,7 @@ test("parseRefreshArgs accepts commit mode and confirmation flags", () => {
 
   assert.equal(options.mode, "commit");
   assert.equal(options.allowPlannedUpdates, true);
+  assert.equal(options.allowPartialConflicts, true);
   assert.equal(options.confirmSourceImportId, SOURCE_IMPORT_ID);
   assert.equal(options.outDir, "tmp/example");
 });

@@ -18,6 +18,7 @@ const {
   listRepositoryDocumentsByProvenance,
   humanReviewRepositoryDocumentOcr,
   normalizeRepositoryDocumentOcr,
+  saveRepositoryDocumentProvenance,
   saveRepositoryItemSummary,
   searchRepositoryDocuments,
   searchRepositoryItems,
@@ -1517,6 +1518,118 @@ test("getRepositoryDocumentById rejects missing or blank documentId", async () =
     (error) => {
       assert.equal(error.statusCode, 400);
       assert.equal(error.message, "Missing or invalid documentId");
+      return true;
+    }
+  );
+});
+
+test("saveRepositoryDocumentProvenance updates only provided provenance fields and preserves the rest of the document", async () => {
+  const documentId = "doc-provenance-save-1";
+  const sourceStoragePath = "repository/documents/doc-provenance-save-1-Article.pdf";
+  const storedDocument = buildDefaultRepositoryDocumentRecord({
+    documentId,
+    title: "Provenance Article",
+    originalFilename: "Provenance Article.pdf",
+    storagePath: sourceStoragePath,
+    canonicalUrl: `gs://test-bucket/${sourceStoragePath}`,
+    byteSize: 4321,
+    uploadedAt: "2026-04-17T00:00:00.000Z",
+    originalFolderLabel: "Cabinet Old",
+    binLabel: "Bin Old",
+    scanBatchLabel: "Batch Old",
+    sourceLocationNotes: "Original note"
+  });
+  storedDocument.ocr = {
+    ...storedDocument.ocr,
+    status: "completed",
+    bestText: "Existing OCR text",
+    bestTextSource: "humanReviewedText"
+  };
+
+  const { deps } = createDeps({
+    repositoryDocuments: {
+      [documentId]: storedDocument
+    }
+  });
+
+  const result = await saveRepositoryDocumentProvenance(
+    {
+      documentId,
+      originalFolderLabel: "  Cabinet New  ",
+      sourceLocationNotes: "  Updated shelf note  "
+    },
+    deps
+  );
+
+  assert.equal(result.document.documentId, documentId);
+  assert.equal(result.document.originalFolderLabel, "Cabinet New");
+  assert.equal(result.document.binLabel, "Bin Old");
+  assert.equal(result.document.scanBatchLabel, "Batch Old");
+  assert.equal(result.document.sourceLocationNotes, "Updated shelf note");
+  assert.equal(result.document.ocr.bestText, "Existing OCR text");
+  assert.notEqual(result.document.updatedAt, storedDocument.updatedAt);
+
+  const persistedDocument = await deps.repositoryDocumentsCollection.doc(documentId).get();
+  assert.equal(persistedDocument.data().originalFolderLabel, "Cabinet New");
+  assert.equal(persistedDocument.data().binLabel, "Bin Old");
+  assert.equal(persistedDocument.data().sourceLocationNotes, "Updated shelf note");
+  assert.equal(persistedDocument.data().ocr.bestText, "Existing OCR text");
+});
+
+test("saveRepositoryDocumentProvenance fails clearly when the repository document does not exist", async () => {
+  const { deps } = createDeps();
+
+  await assert.rejects(
+    () =>
+      saveRepositoryDocumentProvenance(
+        {
+          documentId: "missing-doc",
+          originalFolderLabel: "Cabinet Z"
+        },
+        deps
+      ),
+    (error) => {
+      assert.equal(error.statusCode, 404);
+      assert.equal(error.message, "Repository document not found");
+      return true;
+    }
+  );
+});
+
+test("saveRepositoryDocumentProvenance rejects requests with no valid provenance fields", async () => {
+  const documentId = "doc-provenance-save-2";
+  const sourceStoragePath = "repository/documents/doc-provenance-save-2-Article.pdf";
+  const storedDocument = buildDefaultRepositoryDocumentRecord({
+    documentId,
+    title: "Provenance Article Two",
+    originalFilename: "Provenance Article Two.pdf",
+    storagePath: sourceStoragePath,
+    canonicalUrl: `gs://test-bucket/${sourceStoragePath}`,
+    byteSize: 2222,
+    uploadedAt: "2026-04-17T00:00:00.000Z"
+  });
+
+  const { deps } = createDeps({
+    repositoryDocuments: {
+      [documentId]: storedDocument
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      saveRepositoryDocumentProvenance(
+        {
+          documentId,
+          originalFolderLabel: "   ",
+          binLabel: "",
+          scanBatchLabel: null,
+          sourceLocationNotes: undefined
+        },
+        deps
+      ),
+    (error) => {
+      assert.equal(error.statusCode, 400);
+      assert.equal(error.message, "No valid provenance fields were provided");
       return true;
     }
   );

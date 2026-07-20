@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  buildActiveCongregationalPool,
   getSongById,
   searchSongs
 } = require("../lib/song-catalog-service");
@@ -218,6 +219,151 @@ test("searchSongs supports Slice 2 ministry metadata filtering", async () => {
   assert.equal(result.songs[0].ministryMetadata.leaderReadiness, "learnable_soon");
 });
 
+test("searchSongs returns and filters local ministry planning guardrails", async () => {
+  const deps = createDeps({
+    "rejoice-0100": buildSong({
+      songId: "rejoice-0100",
+      hymnalNumber: 100,
+      canonicalTitle: "Christmas Hymn",
+      topics: ["Christmas"],
+      ministryPlanning: {
+        useStatus: "active",
+        allowedUsageRoles: ["congregational"],
+        seasonalUse: ["christmas"],
+        worshipFunctions: ["adoration"],
+        leaderReadiness: {
+          dan: "ready_now"
+        },
+        congregationFit: "strong",
+        rotationStrength: "core"
+      }
+    }),
+    "rejoice-0200": buildSong({
+      songId: "rejoice-0200",
+      hymnalNumber: 200,
+      canonicalTitle: "Invitation Hymn",
+      topics: ["Invitation"],
+      ministryPlanning: {
+        useStatus: "active",
+        allowedUsageRoles: ["invitation"],
+        worshipFunctions: ["invitation"],
+        leaderReadiness: {
+          dan: "not_ready"
+        }
+      }
+    }),
+    "rejoice-0300": buildSong({
+      songId: "rejoice-0300",
+      hymnalNumber: 300,
+      canonicalTitle: "Blocked Hymn",
+      topics: ["Prayer"],
+      ministryPlanning: {
+        useStatus: "do_not_use",
+        blockReason: "Local ministry decision."
+      }
+    })
+  });
+
+  const result = await searchSongs(
+    {
+      filters: {
+        useStatus: "active",
+        allowedUsageRole: "congregational",
+        seasonalUse: "Christmas"
+      }
+    },
+    deps
+  );
+
+  assert.equal(result.count, 1);
+  assert.equal(result.songs[0].songId, "rejoice-0100");
+  assert.deepEqual(result.appliedFilters, {
+    useStatus: "active",
+    allowedUsageRole: "congregational",
+    seasonalUse: "christmas"
+  });
+  assert.equal(result.songs[0].ministryPlanning.leaderReadiness.dan, "ready_now");
+});
+
+test("buildActiveCongregationalPool returns backend-computed ordinary-service pool", async () => {
+  const deps = createDeps({
+    "rejoice-0001": buildSong({
+      ministryPlanning: {
+        useStatus: "active",
+        leaderReadiness: {
+          dan: "ready_now"
+        },
+        energy: "upbeat",
+        tempo: "moderate",
+        congregationFit: "strong"
+      }
+    }),
+    "rejoice-0002": buildSong({
+      songId: "rejoice-0002",
+      hymnalNumber: 2,
+      canonicalTitle: "Rare Song",
+      ministryPlanning: {
+        useStatus: "active",
+        leaderReadiness: {
+          dan: "ready_now"
+        },
+        rotationStrength: "rare"
+      }
+    }),
+    "rejoice-0228": buildSong({
+      songId: "rejoice-0228",
+      hymnalNumber: 228,
+      canonicalTitle: "Christmas Song",
+      topics: ["Christmas"],
+      ministryPlanning: {
+        useStatus: "active",
+        leaderReadiness: {
+          dan: "ready_now"
+        }
+      }
+    }),
+    "rejoice-0300": buildSong({
+      songId: "rejoice-0300",
+      hymnalNumber: 300,
+      canonicalTitle: "Special Only",
+      ministryPlanning: {
+        useStatus: "active",
+        allowedUsageRoles: ["special_music"],
+        leaderReadiness: {
+          dan: "ready_now"
+        }
+      }
+    }),
+    "breeze-foo": buildSong({
+      songId: "breeze-foo",
+      hymnalNumber: 0,
+      canonicalTitle: "Breeze Song",
+      ministryPlanning: {
+        useStatus: "active",
+        leaderReadiness: {
+          dan: "ready_now"
+        }
+      }
+    })
+  });
+
+  const result = await buildActiveCongregationalPool({ limit: 10 }, deps);
+
+  assert.equal(result.count, 2);
+  assert.deepEqual(
+    result.songs.map((song) => song.songId),
+    ["rejoice-0001", "rejoice-0002"]
+  );
+  assert.deepEqual(result.songs[1].activePool.warnings, [
+    "rare_rotation",
+    "energy_unknown",
+    "tempo_unknown",
+    "congregation_fit_unknown"
+  ]);
+  assert.equal(result.exclusionCounts.occasion_topic, 1);
+  assert.equal(result.exclusionCounts.usage_role_not_allowed, 1);
+});
+
 test("searchSongs rejects invalid Slice 2 filter values clearly", async () => {
   const deps = createDeps({
     "rejoice-0001": buildSong()
@@ -246,20 +392,29 @@ test("searchSongs rejects invalid Slice 2 filter values clearly", async () => {
   );
 });
 
-test("searchSongs rejects requests with no query and no filters", async () => {
+test("searchSongs lists songs with no query and no filters", async () => {
   const deps = createDeps({
-    "rejoice-0001": buildSong()
+    "rejoice-0007": buildSong({
+      songId: "rejoice-0007",
+      hymnalNumber: 7,
+      canonicalTitle: "Abba, Father (PRITCHARD)"
+    }),
+    "rejoice-0001": buildSong(),
+    "rejoice-0003": buildSong({
+      songId: "rejoice-0003",
+      hymnalNumber: 3,
+      canonicalTitle: "Holy, Holy, Holy"
+    })
   });
 
-  await assert.rejects(
-    () => searchSongs({}, deps),
-    (error) => {
-      assert.equal(error.message, "Missing query or filters");
-      assert.equal(error.statusCode, 400);
-      assert.equal(error.code, "missing_query_or_filters");
-      return true;
-    }
+  const result = await searchSongs({ limit: 2 }, deps);
+
+  assert.equal(result.count, 2);
+  assert.deepEqual(
+    result.songs.map((song) => song.songId),
+    ["rejoice-0001", "rejoice-0003"]
   );
+  assert.deepEqual(result.appliedFilters, {});
 });
 
 test("getSongById returns the canonical song detail", async () => {

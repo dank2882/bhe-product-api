@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app"
+      "url": "https://bhe-product-api-265001256563.us-west1.run.app"
     }
   ],
   "paths": {
@@ -100,6 +100,50 @@
         "responses": {
           "200": {
             "description": "Repository document found"
+          },
+          "404": {
+            "description": "Repository document not found"
+          }
+        }
+      }
+    },
+    "/repository/documents/{documentId}/provenance/save": {
+      "post": {
+        "operationId": "saveRepositoryDocumentProvenance",
+        "summary": "Save provenance fields on an existing repository document",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRepositoryDocumentProvenanceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repository document provenance saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveRepositoryDocumentProvenanceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No valid provenance fields were provided"
           },
           "404": {
             "description": "Repository document not found"
@@ -424,6 +468,35 @@
           }
         }
       }
+    },
+    "/debug/cloud-run-action-payload-inspect": {
+      "post": {
+        "operationId": "debugInspectCloudRunActionPayload",
+        "summary": "Diagnostic only: inspect the raw GPT action payload for attached-file handoff",
+        "description": "Temporary debug action. Use this only to inspect what the GPT action runtime sends to Cloud Run, especially whether attached PDFs arrive as backend-uploadable file references such as openaiFileIdRefs with download_link values. This is not part of the normal repository workflow.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DebugActionPayloadInspectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Diagnostic payload summary returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebugActionPayloadInspectionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -434,8 +507,17 @@
         "properties": {
           "openaiFileIdRefs": {
             "type": "array",
+            "description": "This parameter name must stay exactly openaiFileIdRefs so ChatGPT can pass conversation file uploads. At runtime the action may receive objects containing fields such as id, name, mime_type, and download_link. Repository document upload currently supports PDF files only.",
             "items": {
-              "type": "object"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              ]
             }
           },
           "originalFolderLabel": {
@@ -481,6 +563,18 @@
       },
       "ListRepositoryDocumentsByProvenanceRequest": {
         "type": "object",
+        "description": "At least one provenance field must be provided.",
+        "anyOf": [
+          {
+            "required": ["originalFolderLabel"]
+          },
+          {
+            "required": ["binLabel"]
+          },
+          {
+            "required": ["scanBatchLabel"]
+          }
+        ],
         "properties": {
           "originalFolderLabel": {
             "type": "string"
@@ -490,6 +584,39 @@
           },
           "scanBatchLabel": {
             "type": "string"
+          }
+        }
+      },
+      "SaveRepositoryDocumentProvenanceRequest": {
+        "type": "object",
+        "description": "Partial provenance updates are allowed. The backend will reject requests if no valid provenance fields are provided.",
+        "properties": {
+          "originalFolderLabel": {
+            "type": "string"
+          },
+          "binLabel": {
+            "type": "string"
+          },
+          "scanBatchLabel": {
+            "type": "string"
+          },
+          "sourceLocationNotes": {
+            "type": "string"
+          }
+        }
+      },
+      "SaveRepositoryDocumentProvenanceResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "document": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       },
@@ -555,6 +682,92 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          }
+        }
+      },
+      "DebugActionPayloadInspectionRequest": {
+        "type": "object",
+        "description": "Broad diagnostic request body for temporary payload inspection. This intentionally accepts arbitrary JSON object keys so the GPT action runtime can pass through attached-file handoff fields without strict validation.",
+        "additionalProperties": true,
+        "properties": {
+          "openaiFileIdRefs": {
+            "type": "array",
+            "description": "Optional expected file-handoff field to inspect when a PDF is attached in chat.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "DebugActionPayloadInspectionResponse": {
+        "type": "object",
+        "description": "Diagnostic summary of the raw request payload received by Cloud Run.",
+        "additionalProperties": true,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "diagnostic": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "receivedAt": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "contentType": {
+                "type": "string"
+              },
+              "bodyRootType": {
+                "type": "string"
+              },
+              "topLevelBodyKeys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "topLevelBodyValueTypes": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "openaiFileIdRefsPresent": {
+                "type": "boolean"
+              },
+              "openaiFileIdRefsIsArray": {
+                "type": "boolean"
+              },
+              "openaiFileIdRefsLength": {
+                "type": "integer"
+              },
+              "firstElementType": {
+                "type": "string"
+              },
+              "firstElementKeys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "firstElementPreview": {},
+              "relevantHeaders": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
             }
           }
         }
