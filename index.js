@@ -172,6 +172,10 @@ const scriptureNoteService = require("./lib/scripture-note-service");
 const {
   prepareScriptureNoteImportFile
 } = require("./lib/scripture-note-document-import");
+const {
+  createScriptureNotesUpload,
+  importScriptureNotesUpload
+} = require("./lib/sermon-scripture-notes-upload-service");
 
 const REQUIRED_ENV_VARS = ["BHE_API_KEY", "OPENAI_API_KEY"];
 for (const key of REQUIRED_ENV_VARS) {
@@ -10801,6 +10805,54 @@ app.get("/sermon-workspace/operations", (req, res) => {
         requestId
       })
     );
+  }
+});
+
+app.post("/sermon-workspace/scripture-note-uploads", async (req, res) => {
+  const requestId = randomUUID();
+  try {
+    const result = await createScriptureNotesUpload(req.body || {}, {
+      bucket: storage.bucket(BUCKET_NAME)
+    });
+    return res.status(201).json({ ok: true, requestId, result });
+  } catch (error) {
+    console.error("Error creating staged Scripture notes upload:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(buildStructuredErrorResponse(error, {
+        fallbackCode: "scripture_note_upload_create_failed",
+        fallbackMessage: "Scripture notes upload could not be created"
+      }));
+  }
+});
+
+app.post("/sermon-workspace/scripture-note-uploads/:uploadId/import", async (req, res) => {
+  const requestId = randomUUID();
+  try {
+    const operationDeps = getSermonWorkspaceDependencies();
+    const result = await importScriptureNotesUpload({
+      ...(req.body || {}),
+      uploadId: req.params.uploadId
+    }, {
+      bucket: storage.bucket(BUCKET_NAME),
+      runImport: ({ arguments: operationArguments, idempotencyKey }) => (
+        runIdempotentSermonWorkspaceOperation({
+          mode: "command",
+          operation: "importScriptureNotes",
+          arguments: operationArguments,
+          idempotencyKey
+        }, operationDeps)
+      )
+    });
+    return res.status(200).json({ ok: true, requestId, ...result });
+  } catch (error) {
+    console.error("Error importing staged Scripture notes upload:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(buildStructuredErrorResponse(error, {
+        fallbackCode: "scripture_note_upload_import_failed",
+        fallbackMessage: "The staged Scripture notes file could not be imported"
+      }));
   }
 });
 
