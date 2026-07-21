@@ -2,16 +2,19 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  addTaskNote,
   buildDailyReview,
   completeTasksForPastEvents,
   createCalendarEvent,
   createProject,
   createRoutine,
   createTask,
+  getTask,
   listCalendarEvents,
   listProjects,
   listRoutines,
   listTasks,
+  listTaskNotes,
   updateProject,
   updateTask
 } = require("../lib/project-task-service");
@@ -73,6 +76,7 @@ function createDeps({
   projects = {},
   tasks = {},
   calendarEvents = {},
+  taskNotes = {},
   routines = {},
   randomId = "12345678-aaaa-bbbb-cccc-123456789012",
   now = "2026-07-01T16:00:00.000Z"
@@ -80,6 +84,7 @@ function createDeps({
   return {
     projectsCollection: new FakeCollection(projects),
     tasksCollection: new FakeCollection(tasks),
+    taskNotesCollection: new FakeCollection(taskNotes),
     calendarEventsCollection: new FakeCollection(calendarEvents),
     routinesCollection: new FakeCollection(routines),
     randomUUID: () => randomId,
@@ -155,6 +160,48 @@ test("creates, filters, and completes tasks", async () => {
 
   assert.equal(updated.task.status, "done");
   assert.equal(updated.task.completedAt, "2026-07-01T16:00:00.000Z");
+});
+
+test("adds and lists append-only task notes from Dan and Sarah", async () => {
+  let randomCounter = 0;
+  const deps = createDeps({
+    tasks: {
+      "task-home": {
+        taskId: "task-home",
+        title: "Choose Reynolds dinner dates",
+        status: "next",
+        priority: "medium",
+        lifeArea: "home",
+        requestedBy: "Sarah",
+        assignedTo: "Dan",
+        updatedAt: "2026-07-01T15:00:00.000Z"
+      }
+    }
+  });
+  deps.randomUUID = () => `0000000${++randomCounter}-aaaa-bbbb-cccc-123456789012`;
+
+  const first = await addTaskNote({
+    taskId: "task-home",
+    body: "August 7 or August 21 would work for me.",
+    author: "Sarah"
+  }, deps);
+  deps.now = () => "2026-07-01T16:05:00.000Z";
+  await addTaskNote({
+    taskId: "task-home",
+    body: "I will check the church calendar tonight.",
+    author: "Dan"
+  }, deps);
+
+  assert.equal(first.note.author, "Sarah");
+  const listed = await listTaskNotes({ taskId: "task-home" }, deps);
+  assert.equal(listed.count, 2);
+  assert.deepEqual(listed.notes.map((note) => note.author), ["Sarah", "Dan"]);
+  assert.equal(listed.task.noteCount, 2);
+  assert.equal(listed.task.lastNoteBy, "Dan");
+  assert.equal(listed.task.lastNotePreview, "I will check the church calendar tonight.");
+
+  const fetched = await getTask({ taskId: "task-home" }, deps);
+  assert.equal(fetched.task.noteCount, 2);
 });
 
 test("auto-completes event-bound tasks after the linked event has passed", async () => {
@@ -284,10 +331,10 @@ test("daily review surfaces overdue, high-priority, waiting, and project gaps", 
   assert.equal(review.summary.followUpDueCount, 1);
   assert.equal(review.summary.highPriorityProjectCount, 1);
   assert.equal(review.summary.projectTargetDueCount, 1);
-  assert.equal(review.summary.eventCount, 1);
+  assert.equal(review.summary.eventCount, 0);
   assert.equal(review.summary.routineCount, 1);
   assert.equal(review.summary.sarahRequestedOpenCount, 1);
-  assert.equal(review.eventsToday[0].title, "Family dinner");
+  assert.deepEqual(review.eventsToday, []);
   assert.equal(review.routines[0].title, "Pack lunch");
   assert.equal(review.followUpDue[0].taskId, "task-waiting");
   assert.equal(review.highPriorityProjects[0].projectId, "proj-with-next");
@@ -295,6 +342,40 @@ test("daily review surfaces overdue, high-priority, waiting, and project gaps", 
   assert.equal(review.sarahRequested[0].title, "Take check to the post office");
   assert.equal(review.summary.projectsWithoutNextActionCount, 1);
   assert.equal(review.projectsWithoutNextAction[0].projectId, "proj-without-next");
+});
+
+test("daily review is read-only and does not auto-complete past-event tasks", async () => {
+  const deps = createDeps({
+    now: "2026-07-03T03:00:00.000Z",
+    calendarEvents: {
+      "event-sermon": {
+        eventId: "event-sermon",
+        title: "Wednesday Service",
+        status: "scheduled",
+        lifeArea: "church",
+        endDateTime: "2026-07-02T19:00:00-07:00"
+      }
+    },
+    tasks: {
+      "task-sermon": {
+        taskId: "task-sermon",
+        title: "Preach Wednesday sermon",
+        status: "next",
+        priority: "high",
+        lifeArea: "church",
+        eventId: "event-sermon",
+        autoCompleteAfterEvent: true,
+        updatedAt: "2026-07-01T15:00:00.000Z"
+      }
+    }
+  });
+
+  const review = await buildDailyReview({ today: "2026-07-03" }, deps);
+  const task = await getTask({ taskId: "task-sermon" }, deps);
+
+  assert.equal(review.summary.eventCompletedTaskCount, 0);
+  assert.deepEqual(review.eventCompletedTasks, []);
+  assert.equal(task.task.status, "next");
 });
 
 test("creates and lists calendar events", async () => {

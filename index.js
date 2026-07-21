@@ -38,6 +38,7 @@ const {
   queryOperatorDocuments
 } = require("./lib/operator-data-service");
 const {
+  addTaskNote,
   buildDailyBrief,
   buildDailyReview,
   completeTasksForPastEvents,
@@ -45,11 +46,13 @@ const {
   createProject,
   createRoutine,
   createTask,
+  getTask,
   getProject,
   listCalendarEvents,
   listProjects,
   listRoutines,
   listTasks,
+  listTaskNotes,
   updateCalendarEvent,
   updateProject,
   updateRoutine,
@@ -128,6 +131,14 @@ const {
   getJsonByteLength: getMinistryPlanningJsonByteLength,
   runIdempotentMinistryPlanningOperation
 } = require("./lib/ministry-planning-operation-execution");
+const {
+  buildTaskManagementOperationError,
+  listTaskManagementOperations
+} = require("./lib/task-management-operation-registry");
+const {
+  getJsonByteLength: getTaskManagementJsonByteLength,
+  runIdempotentTaskManagementOperation
+} = require("./lib/task-management-operation-execution");
 const {
   buildProductSearchText: buildProductWorkspaceSearchText,
   normalizeIdentifiers
@@ -438,8 +449,10 @@ const servicePianoPlansCollection = db.collection("servicePianoPlans");
 const serviceMinistryAssignmentsCollection = db.collection("serviceMinistryAssignments");
 const projectsCollection = db.collection("projects");
 const tasksCollection = db.collection("tasks");
+const taskNotesCollection = db.collection("taskNotes");
 const calendarEventsCollection = db.collection("calendarEvents");
 const routinesCollection = db.collection("routines");
+const taskManagementOperationExecutionsCollection = db.collection("taskManagementOperationExecutions");
 const sermonFoldersCollection = db.collection("sermonFolders");
 const sermonsCollection = db.collection("sermons");
 const sermonSnapshotsCollection = db.collection("sermonSnapshots");
@@ -2532,8 +2545,10 @@ function getProjectTaskDependencies(overrides = {}) {
   return {
     projectsCollection,
     tasksCollection,
+    taskNotesCollection,
     calendarEventsCollection,
     routinesCollection,
+    taskManagementOperationExecutionsCollection,
     ...overrides
   };
 }
@@ -8399,6 +8414,78 @@ app.post("/tasks", async (req, res) => {
   }
 });
 
+app.get("/tasks/:taskId", async (req, res) => {
+  try {
+    const result = await getTask(
+      { taskId: req.params.taskId },
+      getProjectTaskDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      ...result
+    });
+  } catch (error) {
+    console.error("Error fetching task:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(
+        buildStructuredErrorResponse(error, {
+          fallbackCode: "task_fetch_failed",
+          fallbackMessage: "Task fetch failed"
+        })
+      );
+  }
+});
+
+app.get("/tasks/:taskId/notes", async (req, res) => {
+  try {
+    const result = await listTaskNotes(
+      { taskId: req.params.taskId, limit: req.query.limit },
+      getProjectTaskDependencies()
+    );
+
+    return res.status(200).json({
+      ok: true,
+      ...result
+    });
+  } catch (error) {
+    console.error("Error listing task notes:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(
+        buildStructuredErrorResponse(error, {
+          fallbackCode: "task_note_list_failed",
+          fallbackMessage: "Task note list failed"
+        })
+      );
+  }
+});
+
+app.post("/tasks/:taskId/notes", async (req, res) => {
+  try {
+    const result = await addTaskNote(
+      { ...(req.body || {}), taskId: req.params.taskId },
+      getProjectTaskDependencies()
+    );
+
+    return res.status(201).json({
+      ok: true,
+      ...result
+    });
+  } catch (error) {
+    console.error("Error adding task note:", error);
+    return res
+      .status(getErrorStatusCode(error, 500))
+      .json(
+        buildStructuredErrorResponse(error, {
+          fallbackCode: "task_note_create_failed",
+          fallbackMessage: "Task note creation failed"
+        })
+      );
+  }
+});
+
 app.patch("/tasks/:taskId", async (req, res) => {
   try {
     const result = await updateTask(
@@ -11233,6 +11320,93 @@ app.post("/ministry-planning/query", async (req, res) => {
 
 app.post("/ministry-planning/command", async (req, res) => {
   return handleMinistryPlanningOperation(req, res, "command");
+});
+
+app.get("/task-management/operations", (req, res) => {
+  const requestId = randomUUID();
+
+  try {
+    const result = listTaskManagementOperations({
+      mode: req.query.mode,
+      query: req.query.query,
+      limit: req.query.limit
+    });
+    return res.status(200).json({ ok: true, requestId, ...result });
+  } catch (error) {
+    console.error("Error listing task management operations:", error);
+    return res.status(200).json(buildTaskManagementOperationError(error, {
+      mode: req.query.mode,
+      requestId
+    }));
+  }
+});
+
+async function handleTaskManagementOperation(req, res, mode) {
+  const requestId = randomUUID();
+  const operation = req.body?.operation;
+  const operationArguments = req.body?.arguments ?? req.body?.args;
+  const idempotencyKey = req.body?.idempotencyKey;
+  const startedAtMs = Date.now();
+  const argumentKeys = operationArguments && typeof operationArguments === "object" && !Array.isArray(operationArguments)
+    ? Object.keys(operationArguments).sort()
+    : [];
+
+  res.set("x-request-id", requestId);
+  console.log(JSON.stringify({
+    event: "task_management_operation_started",
+    requestId,
+    mode,
+    operation: typeof operation === "string" ? operation : "",
+    argumentKeys,
+    idempotencyProvided: typeof idempotencyKey === "string" && Boolean(idempotencyKey.trim())
+  }));
+
+  try {
+    const result = await runIdempotentTaskManagementOperation(
+      { mode, operation, arguments: operationArguments, idempotencyKey },
+      getProjectTaskDependencies()
+    );
+    const responseBody = { ok: true, requestId, ...result };
+    console.log(JSON.stringify({
+      event: "task_management_operation_succeeded",
+      requestId,
+      mode,
+      operation: result.operation,
+      durationMs: Date.now() - startedAtMs,
+      responseBytes: getTaskManagementJsonByteLength(responseBody),
+      idempotencyProtected: result.idempotency?.protected === true,
+      idempotencyReplayed: result.idempotency?.replayed === true,
+      executionId: result.idempotency?.executionId || ""
+    }));
+    return res.status(200).json(responseBody);
+  } catch (error) {
+    const responseBody = buildTaskManagementOperationError(error, {
+      mode,
+      operation,
+      requestId
+    });
+    console.error(JSON.stringify({
+      event: "task_management_operation_failed",
+      requestId,
+      mode,
+      operation: typeof operation === "string" ? operation : "",
+      durationMs: Date.now() - startedAtMs,
+      responseBytes: getTaskManagementJsonByteLength(responseBody),
+      logicalStatus: responseBody.error.status,
+      errorCode: responseBody.error.code,
+      argumentKeys,
+      idempotencyProvided: typeof idempotencyKey === "string" && Boolean(idempotencyKey.trim())
+    }));
+    return res.status(200).json(responseBody);
+  }
+}
+
+app.post("/task-management/query", async (req, res) => {
+  return handleTaskManagementOperation(req, res, "query");
+});
+
+app.post("/task-management/command", async (req, res) => {
+  return handleTaskManagementOperation(req, res, "command");
 });
 
 app.get("/product-workspace/operations", (req, res) => {
