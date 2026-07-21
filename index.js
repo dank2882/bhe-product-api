@@ -139,6 +139,7 @@ const {
   getJsonByteLength: getTaskManagementJsonByteLength,
   runIdempotentTaskManagementOperation
 } = require("./lib/task-management-operation-execution");
+const { normalizeTaskAccess } = require("./lib/task-management-access");
 const {
   buildProductSearchText: buildProductWorkspaceSearchText,
   normalizeIdentifiers
@@ -450,6 +451,7 @@ const serviceMinistryAssignmentsCollection = db.collection("serviceMinistryAssig
 const projectsCollection = db.collection("projects");
 const tasksCollection = db.collection("tasks");
 const taskNotesCollection = db.collection("taskNotes");
+const taskManagementAuditEventsCollection = db.collection("taskManagementAuditEvents");
 const calendarEventsCollection = db.collection("calendarEvents");
 const routinesCollection = db.collection("routines");
 const taskManagementOperationExecutionsCollection = db.collection("taskManagementOperationExecutions");
@@ -2546,6 +2548,7 @@ function getProjectTaskDependencies(overrides = {}) {
     projectsCollection,
     tasksCollection,
     taskNotesCollection,
+    taskManagementAuditEventsCollection,
     calendarEventsCollection,
     routinesCollection,
     taskManagementOperationExecutionsCollection,
@@ -11362,9 +11365,16 @@ async function handleTaskManagementOperation(req, res, mode) {
   }));
 
   try {
+    const taskAccess = normalizeTaskAccess({
+      role: req.header("x-bhe-task-role"),
+      subject: req.header("x-bhe-actor-sub"),
+      name: req.header("x-bhe-actor-name"),
+      email: req.header("x-bhe-actor-email"),
+      scopes: (req.header("x-bhe-task-scopes") || "").split(" ").filter(Boolean)
+    });
     const result = await runIdempotentTaskManagementOperation(
       { mode, operation, arguments: operationArguments, idempotencyKey },
-      getProjectTaskDependencies()
+      getProjectTaskDependencies({ taskAccess })
     );
     const responseBody = { ok: true, requestId, ...result };
     console.log(JSON.stringify({

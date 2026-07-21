@@ -472,3 +472,136 @@ test("updates project priority and target date", async () => {
   assert.equal(result.project.priority, "high");
   assert.equal(result.project.targetDate, "2026-07-15");
 });
+
+test("shared task visibility hides private records from non-admin users", async () => {
+  const deps = createDeps({
+    tasks: {
+      "task-private": {
+        taskId: "task-private",
+        title: "Dan private task",
+        status: "next",
+        lifeArea: "home",
+        visibility: "private"
+      },
+      "task-staff": {
+        taskId: "task-staff",
+        title: "Shared staff task",
+        status: "next",
+        lifeArea: "work",
+        visibility: "staff"
+      }
+    }
+  });
+  deps.taskAccess = { role: "viewer", subject: "auth0|viewer", name: "Viewer" };
+
+  const listed = await listTasks({}, deps);
+  assert.deepEqual(listed.tasks.map((task) => task.taskId), ["task-staff"]);
+  await assert.rejects(
+    () => getTask({ taskId: "task-private" }, deps),
+    { code: "task_access_denied", statusCode: 403 }
+  );
+});
+
+test("collaborators may comment on shared tasks but cannot update them", async () => {
+  const deps = createDeps({
+    tasks: {
+      "task-staff": {
+        taskId: "task-staff",
+        title: "Shared staff task",
+        status: "next",
+        lifeArea: "work",
+        visibility: "staff"
+      }
+    }
+  });
+  deps.taskAccess = { role: "collaborator", subject: "auth0|staff", name: "Staff Member" };
+
+  const added = await addTaskNote({
+    taskId: "task-staff",
+    body: "I have the information Pastor requested.",
+    author: "Staff Member"
+  }, deps);
+  assert.equal(added.note.authorSub, "auth0|staff");
+  await assert.rejects(
+    () => updateTask({ taskId: "task-staff", changes: { status: "done" } }, deps),
+    { code: "task_access_denied", statusCode: 403 }
+  );
+});
+
+test("managers can manage shared work but cannot create private records or drop tasks", async () => {
+  const deps = createDeps({
+    tasks: {
+      "task-staff": {
+        taskId: "task-staff",
+        title: "Shared staff task",
+        status: "next",
+        lifeArea: "work",
+        visibility: "staff"
+      }
+    }
+  });
+  deps.taskAccess = { role: "manager", subject: "auth0|pastor", name: "Pastor" };
+
+  const created = await createTask({ title: "Review BHE plan", lifeArea: "work" }, deps);
+  assert.equal(created.task.visibility, "staff");
+  const completed = await updateTask({ taskId: "task-staff", expectedVersion: 1, changes: { status: "done" } }, deps);
+  assert.equal(completed.task.status, "done");
+  await assert.rejects(
+    () => createTask({ title: "Private home task", lifeArea: "home", visibility: "private" }, deps),
+    { code: "task_access_denied", statusCode: 403 }
+  );
+  await assert.rejects(
+    () => updateTask({ taskId: "task-staff", expectedVersion: 2, changes: { status: "dropped" } }, deps),
+    { code: "task_access_denied", statusCode: 403 }
+  );
+});
+
+test("manager edits require the current record version", async () => {
+  const deps = createDeps({
+    tasks: {
+      "task-staff": {
+        taskId: "task-staff",
+        title: "Shared staff task",
+        status: "next",
+        lifeArea: "work",
+        visibility: "staff",
+        version: 3
+      }
+    }
+  });
+  deps.taskAccess = { role: "manager", subject: "auth0|pastor", name: "Pastor" };
+
+  await assert.rejects(
+    () => updateTask({ taskId: "task-staff", changes: { priority: "high" } }, deps),
+    { code: "task_version_required", statusCode: 409 }
+  );
+  await assert.rejects(
+    () => updateTask({ taskId: "task-staff", expectedVersion: 2, changes: { priority: "high" } }, deps),
+    { code: "task_version_conflict", statusCode: 409 }
+  );
+  const result = await updateTask({
+    taskId: "task-staff",
+    expectedVersion: 3,
+    changes: { priority: "high" }
+  }, deps);
+  assert.equal(result.task.version, 4);
+});
+
+test("managers cannot attach tasks to private projects", async () => {
+  const deps = createDeps({
+    projects: {
+      "project-private": {
+        projectId: "project-private",
+        name: "Private project",
+        lifeArea: "work",
+        visibility: "private"
+      }
+    }
+  });
+  deps.taskAccess = { role: "manager", subject: "auth0|pastor", name: "Pastor" };
+
+  await assert.rejects(
+    () => createTask({ title: "Attach to private", projectId: "project-private", lifeArea: "work" }, deps),
+    { code: "task_access_denied", statusCode: 403 }
+  );
+});
