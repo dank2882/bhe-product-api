@@ -41,6 +41,7 @@ const {
   addTaskNote,
   buildDailyBrief,
   buildDailyReview,
+  buildLeadershipBrief,
   completeTasksForPastEvents,
   createCalendarEvent,
   createProject,
@@ -53,6 +54,7 @@ const {
   listRoutines,
   listTasks,
   listTaskNotes,
+  resolveStaffIdentity,
   updateCalendarEvent,
   updateProject,
   updateRoutine,
@@ -451,7 +453,10 @@ const serviceMinistryAssignmentsCollection = db.collection("serviceMinistryAssig
 const projectsCollection = db.collection("projects");
 const tasksCollection = db.collection("tasks");
 const taskNotesCollection = db.collection("taskNotes");
+const taskAttachmentsCollection = db.collection("taskAttachments");
 const taskManagementAuditEventsCollection = db.collection("taskManagementAuditEvents");
+const taskStaffProfilesCollection = db.collection("taskStaffProfiles");
+const taskNotificationsCollection = db.collection("taskNotifications");
 const calendarEventsCollection = db.collection("calendarEvents");
 const routinesCollection = db.collection("routines");
 const taskManagementOperationExecutionsCollection = db.collection("taskManagementOperationExecutions");
@@ -2548,7 +2553,11 @@ function getProjectTaskDependencies(overrides = {}) {
     projectsCollection,
     tasksCollection,
     taskNotesCollection,
+    taskAttachmentsCollection,
+    taskAttachmentBucket: storage.bucket(BUCKET_NAME),
     taskManagementAuditEventsCollection,
+    taskStaffProfilesCollection,
+    taskNotificationsCollection,
     calendarEventsCollection,
     routinesCollection,
     taskManagementOperationExecutionsCollection,
@@ -11339,6 +11348,25 @@ app.get("/task-management/operations", (req, res) => {
     console.error("Error listing task management operations:", error);
     return res.status(200).json(buildTaskManagementOperationError(error, {
       mode: req.query.mode,
+      requestId
+    }));
+  }
+});
+
+app.post("/task-management/identity", async (req, res) => {
+  const requestId = randomUUID();
+  try {
+    const result = await resolveStaffIdentity({
+      subject: req.body?.subject,
+      displayName: req.body?.displayName,
+      email: req.body?.email,
+      bootstrapRole: req.body?.bootstrapRole
+    }, getProjectTaskDependencies());
+    return res.status(200).json({ ok: true, requestId, ...result });
+  } catch (error) {
+    return res.status(Number(error?.statusCode) || 500).json(buildTaskManagementOperationError(error, {
+      mode: "identity",
+      operation: "resolveStaffIdentity",
       requestId
     }));
   }
