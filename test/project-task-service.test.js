@@ -681,8 +681,14 @@ test("personal daily reviews include historical tasks owned by an approved ident
   assert.ok(JSON.stringify(review).includes("Current Entra task"));
   assert.ok(!JSON.stringify(review).includes("Another person's task"));
 
-  const listed = await listTasks({ lifeArea: "home" }, deps);
+  const listed = await listTasks({ lifeArea: "home", detailLevel: "compact" }, deps);
+  assert.equal(listed.detailLevel, "compact");
   assert.deepEqual(listed.tasks.map((task) => task.taskId), ["task-google"]);
+  assert.equal(Object.prototype.hasOwnProperty.call(listed.tasks[0], "notes"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(listed.tasks[0], "sourceMessageId"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(listed.tasks[0], "updatedBySub"), false);
+  assert.equal(listed.tasks[0].title, "Historical Google task");
+  assert.equal(listed.tasks[0].status, "next");
 });
 
 test("creates and lists calendar events", async () => {
