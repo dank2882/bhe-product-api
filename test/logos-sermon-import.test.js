@@ -66,3 +66,42 @@ test("extractLegacyLogosTags ignores ordinary manuscripts without a header", asy
     "The first sentence of the sermon is not a tag."
   ].join("\n")), []);
 });
+
+test("toLogosImportItem carries canonical and structured source metadata", async () => {
+  const { toLogosImportItem } = await import("../scripts/lib/logos-sermon-import.mjs");
+  const item = toLogosImportItem({
+    logosId: "abc123",
+    title: "The grace of God",
+    preachedDate: "2025-04-16",
+    series: "The Greatness of our God",
+    seriesNumber: "3",
+    venue: "Faith Baptist Church (Tacoma)",
+    service: "Prayer Service 7pm",
+    speaker: "Pastor Daniel Kirchner",
+    scriptureText: "Titus 2:11; Titus 2:14",
+    topics: ["Grace", "Salvation"],
+    tags: ["Again"],
+    audience: ["general"],
+    description: "Grace bringeth salvation.",
+    privateNotes: "Preach this again.",
+    targetDuration: "45",
+    occasions: [{
+      date: "2025-04-16",
+      venue: "Faith Baptist Church (Tacoma)",
+      service: "Prayer Service 7pm"
+    }]
+  });
+
+  assert.equal(item.sermonId, "sermon-logos-abc123");
+  assert.equal(item.sourceId, "source-logos-abc123");
+  assert.equal(item.seriesTitle, "The Greatness of our God");
+  assert.equal(item.seriesNumber, "3");
+  assert.equal(item.refreshExistingSource, true);
+  assert.match(item.importedSummary, /Audience: general/);
+  assert.match(item.importedSummary, /Private notes: Preach this again/);
+  const metadata = item.sourceRefs.find(({ type }) => type === "logos_metadata").metadata;
+  assert.deepEqual(metadata.tags, ["Again"]);
+  assert.deepEqual(metadata.topics, ["Grace", "Salvation"]);
+  assert.equal(metadata.speaker, "Pastor Daniel Kirchner");
+  assert.equal(metadata.targetDuration, "45");
+});

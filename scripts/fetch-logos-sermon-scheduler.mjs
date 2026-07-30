@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import puppeteer from "puppeteer";
+import { extractLogosSchedulerRecords } from "./lib/logos-sermon-scheduler.mjs";
 
 const DEFAULT_PROFILE_DIR = path.join(os.homedir(), ".bhe-logos-puppeteer-profile");
 const DEFAULT_OUT = "tmp/logos-sermon-scheduler.raw.json";
@@ -35,102 +36,6 @@ function parseArgs(argv) {
   }
 
   return args;
-}
-
-function normalizeText(value) {
-  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
-}
-
-function collectText(value, parts = []) {
-  if (value == null) return parts;
-  if (typeof value === "string") {
-    const text = normalizeText(value);
-    if (text) parts.push(text);
-    return parts;
-  }
-  if (typeof value !== "object") return parts;
-  if (Array.isArray(value)) {
-    for (const item of value) collectText(item, parts);
-    return parts;
-  }
-
-  if (typeof value.text === "string") {
-    const text = normalizeText(value.text);
-    if (text) parts.push(text);
-  }
-
-  for (const key of ["content", "children", "items", "blocks"]) {
-    if (value[key]) collectText(value[key], parts);
-  }
-
-  return parts;
-}
-
-function blocksToText(blocks = []) {
-  return blocks
-    .map((block) => collectText(block, []).join(" "))
-    .map(normalizeText)
-    .filter(Boolean)
-    .join("\n");
-}
-
-function extractDocumentText(document = {}) {
-  const info = document.content?.info || {};
-  const sections = [
-    blocksToText(info.notes || []),
-    blocksToText(info.description || [])
-  ].filter(Boolean);
-
-  return normalizeText(sections.join("\n\n"));
-}
-
-function extractTopics(document = {}) {
-  const topicTags = document.content?.info?.tagsInfo?.topicTags || [];
-  return topicTags.map((tag) => normalizeText(tag.text)).filter(Boolean);
-}
-
-function extractPassages(document = {}) {
-  const referenceTags = document.content?.info?.tagsInfo?.referenceTags || [];
-  return referenceTags.map((tag) => normalizeText(tag.text)).filter(Boolean).join("; ");
-}
-
-function toRecord(item) {
-  const document = item.document || {};
-  const info = document.content?.info || {};
-  const occasions = Array.isArray(info.occasions) && info.occasions.length > 0
-    ? info.occasions.map((occasion) => ({
-      date: normalizeText(occasion.date),
-      venue: normalizeText(occasion.venue),
-      service: normalizeText(occasion.service)
-    })).filter((occasion) => occasion.date || occasion.venue || occasion.service)
-    : [{
-      date: normalizeText(item.occasionDate),
-      venue: normalizeText(item.occasionVenue),
-      service: normalizeText(item.occasionService)
-    }].filter((occasion) => occasion.date || occasion.venue || occasion.service);
-
-  return {
-    title: normalizeText(document.title),
-    logosId: normalizeText(item.externalId),
-    url: item.externalId ? `https://app.logos.com/documents/sermon/${item.externalId}?title=${encodeURIComponent(document.title || "")}&layout=one` : "",
-    preachedDate: normalizeText(item.occasionDate || occasions[0]?.date),
-    venue: normalizeText(item.occasionVenue || occasions[0]?.venue),
-    service: normalizeText(item.occasionService || occasions[0]?.service),
-    occasions,
-    series: normalizeText(info.seriesTitle || info.series),
-    seriesNumber: info.seriesNumber == null ? "" : String(info.seriesNumber),
-    speaker: normalizeText(info.author?.name),
-    scriptureText: extractPassages(document),
-    topics: extractTopics(document),
-    manuscriptText: extractDocumentText(document),
-    logosMetadata: {
-      capturedFrom: "sermon_scheduler_api",
-      occasionIndex: item.occasionIndex,
-      status: info.status || "",
-      audience: info.audiences || [],
-      rawExternalId: item.externalId
-    }
-  };
 }
 
 async function main() {
@@ -207,7 +112,7 @@ async function main() {
 
   fs.writeFileSync(args.out, JSON.stringify(data, null, 2));
 
-  const records = (data.sermons || []).map(toRecord);
+  const records = extractLogosSchedulerRecords(data);
   fs.writeFileSync(args.jsonlOut, records.map((record) => JSON.stringify(record)).join("\n") + (records.length ? "\n" : ""));
 
   const uniqueDocs = new Set(records.map((record) => record.logosId).filter(Boolean));

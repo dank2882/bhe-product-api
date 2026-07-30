@@ -3237,6 +3237,134 @@ test("imports sermon material into an existing sermon without overwriting outlin
   assert.equal(result.source.sourceType, "study_notes");
 });
 
+test("refreshes an existing Logos source without overwriting developed canonical fields", async () => {
+  const deps = createDeps({
+    sermons: {
+      "sermon-logos-abc123": {
+        sermonId: "sermon-logos-abc123",
+        title: "The grace of God",
+        status: "preached",
+        scriptureText: "",
+        tags: ["local-review"],
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonSources: {
+      "source-logos-abc123": {
+        sourceId: "source-logos-abc123",
+        sermonId: "sermon-logos-abc123",
+        sourceType: "logos_export",
+        sourceLabel: "The grace of God",
+        summary: "Older Logos summary",
+        material: "Existing manuscript",
+        sourceRefs: [
+          { type: "logos_id", id: "abc123" },
+          { type: "logos_metadata", metadata: { title: "The grace of God" } }
+        ],
+        createdAt: "2026-07-01T16:00:00.000Z",
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    }
+  });
+
+  const input = {
+    sermonId: "sermon-logos-abc123",
+    sourceId: "source-logos-abc123",
+    title: "The grace of God",
+    scriptureText: "Titus 2:11; Titus 2:14",
+    preachedDate: "2025-04-16",
+    seriesTitle: "The Greatness of our God",
+    seriesNumber: 3,
+    tags: ["Again"],
+    importedSummary: "Speaker: Pastor Daniel Kirchner\nTopics: Grace, Salvation",
+    importedMaterial: "Replacement manuscript should not overwrite the saved source.",
+    sourceType: "logos_export",
+    sourceLabel: "The grace of God",
+    sourceRefs: [
+      { type: "logos_id", id: "abc123" },
+      {
+        type: "logos_metadata",
+        metadata: {
+          speaker: "Pastor Daniel Kirchner",
+          topics: ["Grace", "Salvation"],
+          audience: ["general"]
+        }
+      }
+    ],
+    occasions: [{
+      date: "2025-04-16",
+      time: "19:00",
+      venue: "Faith Baptist Church (Tacoma)",
+      service: "Prayer Service 7pm"
+    }],
+    refreshExistingSource: true
+  };
+
+  const result = await importSermonMaterial(input, deps);
+
+  assert.equal(result.action, "refreshed_existing_source");
+  assert.deepEqual(result.sermon.tags, ["local-review", "Again"]);
+  assert.equal(result.sermon.scriptureText, "Titus 2:11; Titus 2:14");
+  assert.equal(result.sermon.seriesTitle, "The Greatness of our God");
+  assert.equal(result.sermon.seriesNumber, 3);
+  assert.equal(result.sermon.preachedDate, "2025-04-16");
+  assert.equal(result.sermon.occasionCount, 1);
+  assert.deepEqual(result.addedTags, ["Again"]);
+  assert.deepEqual(result.conflicts, []);
+  assert.equal(result.snapshot.snapshotType, "before_import_refresh");
+  assert.equal(result.source.material, "Existing manuscript");
+  assert.match(result.source.summary, /Topics: Grace, Salvation/);
+  assert.deepEqual(
+    result.source.sourceRefs.find(({ type }) => type === "logos_metadata").metadata.audience,
+    ["general"]
+  );
+
+  const replay = await importSermonMaterial(input, deps);
+  assert.equal(replay.action, "skipped_existing_source");
+  assert.equal(replay.snapshot, null);
+});
+
+test("reports Logos canonical conflicts without overwriting Sermon Workspace", async () => {
+  const deps = createDeps({
+    sermons: {
+      "sermon-logos-conflict": {
+        sermonId: "sermon-logos-conflict",
+        title: "Developed sermon",
+        status: "preached",
+        scriptureText: "Titus 2:11",
+        seriesTitle: "Developed Series",
+        seriesSlug: "developed-series",
+        seriesId: "series-developed-series",
+        seriesNumber: 4
+      }
+    },
+    sermonSources: {
+      "source-logos-conflict": {
+        sourceId: "source-logos-conflict",
+        sermonId: "sermon-logos-conflict",
+        sourceType: "logos_export",
+        sourceLabel: "Developed sermon",
+        summary: "Older summary"
+      }
+    }
+  });
+
+  const result = await importSermonMaterial({
+    sermonId: "sermon-logos-conflict",
+    sourceId: "source-logos-conflict",
+    title: "Developed sermon",
+    scriptureText: "Titus 2:11-14",
+    seriesTitle: "Logos Series",
+    seriesNumber: 2,
+    importedSummary: "Current Logos metadata",
+    refreshExistingSource: true
+  }, deps);
+
+  assert.equal(result.sermon.scriptureText, "Titus 2:11");
+  assert.equal(result.sermon.seriesTitle, "Developed Series");
+  assert.deepEqual(result.conflicts.map(({ field }) => field), ["scriptureText", "seriesTitle"]);
+});
+
 test("preached transcript imports mark the sermon and imported occasion preached by default", async () => {
   const deps = createDeps({
     sermons: {
