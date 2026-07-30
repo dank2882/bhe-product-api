@@ -22,6 +22,7 @@
     "sermon:accept-inbox-live": "node scripts/accept-sermon-recording-inbox-live.mjs",
     "sermon:upload-media": "node scripts/upload-sermon-media-file.mjs",
     "report:active-pool": "node scripts/report-rejoice-active-pool.mjs",
+    "staff-auth:set": "node scripts/set-staff-authorization.mjs",
     "deploy": "gcloud run deploy bhe-product-api --source . --region us-west1 --project location-map-985 --timeout 900",
     "deploy:describe": "gcloud run services describe bhe-product-api --region us-west1 --project location-map-985"
   },

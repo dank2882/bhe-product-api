@@ -632,6 +632,59 @@ test("personal daily reviews exclude other staff work even for an administrator"
   assert.ok(!JSON.stringify(review).includes("Alex staff item"));
 });
 
+test("personal daily reviews include historical tasks owned by an approved identity alias", async () => {
+  const deps = createDeps({
+    tasks: {
+      "task-google": {
+        taskId: "task-google",
+        title: "Historical Google task",
+        status: "next",
+        priority: "high",
+        lifeArea: "home",
+        assignedToSub: "google-oauth2|106948814779912948467",
+        visibility: "private"
+      },
+      "task-entra": {
+        taskId: "task-entra",
+        title: "Current Entra task",
+        status: "next",
+        priority: "high",
+        lifeArea: "personal",
+        ownerSub: "entra|8645|tenant",
+        visibility: "private"
+      },
+      "task-other": {
+        taskId: "task-other",
+        title: "Another person's task",
+        status: "next",
+        lifeArea: "work",
+        assignedToSub: "waad|someone-else",
+        visibility: "staff"
+      }
+    }
+  });
+  deps.taskAccess = {
+    role: "admin",
+    subject: "waad|dan",
+    subjects: [
+      "waad|dan",
+      "google-oauth2|106948814779912948467",
+      "entra|8645|tenant"
+    ],
+    name: "Dan Kirchner",
+    email: "dank@foundedonfaith.com"
+  };
+
+  const review = await buildDailyReview({ today: "2026-07-01" }, deps);
+  assert.equal(review.summary.openTaskCount, 2);
+  assert.ok(JSON.stringify(review).includes("Historical Google task"));
+  assert.ok(JSON.stringify(review).includes("Current Entra task"));
+  assert.ok(!JSON.stringify(review).includes("Another person's task"));
+
+  const listed = await listTasks({ lifeArea: "home" }, deps);
+  assert.deepEqual(listed.tasks.map((task) => task.taskId), ["task-google"]);
+});
+
 test("creates and lists calendar events", async () => {
   const deps = createDeps();
 

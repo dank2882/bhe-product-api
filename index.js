@@ -143,6 +143,9 @@ const {
 } = require("./lib/task-management-operation-execution");
 const { normalizeTaskAccess } = require("./lib/task-management-access");
 const {
+  resolveStaffAuthorization
+} = require("./lib/staff-authorization-service");
+const {
   buildProductSearchText: buildProductWorkspaceSearchText,
   normalizeIdentifiers
 } = require("./lib/product-workspace-service");
@@ -456,6 +459,7 @@ const taskNotesCollection = db.collection("taskNotes");
 const taskAttachmentsCollection = db.collection("taskAttachments");
 const taskManagementAuditEventsCollection = db.collection("taskManagementAuditEvents");
 const taskStaffProfilesCollection = db.collection("taskStaffProfiles");
+const staffAuthorizationProfilesCollection = db.collection("staffAuthorizationProfiles");
 const taskNotificationsCollection = db.collection("taskNotifications");
 const calendarEventsCollection = db.collection("calendarEvents");
 const routinesCollection = db.collection("routines");
@@ -11372,6 +11376,45 @@ app.post("/task-management/identity", async (req, res) => {
   }
 });
 
+app.post("/staff-authorization/resolve", async (req, res) => {
+  const requestId = randomUUID();
+  try {
+    const result = await resolveStaffAuthorization({
+      subject: req.body?.subject,
+      displayName: req.body?.displayName,
+      email: req.body?.email
+    }, {
+      staffAuthorizationProfilesCollection
+    });
+    console.log(JSON.stringify({
+      event: "staff_authorization_resolved",
+      requestId,
+      profileId: result.profile.profileId,
+      status: result.profile.status,
+      authorized: result.authorized,
+      permissionCount: result.effectiveScopes.length,
+      created: result.created
+    }));
+    return res.status(200).json({ ok: true, requestId, ...result });
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "staff_authorization_resolution_failed",
+      requestId,
+      code: error?.code || "staff_authorization_resolution_failed"
+    }));
+    return res.status(Number(error?.statusCode) || 500).json({
+      ok: false,
+      requestId,
+      error: {
+        code: error?.code || "staff_authorization_resolution_failed",
+        message: error?.message || "Staff authorization resolution failed",
+        status: Number(error?.statusCode) || 500,
+        details: error?.details || {}
+      }
+    });
+  }
+});
+
 async function handleTaskManagementOperation(req, res, mode) {
   const requestId = randomUUID();
   const operation = req.body?.operation;
@@ -11396,6 +11439,14 @@ async function handleTaskManagementOperation(req, res, mode) {
     const taskAccess = normalizeTaskAccess({
       role: req.header("x-bhe-task-role"),
       subject: req.header("x-bhe-actor-sub"),
+      subjects: (() => {
+        try {
+          const parsed = JSON.parse(req.header("x-bhe-actor-subjects") || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      })(),
       name: req.header("x-bhe-actor-name"),
       email: req.header("x-bhe-actor-email"),
       scopes: (req.header("x-bhe-task-scopes") || "").split(" ").filter(Boolean)
