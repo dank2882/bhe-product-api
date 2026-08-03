@@ -143,6 +143,15 @@ const {
 } = require("./lib/task-management-operation-execution");
 const { normalizeTaskAccess } = require("./lib/task-management-access");
 const {
+  commitTripGoogleSheetImport,
+  getTripImport,
+  getTripMemory,
+  getTripReference,
+  previewTripGoogleSheetImport,
+  saveTripMemory,
+  searchTripMemories
+} = require("./lib/trip-service");
+const {
   resolveStaffAuthorization
 } = require("./lib/staff-authorization-service");
 const {
@@ -464,6 +473,10 @@ const taskNotificationsCollection = db.collection("taskNotifications");
 const calendarEventsCollection = db.collection("calendarEvents");
 const routinesCollection = db.collection("routines");
 const taskManagementOperationExecutionsCollection = db.collection("taskManagementOperationExecutions");
+const tripMemoriesCollection = db.collection("tripMemories");
+const tripImportsCollection = db.collection("tripImports");
+const tripParticipantsCollection = db.collection("tripParticipants");
+const tripApparelCollection = db.collection("tripApparel");
 const sermonFoldersCollection = db.collection("sermonFolders");
 const sermonsCollection = db.collection("sermons");
 const sermonSnapshotsCollection = db.collection("sermonSnapshots");
@@ -2565,6 +2578,18 @@ function getProjectTaskDependencies(overrides = {}) {
     calendarEventsCollection,
     routinesCollection,
     taskManagementOperationExecutionsCollection,
+    ...overrides
+  };
+}
+
+function getTripDependencies(overrides = {}) {
+  return {
+    projectsCollection,
+    tripMemoriesCollection,
+    tripImportsCollection,
+    tripParticipantsCollection,
+    tripApparelCollection,
+    googleSheetsRequest,
     ...overrides
   };
 }
@@ -11338,6 +11363,89 @@ app.post("/ministry-planning/command", async (req, res) => {
   return handleMinistryPlanningOperation(req, res, "command");
 });
 
+function buildTaskAccessFromRequest(req) {
+  return normalizeTaskAccess({
+    role: req.header("x-bhe-task-role"),
+    subject: req.header("x-bhe-actor-sub"),
+    subjects: (() => {
+      try {
+        const parsed = JSON.parse(req.header("x-bhe-actor-subjects") || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })(),
+    name: req.header("x-bhe-actor-name"),
+    email: req.header("x-bhe-actor-email"),
+    scopes: (req.header("x-bhe-task-scopes") || "").split(" ").filter(Boolean)
+  });
+}
+
+async function handleTripRequest(req, res, operation, input, run) {
+  const requestId = randomUUID();
+  res.set("x-request-id", requestId);
+  try {
+    const result = await run(input || {}, getTripDependencies({
+      taskAccess: buildTaskAccessFromRequest(req)
+    }));
+    return res.status(200).json({ ok: true, requestId, operation, ...result });
+  } catch (error) {
+    const status = Number(error?.statusCode) || 500;
+    console.error(JSON.stringify({
+      event: "trip_operation_failed",
+      requestId,
+      operation,
+      code: error?.code || "trip_operation_failed",
+      status
+    }));
+    return res.status(status).json({
+      ok: false,
+      requestId,
+      operation,
+      error: {
+        code: error?.code || "trip_operation_failed",
+        message: error?.message || "Trip operation failed",
+        status,
+        details: error?.details || {}
+      }
+    });
+  }
+}
+
+app.post("/trip/memories", async (req, res) => {
+  return handleTripRequest(req, res, "saveTripMemory", req.body, saveTripMemory);
+});
+
+app.get("/trip/memories/:memoryId", async (req, res) => {
+  return handleTripRequest(req, res, "getTripMemory", {
+    ...req.query,
+    memoryId: req.params.memoryId
+  }, getTripMemory);
+});
+
+app.post("/trip/memories/search", async (req, res) => {
+  return handleTripRequest(req, res, "searchTripMemories", req.body, searchTripMemories);
+});
+
+app.post("/trip/google-sheets/preview", async (req, res) => {
+  return handleTripRequest(req, res, "previewTripGoogleSheetImport", req.body, previewTripGoogleSheetImport);
+});
+
+app.post("/trip/google-sheets/import", async (req, res) => {
+  return handleTripRequest(req, res, "commitTripGoogleSheetImport", req.body, commitTripGoogleSheetImport);
+});
+
+app.get("/trip/imports/:importId", async (req, res) => {
+  return handleTripRequest(req, res, "getTripImport", {
+    ...req.query,
+    importId: req.params.importId
+  }, getTripImport);
+});
+
+app.post("/trip/reference", async (req, res) => {
+  return handleTripRequest(req, res, "getTripReference", req.body, getTripReference);
+});
+
 app.get("/task-management/operations", (req, res) => {
   const requestId = randomUUID();
 
@@ -11436,21 +11544,7 @@ async function handleTaskManagementOperation(req, res, mode) {
   }));
 
   try {
-    const taskAccess = normalizeTaskAccess({
-      role: req.header("x-bhe-task-role"),
-      subject: req.header("x-bhe-actor-sub"),
-      subjects: (() => {
-        try {
-          const parsed = JSON.parse(req.header("x-bhe-actor-subjects") || "[]");
-          return Array.isArray(parsed) ? parsed : [];
-        } catch {
-          return [];
-        }
-      })(),
-      name: req.header("x-bhe-actor-name"),
-      email: req.header("x-bhe-actor-email"),
-      scopes: (req.header("x-bhe-task-scopes") || "").split(" ").filter(Boolean)
-    });
+    const taskAccess = buildTaskAccessFromRequest(req);
     const result = await runIdempotentTaskManagementOperation(
       { mode, operation, arguments: operationArguments, idempotencyKey },
       getProjectTaskDependencies({ taskAccess })
