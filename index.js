@@ -143,11 +143,7 @@ const {
 } = require("./lib/task-management-operation-execution");
 const { normalizeTaskAccess } = require("./lib/task-management-access");
 const {
-  commitTripGoogleSheetImport,
-  getTripImport,
   getTripMemory,
-  getTripReference,
-  previewTripGoogleSheetImport,
   saveTripMemory,
   searchTripMemories
 } = require("./lib/trip-service");
@@ -474,9 +470,6 @@ const calendarEventsCollection = db.collection("calendarEvents");
 const routinesCollection = db.collection("routines");
 const taskManagementOperationExecutionsCollection = db.collection("taskManagementOperationExecutions");
 const tripMemoriesCollection = db.collection("tripMemories");
-const tripImportsCollection = db.collection("tripImports");
-const tripParticipantsCollection = db.collection("tripParticipants");
-const tripApparelCollection = db.collection("tripApparel");
 const sermonFoldersCollection = db.collection("sermonFolders");
 const sermonsCollection = db.collection("sermons");
 const sermonSnapshotsCollection = db.collection("sermonSnapshots");
@@ -2586,10 +2579,6 @@ function getTripDependencies(overrides = {}) {
   return {
     projectsCollection,
     tripMemoriesCollection,
-    tripImportsCollection,
-    tripParticipantsCollection,
-    tripApparelCollection,
-    googleSheetsRequest,
     ...overrides
   };
 }
@@ -11425,25 +11414,6 @@ app.get("/trip/memories/:memoryId", async (req, res) => {
 
 app.post("/trip/memories/search", async (req, res) => {
   return handleTripRequest(req, res, "searchTripMemories", req.body, searchTripMemories);
-});
-
-app.post("/trip/google-sheets/preview", async (req, res) => {
-  return handleTripRequest(req, res, "previewTripGoogleSheetImport", req.body, previewTripGoogleSheetImport);
-});
-
-app.post("/trip/google-sheets/import", async (req, res) => {
-  return handleTripRequest(req, res, "commitTripGoogleSheetImport", req.body, commitTripGoogleSheetImport);
-});
-
-app.get("/trip/imports/:importId", async (req, res) => {
-  return handleTripRequest(req, res, "getTripImport", {
-    ...req.query,
-    importId: req.params.importId
-  }, getTripImport);
-});
-
-app.post("/trip/reference", async (req, res) => {
-  return handleTripRequest(req, res, "getTripReference", req.body, getTripReference);
 });
 
 app.get("/task-management/operations", (req, res) => {
