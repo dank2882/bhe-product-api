@@ -63,6 +63,8 @@ function buildDeps(overrides = {}) {
       }
     }]),
     tripMemoriesCollection: new FakeCollection(),
+    travelTripsCollection: new FakeCollection(),
+    danOwnerSubjects: ["dan-sub"],
     taskAccess: {
       role: "member",
       subject: "dan-sub",
@@ -208,4 +210,27 @@ test("private trip data cannot be read or written by another member", async () =
     saveTripMemory({ exactText: "No", idempotencyKey: "memory-other-001" }, deps),
     (error) => error.code === "task_access_denied"
   );
+});
+
+test("trip memories generalize to Dan-owned trips while preserving the legacy Philippines stream", async () => {
+  const deps = buildDeps();
+  deps.travelTripsCollection.records.set("trip-mexico-2027", {
+    tripId: "trip-mexico-2027",
+    name: "Mexico 2027",
+    timeZone: "America/Mexico_City",
+    ownerSub: "dan-sub",
+    visibility: "private"
+  });
+  const saved = await saveTripMemory({
+    tripId: "trip-mexico-2027",
+    exactText: "Met Pastor Juan after the evening service.",
+    idempotencyKey: "mexico-pastor-juan-001"
+  }, deps);
+  assert.equal(saved.memory.tripId, "trip-mexico-2027");
+  assert.equal(saved.memory.localTimeZone, "America/Mexico_City");
+  assert.match(saved.memory.localTimestamp, /America\/Mexico_City$/);
+  assert.equal(saved.memory.philippineLocalTimestamp, "");
+  const history = await searchTripMemories({ tripId: "trip-mexico-2027", query: "Pastor Juan" }, deps);
+  assert.equal(history.count, 1);
+  assert.equal((await getTripMemory({ memoryId: saved.memory.memoryId }, deps)).memory.tripId, "trip-mexico-2027");
 });
