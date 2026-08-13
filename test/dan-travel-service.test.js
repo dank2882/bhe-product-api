@@ -80,6 +80,22 @@ class FakeCollection {
   }
 }
 
+class FakeFirestore {
+  constructor() {
+    this.queue = Promise.resolve();
+  }
+
+  runTransaction(callback) {
+    const result = this.queue.then(() => callback({
+      get: (docRef) => docRef.get(),
+      set: (docRef, value) => docRef.set(value),
+      create: (docRef, value) => docRef.create(value)
+    }));
+    this.queue = result.catch(() => {});
+    return result;
+  }
+}
+
 class FakeBucketFile {
   constructor(bucket, key) {
     this.bucket = bucket;
@@ -118,6 +134,7 @@ class FakeBucket {
 
 function buildDeps(overrides = {}) {
   return {
+    firestoreDb: new FakeFirestore(),
     danOwnerSubjects: ["waad|dan"],
     taskAccess: {
       role: "member",
@@ -456,4 +473,81 @@ test("command operations are audit-backed and replay-safe", async () => {
   assert.equal(replay.idempotency.replayed, true);
   assert.equal(first.result.person.personId, replay.result.person.personId);
   assert.equal(deps.danTravelAuditEventsCollection.records.size, 1);
+});
+
+test("command replays authorize first and are isolated by authenticated subject", async () => {
+  const deps = buildDeps({ danOwnerSubjects: ["waad|dan", "waad|dan-legacy"] });
+  const input = {
+    mode: "command",
+    operation: "createPerson",
+    arguments: { displayName: "Private Replay Person", duplicateReviewed: true },
+    idempotencyKey: "private-replay-person-001"
+  };
+  const first = await runIdempotentDanTravelOperation(input, deps);
+
+  await assert.rejects(
+    runIdempotentDanTravelOperation(input, {
+      ...deps,
+      taskAccess: { role: "member", subject: "waad|not-dan", subjects: ["waad|not-dan"] }
+    }),
+    (error) => error.code === "dan_private_access_denied"
+  );
+
+  const legacy = await runIdempotentDanTravelOperation(input, {
+    ...deps,
+    taskAccess: { role: "member", subject: "waad|dan-legacy", subjects: ["waad|dan-legacy"], name: "Dan" }
+  });
+  assert.equal(first.idempotency.replayed, false);
+  assert.equal(legacy.idempotency.replayed, false);
+  assert.notEqual(first.idempotency.executionId, legacy.idempotency.executionId);
+  assert.equal(deps.danTravelAuditEventsCollection.records.size, 2);
+});
+
+test("concurrent updates cannot both commit the same expected version", async () => {
+  const deps = buildDeps();
+  const person = (await createPerson({ displayName: "Concurrent Person" }, deps)).person;
+  const results = await Promise.allSettled([
+    updatePerson({ personId: person.personId, expectedVersion: 1, changes: { title: "Pastor" } }, deps),
+    updatePerson({ personId: person.personId, expectedVersion: 1, changes: { title: "Missionary" } }, deps)
+  ]);
+  assert.equal(results.filter(({ status }) => status === "fulfilled").length, 1);
+  const rejected = results.find(({ status }) => status === "rejected");
+  assert.equal(rejected.reason.code, "dan_relationship_version_conflict");
+  assert.equal((await getPerson({ personId: person.personId }, deps)).person.version, 2);
+});
+
+test("audit completion failure does not turn a committed mutation into a terminal failure", async () => {
+  const deps = buildDeps();
+  const auditCollection = deps.danTravelAuditEventsCollection;
+  const originalDoc = auditCollection.doc.bind(auditCollection);
+  auditCollection.doc = (id) => {
+    const ref = originalDoc(id);
+    ref.set = async () => {
+      throw new Error("injected audit completion failure");
+    };
+    return ref;
+  };
+  const input = {
+    mode: "command",
+    operation: "createPerson",
+    arguments: { displayName: "Audit Pending Person" },
+    idempotencyKey: "audit-pending-person-001"
+  };
+  const first = await runIdempotentDanTravelOperation(input, deps);
+  const replay = await runIdempotentDanTravelOperation(input, deps);
+  assert.equal(first.audit.status, "completion_pending");
+  assert.equal(replay.idempotency.replayed, true);
+  assert.equal(first.result.person.personId, replay.result.person.personId);
+  assert.equal(deps.relationshipPeopleCollection.records.size, 1);
+});
+
+test("backend commands reject missing idempotency keys", async () => {
+  await assert.rejects(
+    runIdempotentDanTravelOperation({
+      mode: "command",
+      operation: "createPerson",
+      arguments: { displayName: "Unprotected Person" }
+    }, buildDeps()),
+    (error) => error.code === "dan_travel_idempotency_key_required"
+  );
 });

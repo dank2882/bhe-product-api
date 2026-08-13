@@ -2614,6 +2614,7 @@ function getTripDependencies(overrides = {}) {
 
 function getDanTravelDependencies(overrides = {}) {
   return {
+    firestoreDb: db,
     danOwnerSubjects: DAN_TRAVEL_OWNER_SUBJECTS,
     relationshipPeopleCollection,
     relationshipOrganizationsCollection,
