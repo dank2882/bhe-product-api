@@ -412,7 +412,7 @@ test("Travel Companion owns trips, automatic destination/T-14 briefings, and liv
   assert.deepEqual(created.destinationBriefings[0].organizations.map(({ organizationId }) => organizationId), [baguioChurch.organizationId]);
   await recordInteraction({
     tripId: created.trip.tripId,
-    personIds: [person.personId],
+    personIds: [person.personId, manilaPerson.personId],
     organizationIds: [baguioChurch.organizationId],
     locationKeys: ["Baguio", "Philippines"],
     summary: "Baguio visit"
@@ -429,6 +429,7 @@ test("Travel Companion owns trips, automatic destination/T-14 briefings, and liv
     destinationId: created.trip.destinations[0].destinationId
   }, deps);
   assert.equal(refreshedBaguio.briefing.interactions.some(({ interactionId }) => interactionId === manilaInteraction.interactionId), false);
+  assert.equal(refreshedBaguio.briefing.people.some(({ personId }) => personId === manilaPerson.personId), true);
   const addedDestination = await updateTrip({
     tripId: created.trip.tripId,
     expectedVersion: created.trip.version,
