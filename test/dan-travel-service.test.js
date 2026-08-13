@@ -120,6 +120,10 @@ class FakeBucketFile {
     const file = this.bucket.files.get(this.key);
     return [{ size: String(file?.buffer.length || 0) }];
   }
+
+  async delete() {
+    this.bucket.files.delete(this.key);
+  }
 }
 
 class FakeBucket {
@@ -514,6 +518,37 @@ test("concurrent updates cannot both commit the same expected version", async ()
   const rejected = results.find(({ status }) => status === "rejected");
   assert.equal(rejected.reason.code, "dan_relationship_version_conflict");
   assert.equal((await getPerson({ personId: person.personId }, deps)).person.version, 2);
+});
+
+test("concurrent photo writes promote only the winning version-specific objects", async () => {
+  const buffer = await createImageBuffer(900, 600);
+  const deps = buildDeps({ fetchImpl: fetchFor(buffer) });
+  const person = (await createPerson({ displayName: "Concurrent Photo Person" }, deps)).person;
+  const uploaded = await uploadRelationshipPhoto({
+    personId: person.personId,
+    openaiFileIdRefs: [fileRefFor(buffer)]
+  }, deps);
+  const adjustments = await Promise.allSettled([
+    adjustRelationshipPhotoCrop({ photoId: uploaded.photo.photoId, expectedVersion: 1, focalPoint: { x: 0.25, y: 0.5, zoom: 1.2 } }, deps),
+    adjustRelationshipPhotoCrop({ photoId: uploaded.photo.photoId, expectedVersion: 1, focalPoint: { x: 0.75, y: 0.5, zoom: 1.2 } }, deps)
+  ]);
+  assert.equal(adjustments.filter(({ status }) => status === "fulfilled").length, 1);
+  assert.equal(adjustments.find(({ status }) => status === "rejected").reason.code, "dan_relationship_version_conflict");
+  const previewKeys = [...deps.relationshipPhotoBucket.files.keys()].filter((key) => key.includes("/preview-candidates/"));
+  assert.equal(previewKeys.length, 1);
+  assert.equal(deps.relationshipPhotosCollection.records.get(uploaded.photo.photoId).previewStorageKey, previewKeys[0]);
+
+  const approvals = await Promise.allSettled([
+    approveRelationshipProfilePhoto({ photoId: uploaded.photo.photoId, expectedVersion: 2, approved: true }, deps),
+    approveRelationshipProfilePhoto({ photoId: uploaded.photo.photoId, expectedVersion: 2, approved: true }, deps)
+  ]);
+  assert.equal(approvals.filter(({ status }) => status === "fulfilled").length, 1);
+  assert.equal(approvals.find(({ status }) => status === "rejected").reason.code, "dan_relationship_version_conflict");
+  const approvedKeys = [...deps.relationshipPhotoBucket.files.keys()].filter((key) => key.includes("/approved-candidates/"));
+  assert.equal(approvedKeys.length, 2);
+  const photoRecord = deps.relationshipPhotosCollection.records.get(uploaded.photo.photoId);
+  assert.ok(approvedKeys.includes(photoRecord.thumbnailStorageKey));
+  assert.ok(approvedKeys.includes(photoRecord.outlookStorageKey));
 });
 
 test("audit completion failure does not turn a committed mutation into a terminal failure", async () => {
