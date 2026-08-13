@@ -9,6 +9,7 @@ const {
   createPerson,
   getPerson,
   linkPersonToOrganization,
+  recordInteraction,
   updatePerson
 } = require("../lib/dan-relationships-service");
 const {
@@ -29,6 +30,7 @@ const {
 } = require("../lib/dan-outlook-projection-service");
 const {
   addItineraryItem,
+  buildDestinationRefresher,
   buildDueTravelBriefings,
   createPackingList,
   createTrip,
@@ -395,6 +397,10 @@ test("Outlook differences become merge proposals and approved field choices are 
 test("Travel Companion owns trips, automatic destination/T-14 briefings, and live packing state", async () => {
   const deps = buildDeps();
   const person = (await createPerson({ displayName: "Pastor Ben", locationKeys: ["Baguio"] }, deps)).person;
+  const manilaPerson = (await createPerson({ displayName: "Pastor Manila", locationKeys: ["Manila", "Philippines"] }, deps)).person;
+  const countryContact = (await createPerson({ displayName: "Country Coordinator", locationKeys: ["Philippines"] }, deps)).person;
+  const baguioChurch = (await createOrganization({ name: "Baguio Church", type: "church", locationKeys: ["Baguio", "Philippines"] }, deps)).organization;
+  const manilaChurch = (await createOrganization({ name: "Manila Church", type: "church", locationKeys: ["Manila", "Philippines"] }, deps)).organization;
   const created = await createTrip({
     name: "Return to Baguio",
     destinations: [{ name: "Baguio", country: "Philippines" }],
@@ -402,7 +408,27 @@ test("Travel Companion owns trips, automatic destination/T-14 briefings, and liv
     endDate: "2026-08-30",
     timeZone: "Asia/Manila"
   }, deps);
-  assert.equal(created.destinationBriefings[0].people[0].personId, person.personId);
+  assert.deepEqual(created.destinationBriefings[0].people.map(({ personId }) => personId).sort(), [countryContact.personId, person.personId].sort());
+  assert.deepEqual(created.destinationBriefings[0].organizations.map(({ organizationId }) => organizationId), [baguioChurch.organizationId]);
+  await recordInteraction({
+    tripId: created.trip.tripId,
+    personIds: [person.personId],
+    organizationIds: [baguioChurch.organizationId],
+    locationKeys: ["Baguio", "Philippines"],
+    summary: "Baguio visit"
+  }, deps);
+  const manilaInteraction = (await recordInteraction({
+    tripId: created.trip.tripId,
+    personIds: [manilaPerson.personId],
+    organizationIds: [manilaChurch.organizationId],
+    locationKeys: ["Manila", "Philippines"],
+    summary: "Manila visit"
+  }, deps)).interaction;
+  const refreshedBaguio = await buildDestinationRefresher({
+    tripId: created.trip.tripId,
+    destinationId: created.trip.destinations[0].destinationId
+  }, deps);
+  assert.equal(refreshedBaguio.briefing.interactions.some(({ interactionId }) => interactionId === manilaInteraction.interactionId), false);
   const addedDestination = await updateTrip({
     tripId: created.trip.tripId,
     expectedVersion: created.trip.version,
@@ -415,6 +441,8 @@ test("Travel Companion owns trips, automatic destination/T-14 briefings, and liv
   }, deps);
   assert.equal(addedDestination.destinationBriefings.length, 1);
   assert.equal(addedDestination.destinationBriefings[0].destination.name, "Manila");
+  assert.deepEqual(addedDestination.destinationBriefings[0].people.map(({ personId }) => personId).sort(), [countryContact.personId, manilaPerson.personId].sort());
+  assert.deepEqual(addedDestination.destinationBriefings[0].organizations.map(({ organizationId }) => organizationId), [manilaChurch.organizationId]);
   const itinerary = await addItineraryItem({
     tripId: created.trip.tripId,
     title: "Preach at Lighthouse",
