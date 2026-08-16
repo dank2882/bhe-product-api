@@ -24,11 +24,11 @@ Dispatcher request shape:
 }
 ```
 
-Catalog version: `1-f1ed6386e1d4`
+Catalog version: `1-a0d2c7b53137`
 
-Catalog hash: `f1ed6386e1d431741daeb24b412c8f96f7f56b6a44cba51b31e46a0fc1eece99`
+Catalog hash: `a0d2c7b53137f035e4ddd025cba87673e966f6e18d0afe74c4a44a11a9b8c9fa`
 
-The registry currently exposes 89 operations. Adding registry operations does not add OpenAPI operations.
+The registry currently exposes 92 operations. Adding registry operations does not add OpenAPI operations.
 
 ## Query Operations
 
@@ -715,7 +715,7 @@ Optional: `sermonId`, `sourceKind`, `chunkType`, `limit`, `answerStyle`, `distan
 
 ### getPreachingProfile
 
-Retrieve the durable preaching style profile.
+Retrieve the durable, versioned preaching profile used by sermon-development and manuscript workflows.
 
 Required: none
 
@@ -725,6 +725,44 @@ Optional: `profileId`
 {
   "operation": "getPreachingProfile",
   "arguments": {}
+}
+```
+
+### getPreachingProfileBaselineReadiness
+
+Select a deduplicated, recent-first representative transcript corpus and report whether a preaching-profile baseline or cadence review is ready.
+
+Required: none
+
+Optional: `profileId`, `limit`, `asOfDate`
+
+Argument guidance: Recent sermons define current voice; older sermons are comparison evidence. Lower-fidelity translator, partial, continuation, and raw sources are excluded when stronger transcript evidence exists.
+
+```json
+{
+  "operation": "getPreachingProfileBaselineReadiness",
+  "arguments": {
+    "limit": 12
+  }
+}
+```
+
+### proposePreachingProfileBaseline
+
+Build a read-only evidence-grounded preaching fingerprint, context guidance, and growth baseline from representative transcripts.
+
+Required: none
+
+Optional: `profileId`, `limit`, `asOfDate`
+
+Argument guidance: Proposal only. Present the complete proposed profile and wait for Dan's explicit approval before applyPreachingProfileBaseline.
+
+```json
+{
+  "operation": "proposePreachingProfileBaseline",
+  "arguments": {
+    "limit": 12
+  }
 }
 ```
 
@@ -1328,7 +1366,7 @@ Import old chats, notes, transcripts, Logos exports, or documents into a sermon 
 
 Required: none
 
-Optional: `sermonId`, `title`, `scriptureText`, `bigIdea`, `outline`, `notes`, `developmentNotes`, `importedSummary`, `importedMaterial`, `sourceType`, `sourceLabel`, `sourceRefs`, `occasions`, `updateMode`, `replaceExisting`, `refreshExistingSource`, `status`, `targetDate`, `preachedDate`, `occasion`, `snapshotReason`, `seriesId`, `seriesTitle`, `seriesSlug`, `seriesNumber`, `tags`
+Optional: `sermonId`, `title`, `scriptureText`, `bigIdea`, `outline`, `notes`, `developmentNotes`, `importedSummary`, `importedMaterial`, `sourceType`, `sourceLabel`, `sourceRefs`, `occasions`, `updateMode`, `replaceExisting`, `refreshExistingSource`, `expectedSermonUpdatedAt`, `expectedSourceUpdatedAt`, `status`, `targetDate`, `preachedDate`, `occasion`, `snapshotReason`, `seriesId`, `seriesTitle`, `seriesSlug`, `seriesNumber`, `tags`
 
 ```json
 {
@@ -1699,17 +1737,47 @@ Optional: `manuscriptSourceId`, `profileId`, `saveLiveLanguage`, `saveScriptureN
 
 Update durable preaching style and development observations.
 
-Required: `changes`
+Required: `changes`, `expectedVersion`
 
 Optional: `profileId`
+
+Argument guidance: Read getPreachingProfile first and pass its exact current version. Profile baselines must use the proposal/apply workflow instead of this direct update.
 
 ```json
 {
   "operation": "updatePreachingProfile",
   "arguments": {
+    "expectedVersion": 1,
     "changes": {
-      "pastoralTone": "Warm and direct"
+      "draftingGuidance": "Preserve a warm and direct pastoral voice."
     }
+  }
+}
+```
+
+### applyPreachingProfileBaseline
+
+Apply an unchanged, Dan-approved preaching-profile baseline proposal after verifying profile version and transcript fingerprints.
+
+Required: `proposalId`, `profileId`, `expectedVersion`, `sourceFingerprint`, `corpus`, `profile`, `confirmed`
+
+Optional: none
+
+Argument guidance: Use only after Dan approves the exact proposal. Send the proposal values unchanged; stale profile or transcript evidence is rejected.
+
+```json
+{
+  "operation": "applyPreachingProfileBaseline",
+  "arguments": {
+    "proposalId": "preaching-profile-baseline-id",
+    "profileId": "default",
+    "expectedVersion": 1,
+    "sourceFingerprint": "sha256-from-proposal",
+    "corpus": [],
+    "profile": {
+      "summary": "Reviewed profile"
+    },
+    "confirmed": true
   }
 }
 ```

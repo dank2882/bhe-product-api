@@ -19,6 +19,7 @@ function parseArgs(argv) {
     minChars: DEFAULT_MIN_CHARS,
     folderId: "",
     metadataOnly: false,
+    receiptOut: "",
     rebuild: false,
     embed: false
   };
@@ -33,6 +34,7 @@ function parseArgs(argv) {
     else if (token === "--batch-size") args.batchSize = Number.parseInt(next, 10);
     else if (token === "--min-chars") args.minChars = Number.parseInt(next, 10);
     else if (token === "--folder-id") args.folderId = next;
+    else if (token === "--receipt-out") args.receiptOut = next;
     else if (token === "--metadata-only") args.metadataOnly = true;
     else if (token === "--rebuild") args.rebuild = true;
     else if (token === "--embed") args.embed = true;
@@ -132,11 +134,51 @@ async function main() {
     batchSize: args.batchSize
   });
 
-  console.log(JSON.stringify({
+  const receipt = {
+    mode: "logos_sermon_reconciliation_receipt",
+    generatedAt: new Date().toISOString(),
+    sourceFile: args.inFile,
     inputRecords: records.length,
     postedRecords: items.length,
     skippedRecords,
-    postedBatches: responses.length
+    postedBatches: responses.length,
+    requestedCount: responses.reduce(
+      (total, response) => total + Number(response.data?.requestedCount || 0),
+      0
+    ),
+    importedCount: responses.reduce(
+      (total, response) => total + Number(response.data?.importedCount || 0),
+      0
+    ),
+    errorCount: responses.reduce(
+      (total, response) => total + Number(response.data?.errorCount || 0),
+      0
+    ),
+    batches: responses.map((response, batchIndex) => ({
+      batchIndex,
+      status: response.status,
+      ok: response.data?.ok === true,
+      requestedCount: response.data?.requestedCount || 0,
+      importedCount: response.data?.importedCount || 0,
+      errorCount: response.data?.errorCount || 0,
+      receiptSummary: response.data?.receiptSummary || {},
+      results: response.data?.results || [],
+      errors: response.data?.errors || []
+    }))
+  };
+  if (args.receiptOut) {
+    fs.mkdirSync(path.dirname(args.receiptOut), { recursive: true });
+    fs.writeFileSync(args.receiptOut, JSON.stringify(receipt, null, 2) + "\n");
+  }
+
+  console.log(JSON.stringify({
+    inputRecords: receipt.inputRecords,
+    postedRecords: receipt.postedRecords,
+    skippedRecords: receipt.skippedRecords,
+    postedBatches: receipt.postedBatches,
+    importedCount: receipt.importedCount,
+    errorCount: receipt.errorCount,
+    receiptOut: args.receiptOut
   }, null, 2));
 }
 

@@ -108,6 +108,37 @@ test("manuscript context includes only approved placed development material", ()
   assert.doesNotMatch(context, /rejected phrase/);
 });
 
+test("manuscript context includes the complete versioned preaching profile contract", () => {
+  const context = buildManuscriptDraftContext({
+    sermon: { sermonId: "sermon-profile", title: "Profile Sermon" },
+    preachingProfile: {
+      profileId: "default",
+      version: 4,
+      fingerprint: "a".repeat(64),
+      summary: "Dan preaches with a text-driven pastoral burden.",
+      tone: ["pastoral", "direct"],
+      strengths: ["Concrete application"],
+      recurringPatterns: ["Moves from explanation to response"],
+      cautions: ["Return to the movement after illustrations"],
+      draftingGuidance: "Preserve Dan's exact material before applying profile guidance.",
+      avoidances: ["Generic academic prose"],
+      contextGuidance: [{ context: "midweek", guidance: "Keep it conversational." }],
+      growthGoals: [{ dimension: "transitions", nextGrowthTarget: "Restate the movement." }],
+      observations: [{ category: "application", observation: "Presses for lived faith." }]
+    }
+  });
+
+  assert.match(context, /PREACHING PROFILE/);
+  assert.match(context, /"version": 4/);
+  assert.match(context, /"tone":/);
+  assert.match(context, /"draftingGuidance":/);
+  assert.match(context, /"contextGuidance":/);
+  assert.match(context, /"growthGoals":/);
+  assert.doesNotMatch(context, /recurringStrengths/);
+  assert.doesNotMatch(context, /stylePreferences/);
+  assert.doesNotMatch(context, /cautionFlags/);
+});
+
 test("sermon manuscript selector prefers the primary refined manuscript over newer original notes", () => {
   const sermon = {
     sermonId: "sermon-help-healing",

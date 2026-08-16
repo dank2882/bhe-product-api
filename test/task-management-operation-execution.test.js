@@ -79,3 +79,27 @@ test("idempotent retry does not append a task note twice", async () => {
   assert.equal(replay.idempotency.replayed, true);
   assert.equal(deps.taskNotesCollection.store.size, 1);
 });
+
+test("idempotent retry does not capture a Think Tank entry twice", async () => {
+  const deps = {
+    thinkTankEntriesCollection: new FakeCollection(),
+    thinkTankReflectionsCollection: new FakeCollection(),
+    taskManagementOperationExecutionsCollection: new FakeCollection(),
+    taskAccess: { subject: "auth0|dan", subjects: ["auth0|dan"], name: "Dan", role: "member" },
+    randomUUID: () => "12345678-aaaa-bbbb-cccc-123456789012",
+    now: () => "2026-08-10T12:00:00.000Z"
+  };
+  const request = {
+    mode: "command",
+    operation: "captureThinkTankEntry",
+    idempotencyKey: "think-tank-capture-2026-08-10-example",
+    arguments: { exactText: "Keep these exact words." }
+  };
+
+  const first = await runIdempotentTaskManagementOperation(request, deps);
+  const replay = await runIdempotentTaskManagementOperation(request, deps);
+
+  assert.equal(first.result.thought.exactText, "Keep these exact words.");
+  assert.equal(replay.idempotency.replayed, true);
+  assert.equal(deps.thinkTankEntriesCollection.store.size, 1);
+});

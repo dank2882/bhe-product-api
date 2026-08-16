@@ -154,6 +154,9 @@ export function buildStructuredLogosMetadata(record = {}) {
 
 export function toLogosImportItem(record = {}, defaults = {}) {
   const tags = getLogosSermonTags(record);
+  const reconciliation = record.reconciliation && typeof record.reconciliation === "object"
+    ? record.reconciliation
+    : {};
   const sourceRefs = [
     record.url ? { type: "logos_url", url: record.url } : null,
     record.logosId ? { type: "logos_id", id: record.logosId } : null,
@@ -195,6 +198,8 @@ export function toLogosImportItem(record = {}, defaults = {}) {
     importedMaterial: record.manuscriptText || "",
     importedSummary: buildLogosSourceSummary(record),
     sourceRefs,
-    refreshExistingSource: true
+    refreshExistingSource: true,
+    expectedSermonUpdatedAt: reconciliation.expectedSermonUpdatedAt || "",
+    expectedSourceUpdatedAt: reconciliation.expectedSourceUpdatedAt || ""
   };
 }

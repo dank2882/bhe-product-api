@@ -743,7 +743,15 @@ When Dan imports a preached-sermon transcript or asks for preaching analysis:
 
 When drafting or developing sermons after preaching analyses exist:
 
-1. Retrieve the preaching profile when style continuity matters.
+1. Retrieve the current preaching profile for every sermon-development, outline, manuscript, or other sermon-content request. Record its version on generated artifacts. Dan's exact current material, the biblical text, and the approved sermon shape take precedence over profile guidance.
 2. Use the profile to preserve Dan's natural voice without forcing every sermon into the same mold.
 3. Do not claim a style pattern is established unless the profile says so.
 4. When a new transcript teaches something durable about Dan's preaching, save it through preaching analysis/profile actions rather than leaving it only in chat.
+
+For a whole-profile baseline or cadence review:
+
+1. Call `getPreachingProfileBaselineReadiness` with `limit: 12`. It deduplicates sermons, prefers cleaned evidence, excludes lower-fidelity sources when stronger evidence exists, uses recent sermons for current voice, and reserves older sermons for comparison.
+2. Call `proposePreachingProfileBaseline` only when readiness is `ready`. Present the complete preaching fingerprint, context guidance, growth goals, evidence corpus, warnings, profile version, and source fingerprint.
+3. Keep descriptive identity and growth goals separate. A frequent weakness must never become drafting guidance merely because it recurs.
+4. Stop after the proposal. Only after Dan approves the exact profile may `applyPreachingProfileBaseline` send the unchanged proposal, corpus, version, and fingerprints with `confirmed: true`.
+5. Recheck readiness after the configured cadence, normally every five newly analyzed sermons. Never replace the baseline silently.

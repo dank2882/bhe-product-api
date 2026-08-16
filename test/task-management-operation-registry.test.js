@@ -73,8 +73,12 @@ function createDeps() {
       }
     }),
     taskNotesCollection: new FakeCollection(),
+    taskNotificationsCollection: new FakeCollection(),
     calendarEventsCollection: new FakeCollection(),
     routinesCollection: new FakeCollection(),
+    thinkTankEntriesCollection: new FakeCollection(),
+    thinkTankReflectionsCollection: new FakeCollection(),
+    taskAccess: { subject: "auth0|dan", subjects: ["auth0|dan"], name: "Dan", role: "system" },
     randomUUID: () => "12345678-aaaa-bbbb-cccc-123456789012",
     now: () => "2026-07-21T16:00:00.000Z"
   };
@@ -91,6 +95,8 @@ test("task management catalog exposes focused read and write operations", () => 
   assert.ok(catalog.operations.some(({ operation }) => operation === "getMyStaffProfile"));
   assert.ok(catalog.operations.some(({ operation }) => operation === "respondToAssignment"));
   assert.ok(catalog.operations.some(({ operation }) => operation === "updateStaffProfile"));
+  assert.ok(catalog.operations.some(({ operation }) => operation === "captureThinkTankEntry"));
+  assert.ok(catalog.operations.some(({ operation }) => operation === "buildThinkTankReview"));
   assert.equal(catalog.operations.some(({ operation }) => operation === "createCalendarEvent"), false);
   assert.equal(catalog.operations.some(({ operation }) => operation === "completeTasksForPastEvents"), false);
 });

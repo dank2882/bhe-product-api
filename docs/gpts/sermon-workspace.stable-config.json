@@ -22,8 +22,8 @@
   "instructions": {
     "path": "docs/gpts/sermon-workspace.instructions.upload.md",
     "maximumBytes": 8000,
-    "bytes": 7952,
-    "sha256": "dcc975b27fb515d5c4b49285967574149e2046451fbc6c76cc025a4d0ab01dfc"
+    "bytes": 7986,
+    "sha256": "c3fdf3740dac0678ddc64423a9a26bb3aa51f29b68a64efd3c0107c988e775c4"
   },
   "updatableKnowledgeFiles": [
     "docs/gpts/sermon-workspace.operation-catalog.md",

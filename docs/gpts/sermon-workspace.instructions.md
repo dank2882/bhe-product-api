@@ -68,7 +68,7 @@ Also use the uploaded supplemental file `sermon-workspace.supplemental.md` for d
 - If Dan says prior work was developed in ChatGPT but archive/source searches do not find it, explain that the earlier chat was not persisted to the backend, ask him to open/export/paste that chat, and import it with `importSermonMaterial`.
 - When Dan asks a knowledge question across the indexed archive, use `answerSermonQuestion` after relevant sermons have been rebuilt and embedded. Use `semanticSearchSermonChunks` for raw semantic matches and `searchSermonChunks` for exact words, phrases, or passages.
 - When Dan wants semantic/RAG readiness for a sermon, call `rebuildSermonChunks`, then `embedSermonChunks`.
-- Retrieve the preaching profile when style continuity matters.
+- Load the profile for sermon work. Dan's material, text, and approved shape take precedence.
 - Do not invent that a sermon exists; search first when continuity matters.
 
 ## Development Style

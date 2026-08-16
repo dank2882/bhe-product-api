@@ -463,6 +463,8 @@ const staffAuthorizationProfilesCollection = db.collection("staffAuthorizationPr
 const taskNotificationsCollection = db.collection("taskNotifications");
 const calendarEventsCollection = db.collection("calendarEvents");
 const routinesCollection = db.collection("routines");
+const thinkTankEntriesCollection = db.collection("thinkTankEntries");
+const thinkTankReflectionsCollection = db.collection("thinkTankReflections");
 const taskManagementOperationExecutionsCollection = db.collection("taskManagementOperationExecutions");
 const sermonFoldersCollection = db.collection("sermonFolders");
 const sermonsCollection = db.collection("sermons");
@@ -2564,6 +2566,8 @@ function getProjectTaskDependencies(overrides = {}) {
     taskNotificationsCollection,
     calendarEventsCollection,
     routinesCollection,
+    thinkTankEntriesCollection,
+    thinkTankReflectionsCollection,
     taskManagementOperationExecutionsCollection,
     ...overrides
   };
@@ -2862,6 +2866,111 @@ async function generatePostPreachingReflectionWithOpenAi({
     return parseDraftJson(responseText);
   } catch (error) {
     throw createWorkflowError("OpenAI returned an invalid post-sermon reflection", 502, {
+      parseError: error?.message || "Invalid JSON"
+    });
+  }
+}
+
+async function generatePreachingProfileBaselineWithOpenAi({
+  currentProfile,
+  corpus = [],
+  analyses = []
+} = {}) {
+  const instructions = [
+    "Build an evidence-grounded preaching profile for Dan from the supplied sermon transcripts and prior analyses.",
+    "Recent sermons define the current preaching baseline. Historical sermons are comparison evidence only and must not dilute Dan's present voice.",
+    "Separate descriptive identity that should be preserved from growth goals that should improve. Never turn a frequent weakness into drafting guidance.",
+    "Distinguish cross-context patterns from occasion-specific guidance for Sunday morning, midweek, class or teaching, memorial, missions or translated, and other supplied settings.",
+    "Use established only for patterns already explicitly established in the current approved profile. Use recurring only when at least two distinct sermons support the pattern. Otherwise use observed_once.",
+    "Tie every observation and growth goal to specific sermon and source evidence. Use brief exact transcript excerpts where reliable.",
+    "Do not infer audience response, spiritual results, gestures, vocal tone, volume, or pacing from text transcripts.",
+    "Preserve Dan's text-driven pastoral burden, KJV Scripture practice, humor, testimony, illustrations, applications, invitations, and natural spoken language when supported by evidence.",
+    "Drafting guidance must state the priority order: Dan's exact current material and decisions; the biblical text and approved sermon shape; then the preaching profile.",
+    "Avoid generic writing advice and return JSON only in the requested shape."
+  ].join(" ");
+  const compactAnalyses = (Array.isArray(analyses) ? analyses : []).map((analysis) => ({
+    analysisId: analysis.analysisId,
+    sermonId: analysis.sermonId,
+    title: analysis.title,
+    summary: analysis.summary,
+    strengths: analysis.strengths,
+    improvements: analysis.improvements,
+    styleObservations: analysis.styleObservations,
+    structureNotes: analysis.structureNotes,
+    applicationNotes: analysis.applicationNotes,
+    profileCandidates: analysis.profileCandidates
+  }));
+  const input = JSON.stringify({
+    currentProfile: currentProfile || {},
+    corpus: (Array.isArray(corpus) ? corpus : []).map((item) => ({
+      sermonId: item.sermonId,
+      title: item.title,
+      scriptureText: item.scriptureText,
+      preachedDate: item.preachedDate,
+      cohort: item.cohort,
+      context: item.context,
+      sourceId: item.sourceId,
+      sourceLabel: item.sourceLabel,
+      fidelity: item.fidelity,
+      transcript: item.transcript
+    })),
+    priorAnalyses: compactAnalyses,
+    responseShape: {
+      profile: {
+        summary: "concise description of Dan's present preaching identity",
+        tone: ["supported tone descriptor"],
+        strengths: ["identity or strength to preserve"],
+        recurringPatterns: ["cross-sermon pattern"],
+        cautions: ["specific recurring caution"],
+        draftingGuidance: "compact operational instructions for future sermon collaboration",
+        avoidances: ["writing behavior that would not sound like Dan or would reinforce a weakness"],
+        contextGuidance: [{
+          context: "sunday_morning | midweek | class_or_teaching | memorial | missions_or_translated | sunday_evening | general_preaching",
+          guidance: "how Dan's established voice appropriately adapts in this setting",
+          evidence: [{ sermonId: "sermon-id", sourceId: "source-id", quote: "brief exact evidence" }]
+        }],
+        growthGoals: [{
+          dimension: "structure | transitions | application | invitation | concision | other",
+          currentPattern: "evidence-grounded present pattern",
+          nextGrowthTarget: "specific observable practice for future sermons",
+          confidence: "observed_once | recurring | established",
+          evidence: [{ sermonId: "sermon-id", sourceId: "source-id", quote: "brief exact evidence" }]
+        }],
+        observations: [{
+          category: "voice | burden | structure | illustration | humor | application | invitation | other",
+          observation: "reusable evidence-grounded pattern",
+          confidence: "observed_once | recurring | established",
+          evidence: [{ sermonId: "sermon-id", sourceId: "source-id", quote: "brief exact evidence" }]
+        }]
+      },
+      warnings: ["material limitation or uncertainty"]
+    }
+  });
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      instructions,
+      input,
+      reasoning: { effort: "high" },
+      text: { verbosity: "medium" },
+      max_output_tokens: 16000
+    })
+  });
+  if (!response.ok) {
+    throw createWorkflowError(`OpenAI preaching-profile baseline error: ${response.status} ${await response.text()}`, 502);
+  }
+  const data = await response.json();
+  const responseText = extractOpenAiText(data);
+  if (!responseText) throw createWorkflowError("OpenAI returned an empty preaching-profile baseline", 502);
+  try {
+    return parseDraftJson(responseText);
+  } catch (error) {
+    throw createWorkflowError("OpenAI returned an invalid preaching-profile baseline", 502, {
       parseError: error?.message || "Invalid JSON"
     });
   }
@@ -4940,10 +5049,18 @@ function buildManuscriptDraftContext({
   const profileBlock = preachingProfile
     ? JSON.stringify({
       profileId: preachingProfile.profileId,
+      version: preachingProfile.version,
+      fingerprint: preachingProfile.fingerprint,
       summary: preachingProfile.summary,
-      recurringStrengths: preachingProfile.recurringStrengths,
-      stylePreferences: preachingProfile.stylePreferences,
-      cautionFlags: preachingProfile.cautionFlags
+      tone: preachingProfile.tone,
+      strengths: preachingProfile.strengths,
+      recurringPatterns: preachingProfile.recurringPatterns,
+      cautions: preachingProfile.cautions,
+      draftingGuidance: preachingProfile.draftingGuidance,
+      avoidances: preachingProfile.avoidances,
+      contextGuidance: preachingProfile.contextGuidance,
+      growthGoals: preachingProfile.growthGoals,
+      observations: preachingProfile.observations
     }, null, 2)
     : "";
   const placedDevelopmentMaterial = developmentCheckpoints
@@ -5008,6 +5125,7 @@ async function generateSermonManuscriptWithOpenAi({ contextText, options = {} } 
     ? [
         "You are assembling Dan's sermon manuscript from supplied sermon material.",
         "Use only the provided backend-selected sermon workspace context as your factual and conceptual source.",
+        "Use this precedence: Dan's exact current material and decisions, the biblical text and approved sermon shape, then the supplied preaching profile. Never let a generic style preference override Dan's sermon-specific wording or burden.",
         "Do not act as the primary author of a fuller sermon. Preserve Dan's supplied wording, sequence, emphasis, tone, and restraint.",
         "Use approved placed development material in its named placement target, and preserve any item marked exact wording verbatim.",
         "Treat placement notes as binding shape and tone instructions, not optional suggestions.",
@@ -5022,6 +5140,7 @@ async function generateSermonManuscriptWithOpenAi({ contextText, options = {} } 
     : [
         "You are Dan's sermon manuscript drafting assistant.",
         "Use only the provided backend-selected sermon workspace context as your factual and conceptual source.",
+        "Use this precedence: Dan's exact current material and decisions, the biblical text and approved sermon shape, then the supplied preaching profile. Never let a generic style preference override Dan's sermon-specific wording or burden.",
         "Treat backend-selected primary/refined manuscript sources as the future-preaching baseline when present.",
         "Use preparation notes for intended structure, preached transcripts for strongest live language, and preaching analysis/profile for reusable improvements.",
         "Use approved placed development material in its named placement target, and preserve any item marked exact wording verbatim.",
@@ -5778,6 +5897,52 @@ async function importSermonPresentationTemplatePptx({
   return { ...result, storagePath, importedAt };
 }
 
+async function runSermonImportRefreshTransaction({
+  sermonId,
+  sourceId,
+  expectedSermonUpdatedAt,
+  expectedSourceUpdatedAt,
+  nextSermon,
+  nextSource,
+  snapshotWrite
+} = {}) {
+  const sermonRef = sermonsCollection.doc(sermonId);
+  const sourceRef = sermonSourcesCollection.doc(sourceId);
+  return db.runTransaction(async (transaction) => {
+    const [sermonDoc, sourceDoc] = await Promise.all([
+      transaction.get(sermonRef),
+      transaction.get(sourceRef)
+    ]);
+    const currentSermon = sermonDoc.exists ? (sermonDoc.data() || {}) : {};
+    const currentSource = sourceDoc.exists ? (sourceDoc.data() || {}) : {};
+    const currentSermonUpdatedAt = String(currentSermon.updatedAt || "").trim();
+    const currentSourceUpdatedAt = String(currentSource.updatedAt || "").trim();
+
+    if (
+      !sermonDoc.exists ||
+      !sourceDoc.exists ||
+      currentSermonUpdatedAt !== String(expectedSermonUpdatedAt || "").trim() ||
+      currentSourceUpdatedAt !== String(expectedSourceUpdatedAt || "").trim()
+    ) {
+      return {
+        committed: false,
+        currentSermonUpdatedAt,
+        currentSourceUpdatedAt
+      };
+    }
+
+    if (snapshotWrite?.snapshotId && snapshotWrite?.snapshot) {
+      transaction.set(
+        sermonSnapshotsCollection.doc(snapshotWrite.snapshotId),
+        snapshotWrite.snapshot
+      );
+    }
+    if (nextSermon) transaction.set(sermonRef, nextSermon);
+    if (nextSource) transaction.set(sourceRef, nextSource);
+    return { committed: true };
+  });
+}
+
 function getSermonWorkspaceDependencies(overrides = {}) {
   const dependencies = {
     sermonFoldersCollection,
@@ -5809,6 +5974,7 @@ function getSermonWorkspaceDependencies(overrides = {}) {
     downloadSermonArtifact,
     uploadSermonPreachingPacket,
     importSermonPresentationTemplatePptx,
+    runSermonImportRefreshTransaction,
     embedText: embedTextWithVertexAi,
     embeddingModel: VERTEX_TEXT_EMBEDDING_MODEL,
     findNearestChunks: findNearestSermonChunksWithFirestore,
@@ -5816,6 +5982,8 @@ function getSermonWorkspaceDependencies(overrides = {}) {
     generateRagAnswer: generateSermonRagAnswerWithOpenAi,
     generateCanonicalRepairProposal: generateSermonCanonicalRepairProposalWithOpenAi,
     generatePostPreachingReflection: generatePostPreachingReflectionWithOpenAi,
+    generatePreachingProfileBaseline: generatePreachingProfileBaselineWithOpenAi,
+    now: getNowIso,
     classifyScriptureNoteSegments: classifyScriptureNoteSegmentsWithOpenAi,
     prepareScriptureNoteImportSource: prepareAndStoreScriptureNoteImportSource
   };
@@ -9806,7 +9974,7 @@ app.post("/sermons/:sermonId/manuscript-draft", async (req, res) => {
       {
         sermonId: req.params.sermonId,
         includeSourceMaterial: false,
-        includePreachingProfile: body.includePreachingProfile === false ? false : true,
+        includePreachingProfile: true,
         sourceLimit,
         checkpointLimit: 500,
         snapshotLimit: clampInteger(body.snapshotLimit, 3, 1, 20),
@@ -9923,7 +10091,11 @@ app.post("/sermons/:sermonId/manuscript-draft", async (req, res) => {
       placedMaterialCount: materialInventory.summary.placed,
       excludedUnplacedMaterialCount: materialInventory.summary.unplaced,
       excludedCutMaterialCount: materialInventory.summary.intentionallyCut,
-      requiredDevelopmentCoverageCount: buildRequiredManuscriptCoverageItems(developmentCheckpoints).length
+      requiredDevelopmentCoverageCount: buildRequiredManuscriptCoverageItems(developmentCheckpoints).length,
+      preachingProfileId: context.preachingProfile?.profileId || "",
+      preachingProfileVersion: context.preachingProfile?.version || 0,
+      preachingProfileFingerprint: context.preachingProfile?.fingerprint || "",
+      preachingProfileUpdatedAt: context.preachingProfile?.updatedAt || ""
     };
     const unresolvedDevelopmentSessions = buildUnresolvedDevelopmentSessionBlockers(
       context.recentDevelopmentSessions
@@ -10072,7 +10244,8 @@ app.post("/sermons/:sermonId/manuscript-draft", async (req, res) => {
           `Manuscript mode: ${manuscriptMode}.`,
           `Material plan: ${contextStats.placedMaterialCount} placed, ${contextStats.excludedUnplacedMaterialCount} unplaced excluded, ${contextStats.excludedCutMaterialCount} intentionally cut excluded.`,
           `Coverage validation: ${developmentCoverage.requiredCount} required placed items checked, ${semanticCoverageAuditApplied ? "semantic evidence audit applied" : "deterministic audit only"}, ${coverageRepairApplied ? "repair pass applied" : "no repair pass needed"}.`,
-          `Source selection: ${contextStats.sourceSelectionMethod}${contextStats.sourceSelectionWarning ? ` (${contextStats.sourceSelectionWarning})` : ""}.`
+          `Source selection: ${contextStats.sourceSelectionMethod}${contextStats.sourceSelectionWarning ? ` (${contextStats.sourceSelectionWarning})` : ""}.`,
+          `Preaching profile: ${contextStats.preachingProfileId || "default"} version ${contextStats.preachingProfileVersion}; fingerprint ${contextStats.preachingProfileFingerprint || "unavailable"}.`
         ].join("\n"),
         material: manuscript,
         sourceRefs: [
@@ -10100,6 +10273,15 @@ app.post("/sermons/:sermonId/manuscript-draft", async (req, res) => {
             excludedUnplacedMaterialCount: contextStats.excludedUnplacedMaterialCount,
             excludedCutMaterialCount: contextStats.excludedCutMaterialCount,
             generatedAt
+          },
+          {
+            type: "preaching_profile",
+            role: "drafting_profile",
+            profileId: contextStats.preachingProfileId,
+            version: contextStats.preachingProfileVersion,
+            fingerprint: contextStats.preachingProfileFingerprint,
+            updatedAt: contextStats.preachingProfileUpdatedAt,
+            generatedAt
           }
         ]
       },
@@ -10122,7 +10304,10 @@ app.post("/sermons/:sermonId/manuscript-draft", async (req, res) => {
         generatedAt,
         model: body.model || SERMON_MANUSCRIPT_MODEL,
         materialFingerprint,
-        placedMaterialCount: contextStats.placedMaterialCount
+        placedMaterialCount: contextStats.placedMaterialCount,
+        preachingProfileId: contextStats.preachingProfileId,
+        preachingProfileVersion: contextStats.preachingProfileVersion,
+        preachingProfileFingerprint: contextStats.preachingProfileFingerprint
       }
     ];
     const sermonUpdate = await updateSermon(

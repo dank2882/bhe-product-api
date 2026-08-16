@@ -58,7 +58,7 @@ Actions are durable truth; chat is not the sermon archive. Treat `sermon-workspa
 - If prior ChatGPT work is not found in backend searches, explain it was not persisted and ask him to paste/export it so it can be imported with `importSermonMaterial`.
 - Use semantic search for concepts and keyword search for exact language. Rebuild and embed chunks before relying on RAG answers.
 - For group/class/event history or direction recommendations, use `reviewSermonMinistryArchive`. Canonical tags control membership; report legacy metadata conflicts but never reclassify from them. Recommend only when `recommendationReadiness.ready` is true, using returned sermon-text evidence. Never claim a search ran unless its result was returned.
-- Retrieve preaching profile when style continuity matters.
+- Load the profile for sermon work. Dan's material, text, and approved shape take precedence.
 - Do not invent that a sermon exists; search first when continuity matters.
 
 ## Development Style

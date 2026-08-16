@@ -3365,6 +3365,328 @@ test("reports Logos canonical conflicts without overwriting Sermon Workspace", a
   assert.deepEqual(result.conflicts.map(({ field }) => field), ["scriptureText", "seriesTitle"]);
 });
 
+test("reuses an exact imported occasion stored under a different occasion id", async () => {
+  const deps = createDeps({
+    sermons: {
+      "sermon-logos-exact": {
+        sermonId: "sermon-logos-exact",
+        title: "Exact delivery",
+        status: "preached",
+        tags: [],
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonSources: {
+      "source-logos-exact": {
+        sourceId: "source-logos-exact",
+        sermonId: "sermon-logos-exact",
+        folderId: "",
+        seriesId: "",
+        seriesTitle: "",
+        seriesSlug: "",
+        seriesNumber: 0,
+        series: { seriesId: "", title: "", slug: "", number: 0 },
+        tags: [],
+        sourceType: "logos_export",
+        sourceLabel: "Exact delivery",
+        summary: "Current Logos metadata",
+        material: "",
+        sourceRefs: [],
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonOccasions: {
+      "occasion-created-through-normal-operation": {
+        occasionId: "occasion-created-through-normal-operation",
+        sermonId: "sermon-logos-exact",
+        status: "preached",
+        date: "2025-04-16",
+        time: "19:00",
+        timeZone: "America/Los_Angeles",
+        venue: "Faith Baptist Church",
+        service: "Prayer Service",
+        createdAt: "2025-04-16T20:00:00.000Z",
+        updatedAt: "2025-04-16T20:00:00.000Z"
+      }
+    }
+  });
+  deps.sermonsCollection.limit = () => {
+    throw new Error("Existing stable sources must not scan the sermon collection");
+  };
+
+  const result = await importSermonMaterial({
+    sermonId: "sermon-logos-exact",
+    sourceId: "source-logos-exact",
+    title: "Exact delivery",
+    sourceType: "logos_export",
+    sourceLabel: "Exact delivery",
+    importedSummary: "Current Logos metadata",
+    refreshExistingSource: true,
+    occasions: [{
+      date: "2025-04-16",
+      time: "19:00",
+      venue: "Faith Baptist Church",
+      service: "Prayer Service",
+      status: "preached"
+    }]
+  }, deps);
+
+  assert.equal(result.action, "skipped_existing_source");
+  assert.deepEqual(result.occasionChanges.counts, {
+    created: 0,
+    updated: 0,
+    unchanged: 1,
+    conflicts: 0
+  });
+  assert.equal(deps.sermonOccasionsCollection.store.size, 1);
+  assert.ok(deps.sermonOccasionsCollection.store.has("occasion-created-through-normal-operation"));
+});
+
+test("enriches one unambiguous same-date occasion without changing its identity", async () => {
+  const deps = createDeps({
+    sermons: {
+      "sermon-logos-enrich": {
+        sermonId: "sermon-logos-enrich",
+        title: "Enrich delivery",
+        status: "preached",
+        tags: [],
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonSources: {
+      "source-logos-enrich": {
+        sourceId: "source-logos-enrich",
+        sermonId: "sermon-logos-enrich",
+        sourceType: "logos_export",
+        sourceLabel: "Enrich delivery",
+        summary: "Current Logos metadata",
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonOccasions: {
+      "occasion-needs-enrichment": {
+        occasionId: "occasion-needs-enrichment",
+        sermonId: "sermon-logos-enrich",
+        status: "preached",
+        date: "2025-04-16",
+        time: "",
+        timeZone: "America/Los_Angeles",
+        venue: "",
+        service: "",
+        createdAt: "2025-04-16T20:00:00.000Z",
+        updatedAt: "2025-04-16T20:00:00.000Z"
+      }
+    }
+  });
+
+  const result = await importSermonMaterial({
+    sermonId: "sermon-logos-enrich",
+    sourceId: "source-logos-enrich",
+    title: "Enrich delivery",
+    sourceType: "logos_export",
+    sourceLabel: "Enrich delivery",
+    importedSummary: "Current Logos metadata",
+    refreshExistingSource: true,
+    occasions: [{
+      date: "2025-04-16",
+      time: "19:00",
+      venue: "Faith Baptist Church",
+      service: "Prayer Service",
+      status: "preached"
+    }]
+  }, deps);
+
+  assert.equal(result.action, "refreshed_existing_source");
+  assert.equal(result.occasionChanges.counts.updated, 1);
+  assert.deepEqual(result.occasionChanges.updated[0].changedFields, ["time", "venue", "service"]);
+  assert.equal(deps.sermonOccasionsCollection.store.size, 1);
+  const stored = deps.sermonOccasionsCollection.store.get("occasion-needs-enrichment");
+  assert.equal(stored.time, "19:00");
+  assert.equal(stored.venue, "Faith Baptist Church");
+  assert.equal(stored.service, "Prayer Service");
+});
+
+test("reports ambiguous same-date occasions without creating another delivery", async () => {
+  const deps = createDeps({
+    sermons: {
+      "sermon-logos-ambiguous": {
+        sermonId: "sermon-logos-ambiguous",
+        title: "Ambiguous delivery",
+        status: "preached",
+        tags: [],
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonSources: {
+      "source-logos-ambiguous": {
+        sourceId: "source-logos-ambiguous",
+        sermonId: "sermon-logos-ambiguous",
+        sourceType: "logos_export",
+        sourceLabel: "Ambiguous delivery",
+        summary: "Current Logos metadata",
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonOccasions: {
+      "occasion-ambiguous-a": {
+        occasionId: "occasion-ambiguous-a",
+        sermonId: "sermon-logos-ambiguous",
+        status: "preached",
+        date: "2025-04-16",
+        venue: "",
+        service: ""
+      },
+      "occasion-ambiguous-b": {
+        occasionId: "occasion-ambiguous-b",
+        sermonId: "sermon-logos-ambiguous",
+        status: "preached",
+        date: "2025-04-16",
+        venue: "",
+        service: ""
+      }
+    }
+  });
+
+  const result = await importSermonMaterial({
+    sermonId: "sermon-logos-ambiguous",
+    sourceId: "source-logos-ambiguous",
+    title: "Ambiguous delivery",
+    sourceType: "logos_export",
+    sourceLabel: "Ambiguous delivery",
+    importedSummary: "Current Logos metadata",
+    refreshExistingSource: true,
+    occasions: [{
+      date: "2025-04-16",
+      venue: "Faith Baptist Church",
+      service: "Prayer Service",
+      status: "preached"
+    }]
+  }, deps);
+
+  assert.equal(result.action, "refreshed_existing_source_with_conflicts");
+  assert.equal(result.occasionChanges.counts.conflicts, 1);
+  assert.equal(result.conflicts[0].type, "ambiguous_same_date_occasion");
+  assert.equal(deps.sermonOccasionsCollection.store.size, 2);
+});
+
+test("rejects a stale Logos reconciliation plan before changing its source", async () => {
+  const deps = createDeps({
+    sermons: {
+      "sermon-logos-stale": {
+        sermonId: "sermon-logos-stale",
+        title: "Stale plan",
+        status: "preached",
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonSources: {
+      "source-logos-stale": {
+        sourceId: "source-logos-stale",
+        sermonId: "sermon-logos-stale",
+        sourceType: "logos_export",
+        sourceLabel: "Stale plan",
+        summary: "Older summary",
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    }
+  });
+
+  await assert.rejects(
+    () => importSermonMaterial({
+      sermonId: "sermon-logos-stale",
+      sourceId: "source-logos-stale",
+      title: "Stale plan",
+      sourceType: "logos_export",
+      sourceLabel: "Stale plan",
+      importedSummary: "Current Logos metadata",
+      refreshExistingSource: true,
+      expectedSermonUpdatedAt: "2026-06-01T16:00:00.000Z",
+      expectedSourceUpdatedAt: "2026-07-01T16:00:00.000Z"
+    }, deps),
+    (error) => error.code === "stale_sermon_import_refresh_plan"
+  );
+  assert.equal(
+    deps.sermonSourcesCollection.store.get("source-logos-stale").summary,
+    "Older summary"
+  );
+});
+
+test("batch receipts retain canonical, occasion, conflict, and snapshot evidence", async () => {
+  const deps = createDeps({
+    sermons: {
+      "sermon-logos-batch-receipt": {
+        sermonId: "sermon-logos-batch-receipt",
+        title: "Batch receipt",
+        status: "preached",
+        tags: [],
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonSources: {
+      "source-logos-batch-receipt": {
+        sourceId: "source-logos-batch-receipt",
+        sermonId: "sermon-logos-batch-receipt",
+        sourceType: "logos_export",
+        sourceLabel: "Batch receipt",
+        summary: "Current Logos metadata",
+        updatedAt: "2026-07-01T16:00:00.000Z"
+      }
+    },
+    sermonOccasions: {
+      "occasion-batch-a": {
+        occasionId: "occasion-batch-a",
+        sermonId: "sermon-logos-batch-receipt",
+        status: "preached",
+        date: "2025-04-16",
+        venue: "",
+        service: ""
+      },
+      "occasion-batch-b": {
+        occasionId: "occasion-batch-b",
+        sermonId: "sermon-logos-batch-receipt",
+        status: "preached",
+        date: "2025-04-16",
+        venue: "",
+        service: ""
+      }
+    }
+  });
+
+  const result = await importSermonMaterialBatch({
+    items: [{
+      sermonId: "sermon-logos-batch-receipt",
+      sourceId: "source-logos-batch-receipt",
+      title: "Batch receipt",
+      scriptureText: "Titus 2:11-14",
+      tags: ["Again"],
+      sourceType: "logos_export",
+      sourceLabel: "Batch receipt",
+      importedSummary: "Current Logos metadata",
+      refreshExistingSource: true,
+      occasions: [{
+        date: "2025-04-16",
+        venue: "Faith Baptist Church",
+        service: "Prayer Service",
+        status: "preached"
+      }]
+    }]
+  }, deps);
+
+  assert.deepEqual(result.results[0].canonicalChanges, ["scriptureText", "tags"]);
+  assert.deepEqual(result.results[0].addedTags, ["Again"]);
+  assert.equal(result.results[0].conflicts[0].type, "ambiguous_same_date_occasion");
+  assert.equal(result.results[0].occasionChanges.counts.conflicts, 1);
+  assert.ok(result.results[0].snapshot);
+  assert.deepEqual(result.receiptSummary.canonicalChangeCounts, {
+    scriptureText: 1,
+    tags: 1
+  });
+  assert.equal(result.receiptSummary.addedTagCount, 1);
+  assert.equal(result.receiptSummary.conflictCount, 1);
+  assert.equal(result.receiptSummary.occasionCounts.conflicts, 1);
+  assert.equal(result.receiptSummary.snapshotCount, 1);
+});
+
 test("preached transcript imports mark the sermon and imported occasion preached by default", async () => {
   const deps = createDeps({
     sermons: {
@@ -4278,9 +4600,23 @@ test("creates and updates the default preaching profile", async () => {
 
   const updated = await updatePreachingProfile(
     {
+      expectedVersion: 0,
       summary: "Dan preaches with a pastoral, text-driven, practical tone.",
       tone: ["pastoral", "direct", "warm"],
       strengths: ["clear applications"],
+      avoidances: ["generic academic prose"],
+      contextGuidance: [{
+        context: "midweek",
+        guidance: "Keep the movement conversational and application-forward.",
+        evidence: ["sermon-james-1-2: midweek transcript"]
+      }],
+      growthGoals: [{
+        dimension: "transitions",
+        currentPattern: "Illustrations can widen the movement.",
+        nextGrowthTarget: "Restate the movement after each major illustration.",
+        confidence: "recurring",
+        evidence: ["sermon-james-1-2: transition review"]
+      }],
       observations: [
         {
           category: "illustration",
@@ -4294,8 +4630,18 @@ test("creates and updates the default preaching profile", async () => {
   );
 
   assert.match(updated.profile.summary, /pastoral/);
+  assert.equal(updated.profile.version, 1);
   assert.equal(updated.profile.tone.length, 3);
+  assert.equal(updated.profile.avoidances.length, 1);
+  assert.equal(updated.profile.contextGuidance.length, 1);
+  assert.equal(updated.profile.growthGoals.length, 1);
   assert.equal(updated.profile.observations.length, 1);
+  assert.match(updated.profile.fingerprint, /^[a-f0-9]{64}$/);
+
+  await assert.rejects(
+    () => updatePreachingProfile({ expectedVersion: 0, changes: { summary: "Stale" } }, deps),
+    (error) => error.code === "stale_preaching_profile"
+  );
 });
 
 test("saves preaching analysis and can apply profile candidates", async () => {
