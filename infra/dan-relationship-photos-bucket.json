@@ -1,0 +1,28 @@
+{
+  "name": "dan-relationship-photos",
+  "owner": "dan",
+  "serves": ["dan"],
+  "location": "us-west1",
+  "publicAccessPrevention": "enforced",
+  "uniformBucketLevelAccess": true,
+  "versioning": {
+    "enabled": true
+  },
+  "lifecycle": {
+    "rule": [
+      {
+        "action": {
+          "type": "Delete"
+        },
+        "condition": {
+          "daysSinceNoncurrentTime": 90
+        }
+      }
+    ]
+  },
+  "runtimeAccess": {
+    "role": "roles/storage.objectAdmin",
+    "principal": "serviceAccount:gpt-firestore-api@location-map-985.iam.gserviceaccount.com",
+    "verifiedAgainst": "bhe-product-api Cloud Run service on 2026-08-12"
+  }
+}

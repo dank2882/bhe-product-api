@@ -143,6 +143,19 @@ const {
 } = require("./lib/task-management-operation-execution");
 const { normalizeTaskAccess } = require("./lib/task-management-access");
 const {
+  getTripMemory,
+  saveTripMemory,
+  searchTripMemories
+} = require("./lib/trip-service");
+const {
+  buildDanTravelOperationError,
+  listDanTravelOperations
+} = require("./lib/dan-travel-operation-registry");
+const {
+  getJsonByteLength: getDanTravelJsonByteLength,
+  runIdempotentDanTravelOperation
+} = require("./lib/dan-travel-operation-execution");
+const {
   resolveStaffAuthorization
 } = require("./lib/staff-authorization-service");
 const {
@@ -257,6 +270,12 @@ const YOUTUBE_OAUTH_CLIENT_SECRET = process.env.YOUTUBE_OAUTH_CLIENT_SECRET || "
 const YOUTUBE_OAUTH_REFRESH_TOKEN = process.env.YOUTUBE_OAUTH_REFRESH_TOKEN || "";
 const YOUTUBE_OAUTH_SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl";
 const BUCKET_NAME = process.env.BUCKET_NAME || "bhe-product-assets";
+const DAN_RELATIONSHIP_PHOTO_BUCKET_NAME = process.env.DAN_RELATIONSHIP_PHOTO_BUCKET_NAME || "";
+const DAN_TRAVEL_OWNER_SUBJECTS = (process.env.DAN_TRAVEL_OWNER_SUBJECTS || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const DAN_RELATIONSHIP_HEIC_ENABLED = String(process.env.DAN_RELATIONSHIP_HEIC_ENABLED || "").toLowerCase() === "true";
 const GPT_ACTION_BASE_URL = process.env.GPT_ACTION_BASE_URL ||
   "https://bhe-product-api-mwhc25pkra-uw.a.run.app";
 const PORT = process.env.PORT || 8080;
@@ -466,6 +485,20 @@ const routinesCollection = db.collection("routines");
 const thinkTankEntriesCollection = db.collection("thinkTankEntries");
 const thinkTankReflectionsCollection = db.collection("thinkTankReflections");
 const taskManagementOperationExecutionsCollection = db.collection("taskManagementOperationExecutions");
+const tripMemoriesCollection = db.collection("tripMemories");
+const relationshipPeopleCollection = db.collection("danRelationshipPeople");
+const relationshipOrganizationsCollection = db.collection("danRelationshipOrganizations");
+const relationshipAffiliationsCollection = db.collection("danRelationshipAffiliations");
+const relationshipContactMethodsCollection = db.collection("danRelationshipContactMethods");
+const relationshipInteractionsCollection = db.collection("danRelationshipInteractions");
+const relationshipPhotosCollection = db.collection("danRelationshipPhotos");
+const outlookProjectionsCollection = db.collection("danOutlookContactProjections");
+const travelTripsCollection = db.collection("danTravelTrips");
+const travelItineraryItemsCollection = db.collection("danTravelItineraryItems");
+const travelPackingListsCollection = db.collection("danTravelPackingLists");
+const travelBriefingsCollection = db.collection("danTravelBriefings");
+const danTravelOperationExecutionsCollection = db.collection("danTravelOperationExecutions");
+const danTravelAuditEventsCollection = db.collection("danTravelAuditEvents");
 const sermonFoldersCollection = db.collection("sermonFolders");
 const sermonsCollection = db.collection("sermons");
 const sermonSnapshotsCollection = db.collection("sermonSnapshots");
@@ -2569,6 +2602,43 @@ function getProjectTaskDependencies(overrides = {}) {
     thinkTankEntriesCollection,
     thinkTankReflectionsCollection,
     taskManagementOperationExecutionsCollection,
+    ...overrides
+  };
+}
+
+function getTripDependencies(overrides = {}) {
+  return {
+    projectsCollection,
+    tripMemoriesCollection,
+    travelTripsCollection,
+    danOwnerSubjects: DAN_TRAVEL_OWNER_SUBJECTS,
+    ...overrides
+  };
+}
+
+function getDanTravelDependencies(overrides = {}) {
+  return {
+    firestoreDb: db,
+    danOwnerSubjects: DAN_TRAVEL_OWNER_SUBJECTS,
+    relationshipPeopleCollection,
+    relationshipOrganizationsCollection,
+    relationshipAffiliationsCollection,
+    relationshipContactMethodsCollection,
+    relationshipInteractionsCollection,
+    relationshipPhotosCollection,
+    outlookProjectionsCollection,
+    travelTripsCollection,
+    travelItineraryItemsCollection,
+    travelPackingListsCollection,
+    travelBriefingsCollection,
+    tripMemoriesCollection,
+    danTravelOperationExecutionsCollection,
+    danTravelAuditEventsCollection,
+    relationshipPhotoBucket: DAN_RELATIONSHIP_PHOTO_BUCKET_NAME
+      ? storage.bucket(DAN_RELATIONSHIP_PHOTO_BUCKET_NAME)
+      : null,
+    relationshipPhotoHeicEnabled: DAN_RELATIONSHIP_HEIC_ENABLED,
+    fetchImpl: fetch,
     ...overrides
   };
 }
@@ -11523,6 +11593,148 @@ app.post("/ministry-planning/command", async (req, res) => {
   return handleMinistryPlanningOperation(req, res, "command");
 });
 
+function buildTaskAccessFromRequest(req) {
+  return normalizeTaskAccess({
+    role: req.header("x-bhe-task-role"),
+    subject: req.header("x-bhe-actor-sub"),
+    subjects: (() => {
+      try {
+        const parsed = JSON.parse(req.header("x-bhe-actor-subjects") || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })(),
+    name: req.header("x-bhe-actor-name"),
+    email: req.header("x-bhe-actor-email"),
+    scopes: (req.header("x-bhe-task-scopes") || "").split(" ").filter(Boolean)
+  });
+}
+
+async function handleTripRequest(req, res, operation, input, run) {
+  const requestId = randomUUID();
+  res.set("x-request-id", requestId);
+  try {
+    const result = await run(input || {}, getTripDependencies({
+      taskAccess: buildTaskAccessFromRequest(req)
+    }));
+    return res.status(200).json({ ok: true, requestId, operation, ...result });
+  } catch (error) {
+    const status = Number(error?.statusCode) || 500;
+    console.error(JSON.stringify({
+      event: "trip_operation_failed",
+      requestId,
+      operation,
+      code: error?.code || "trip_operation_failed",
+      status
+    }));
+    return res.status(status).json({
+      ok: false,
+      requestId,
+      operation,
+      error: {
+        code: error?.code || "trip_operation_failed",
+        message: error?.message || "Trip operation failed",
+        status,
+        details: error?.details || {}
+      }
+    });
+  }
+}
+
+app.post("/trip/memories", async (req, res) => {
+  return handleTripRequest(req, res, "saveTripMemory", req.body, saveTripMemory);
+});
+
+app.get("/trip/memories/:memoryId", async (req, res) => {
+  return handleTripRequest(req, res, "getTripMemory", {
+    ...req.query,
+    memoryId: req.params.memoryId
+  }, getTripMemory);
+});
+
+app.post("/trip/memories/search", async (req, res) => {
+  return handleTripRequest(req, res, "searchTripMemories", req.body, searchTripMemories);
+});
+
+app.get("/dan-travel/operations", (req, res) => {
+  const requestId = randomUUID();
+  try {
+    const result = listDanTravelOperations({
+      mode: req.query.mode,
+      query: req.query.query,
+      limit: req.query.limit
+    });
+    return res.status(200).json({ ok: true, requestId, ...result });
+  } catch (error) {
+    return res.status(200).json(buildDanTravelOperationError(error, {
+      mode: req.query.mode,
+      requestId
+    }));
+  }
+});
+
+async function handleDanTravelOperation(req, res, mode) {
+  const requestId = randomUUID();
+  const operation = req.body?.operation;
+  const operationArguments = req.body?.arguments ?? req.body?.args;
+  const idempotencyKey = req.body?.idempotencyKey;
+  const startedAtMs = Date.now();
+  const argumentKeys = operationArguments && typeof operationArguments === "object" && !Array.isArray(operationArguments)
+    ? Object.keys(operationArguments).sort()
+    : [];
+  res.set("x-request-id", requestId);
+  console.log(JSON.stringify({
+    event: "dan_travel_operation_started",
+    requestId,
+    mode,
+    operation: typeof operation === "string" ? operation : "",
+    argumentKeys,
+    idempotencyProvided: typeof idempotencyKey === "string" && Boolean(idempotencyKey.trim())
+  }));
+  try {
+    const result = await runIdempotentDanTravelOperation(
+      { mode, operation, arguments: operationArguments, idempotencyKey },
+      getDanTravelDependencies({ taskAccess: buildTaskAccessFromRequest(req) })
+    );
+    const responseBody = { ok: true, requestId, ...result };
+    console.log(JSON.stringify({
+      event: "dan_travel_operation_succeeded",
+      requestId,
+      mode,
+      operation: result.operation,
+      durationMs: Date.now() - startedAtMs,
+      responseBytes: getDanTravelJsonByteLength(responseBody),
+      idempotencyProtected: result.idempotency?.protected === true,
+      idempotencyReplayed: result.idempotency?.replayed === true,
+      executionId: result.idempotency?.executionId || ""
+    }));
+    return res.status(200).json(responseBody);
+  } catch (error) {
+    const responseBody = buildDanTravelOperationError(error, { mode, operation, requestId });
+    console.error(JSON.stringify({
+      event: "dan_travel_operation_failed",
+      requestId,
+      mode,
+      operation: typeof operation === "string" ? operation : "",
+      durationMs: Date.now() - startedAtMs,
+      responseBytes: getDanTravelJsonByteLength(responseBody),
+      logicalStatus: responseBody.error.status,
+      errorCode: responseBody.error.code,
+      argumentKeys
+    }));
+    return res.status(200).json(responseBody);
+  }
+}
+
+app.post("/dan-travel/query", async (req, res) => {
+  return handleDanTravelOperation(req, res, "query");
+});
+
+app.post("/dan-travel/command", async (req, res) => {
+  return handleDanTravelOperation(req, res, "command");
+});
+
 app.get("/task-management/operations", (req, res) => {
   const requestId = randomUUID();
 
@@ -11621,21 +11833,7 @@ async function handleTaskManagementOperation(req, res, mode) {
   }));
 
   try {
-    const taskAccess = normalizeTaskAccess({
-      role: req.header("x-bhe-task-role"),
-      subject: req.header("x-bhe-actor-sub"),
-      subjects: (() => {
-        try {
-          const parsed = JSON.parse(req.header("x-bhe-actor-subjects") || "[]");
-          return Array.isArray(parsed) ? parsed : [];
-        } catch {
-          return [];
-        }
-      })(),
-      name: req.header("x-bhe-actor-name"),
-      email: req.header("x-bhe-actor-email"),
-      scopes: (req.header("x-bhe-task-scopes") || "").split(" ").filter(Boolean)
-    });
+    const taskAccess = buildTaskAccessFromRequest(req);
     const result = await runIdempotentTaskManagementOperation(
       { mode, operation, arguments: operationArguments, idempotencyKey },
       getProjectTaskDependencies({ taskAccess })
