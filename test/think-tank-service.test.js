@@ -187,9 +187,9 @@ test("verified outcome links support multiple destinations and close by default"
 
   const second = await linkThinkTankOutcome({
     thoughtId: thought.thoughtId,
-    destinationSystem: "sermon_workspace",
-    destinationType: "sermon",
-    destinationId: "sermon-example",
+    destinationSystem: "prayer_management",
+    destinationType: "prayer",
+    destinationId: "prayer-example",
     destinationVerified: true,
     verificationReference: "readback-2",
     expectedVersion: 2

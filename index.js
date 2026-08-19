@@ -141,6 +141,15 @@ const {
   getJsonByteLength: getTaskManagementJsonByteLength,
   runIdempotentTaskManagementOperation
 } = require("./lib/task-management-operation-execution");
+const {
+  buildPrayerManagementOperationError,
+  listPrayerManagementOperations
+} = require("./lib/prayer-management-operation-registry");
+const {
+  getJsonByteLength: getPrayerManagementJsonByteLength,
+  runIdempotentPrayerManagementOperation
+} = require("./lib/prayer-management-operation-execution");
+const { createKmsPrayerCrypto } = require("./lib/prayer-crypto");
 const { normalizeTaskAccess } = require("./lib/task-management-access");
 const {
   getTripMemory,
@@ -272,6 +281,10 @@ const YOUTUBE_OAUTH_SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl";
 const BUCKET_NAME = process.env.BUCKET_NAME || "bhe-product-assets";
 const DAN_RELATIONSHIP_PHOTO_BUCKET_NAME = process.env.DAN_RELATIONSHIP_PHOTO_BUCKET_NAME || "";
 const DAN_TRAVEL_OWNER_SUBJECTS = (process.env.DAN_TRAVEL_OWNER_SUBJECTS || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const PRAYER_OWNER_SUBJECTS = (process.env.PRAYER_OWNER_SUBJECTS || "")
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
@@ -455,6 +468,7 @@ const vertexAuth = new GoogleAuth({
 const googleSheetsAuth = new GoogleAuth({
   scopes: ["https://www.googleapis.com/auth/spreadsheets"]
 });
+const prayerCrypto = createKmsPrayerCrypto();
 
 const productsCollection = db.collection("products");
 const assetLibraryCollection = db.collection("productAssetLibrary");
@@ -485,6 +499,12 @@ const routinesCollection = db.collection("routines");
 const thinkTankEntriesCollection = db.collection("thinkTankEntries");
 const thinkTankReflectionsCollection = db.collection("thinkTankReflections");
 const taskManagementOperationExecutionsCollection = db.collection("taskManagementOperationExecutions");
+const prayerListsCollection = db.collection("prayerLists");
+const prayersCollection = db.collection("prayers");
+const prayerEventsCollection = db.collection("prayerEvents");
+const prayerImportsCollection = db.collection("prayerImports");
+const prayerOperationExecutionsCollection = db.collection("prayerOperationExecutions");
+const prayerAuditEventsCollection = db.collection("prayerAuditEvents");
 const tripMemoriesCollection = db.collection("tripMemories");
 const relationshipPeopleCollection = db.collection("danRelationshipPeople");
 const relationshipOrganizationsCollection = db.collection("danRelationshipOrganizations");
@@ -2602,6 +2622,22 @@ function getProjectTaskDependencies(overrides = {}) {
     thinkTankEntriesCollection,
     thinkTankReflectionsCollection,
     taskManagementOperationExecutionsCollection,
+    ...overrides
+  };
+}
+
+function getPrayerManagementDependencies(overrides = {}) {
+  return {
+    firestoreDb: db,
+    prayerListsCollection,
+    prayersCollection,
+    prayerEventsCollection,
+    prayerImportsCollection,
+    prayerOperationExecutionsCollection,
+    prayerAuditEventsCollection,
+    prayerCrypto,
+    prayerOwnerSubjects: PRAYER_OWNER_SUBJECTS,
+    fetchImpl: fetch,
     ...overrides
   };
 }
@@ -11880,6 +11916,49 @@ app.post("/task-management/query", async (req, res) => {
 app.post("/task-management/command", async (req, res) => {
   return handleTaskManagementOperation(req, res, "command");
 });
+
+app.get("/prayer-management/operations", (req, res) => {
+  const requestId = randomUUID();
+  try {
+    return res.status(200).json({ ok: true, requestId, ...listPrayerManagementOperations({
+      mode: req.query.mode,
+      query: req.query.query,
+      limit: req.query.limit
+    }) });
+  } catch (error) {
+    return res.status(200).json(buildPrayerManagementOperationError(error, { mode: req.query.mode, requestId }));
+  }
+});
+
+async function handlePrayerManagementOperation(req, res, mode) {
+  const requestId = randomUUID();
+  const operation = req.body?.operation;
+  const rawArguments = req.body?.arguments ?? req.body?.args;
+  const operationArguments = Array.isArray(req.body?.openaiFileIdRefs)
+    ? { ...(rawArguments && typeof rawArguments === "object" && !Array.isArray(rawArguments) ? rawArguments : {}), openaiFileIdRefs: req.body.openaiFileIdRefs }
+    : rawArguments;
+  const idempotencyKey = req.body?.idempotencyKey;
+  const startedAtMs = Date.now();
+  const argumentKeys = operationArguments && typeof operationArguments === "object" && !Array.isArray(operationArguments) ? Object.keys(operationArguments).sort() : [];
+  res.set("x-request-id", requestId);
+  console.log(JSON.stringify({ event: "prayer_management_operation_started", requestId, mode, operation: typeof operation === "string" ? operation : "", argumentKeys, idempotencyProvided: typeof idempotencyKey === "string" && Boolean(idempotencyKey.trim()), contentRedacted: true }));
+  try {
+    const result = await runIdempotentPrayerManagementOperation(
+      { mode, operation, arguments: operationArguments, idempotencyKey },
+      getPrayerManagementDependencies({ taskAccess: buildTaskAccessFromRequest(req) })
+    );
+    const responseBody = { ok: true, requestId, ...result };
+    console.log(JSON.stringify({ event: "prayer_management_operation_succeeded", requestId, mode, operation: result.operation, durationMs: Date.now() - startedAtMs, responseBytes: getPrayerManagementJsonByteLength(responseBody), idempotencyProtected: result.idempotency?.protected === true, idempotencyReplayed: result.idempotency?.replayed === true, executionId: result.idempotency?.executionId || "", contentRedacted: true }));
+    return res.status(200).json(responseBody);
+  } catch (error) {
+    const responseBody = buildPrayerManagementOperationError(error, { mode, operation, requestId });
+    console.error(JSON.stringify({ event: "prayer_management_operation_failed", requestId, mode, operation: typeof operation === "string" ? operation : "", durationMs: Date.now() - startedAtMs, responseBytes: getPrayerManagementJsonByteLength(responseBody), logicalStatus: responseBody.error.status, errorCode: responseBody.error.code, argumentKeys, idempotencyProvided: typeof idempotencyKey === "string" && Boolean(idempotencyKey.trim()), contentRedacted: true }));
+    return res.status(200).json(responseBody);
+  }
+}
+
+app.post("/prayer-management/query", async (req, res) => handlePrayerManagementOperation(req, res, "query"));
+app.post("/prayer-management/command", async (req, res) => handlePrayerManagementOperation(req, res, "command"));
 
 app.get("/product-workspace/operations", (req, res) => {
   const requestId = randomUUID();

@@ -195,7 +195,9 @@ test("profile updates reject unsupported permissions and stale versions", async 
 });
 
 test("the backend allowlist exactly covers the unified OAuth resource", () => {
-  assert.equal(STAFF_AUTHORIZATION_SCOPES.length, 18);
+  assert.equal(STAFF_AUTHORIZATION_SCOPES.length, 20);
+  assert.ok(STAFF_AUTHORIZATION_SCOPES.includes("prayer.read"));
+  assert.ok(STAFF_AUTHORIZATION_SCOPES.includes("prayer.write"));
   assert.equal(
     getStaffAuthorizationProfileId("waad|dan"),
     getStaffAuthorizationProfileId("waad|dan")
