@@ -89,11 +89,25 @@ test("today view, search, schedules, and time zones work without a plaintext ind
   const { d, prayer } = await seed(deps(), { kind: "weekly", weekdays: [5], timeZone: "America/Los_Angeles" });
   const today = await getTodaysPrayers({ at: "2026-08-21T17:00:00.000Z" }, d);
   assert.equal(today.prayers.length, 1);
+  await recordPrayed({ prayerId: prayer.id, expectedVersion: prayer.version }, d);
   const tomorrow = await getTodaysPrayers({ at: "2026-08-22T17:00:00.000Z" }, d);
   assert.equal(tomorrow.prayers.length, 0);
   const found = await searchPrayers({ query: "sensitive" }, d);
   assert.equal(found.prayers[0].id, prayer.id);
   assert.equal(found.plaintextIndexCreated, false);
+});
+
+test("monthly prayer schedules preserve Logos day-of-month rotations", async () => {
+  const { d, prayer } = await seed(deps(), { kind: "monthly", dayOfMonth: 16, timeZone: "America/Los_Angeles" });
+  assert.equal((await getTodaysPrayers({ at: "2026-08-16T19:00:00.000Z" }, d)).prayers.length, 1);
+  assert.equal((await getTodaysPrayers({ at: "2026-08-17T19:00:00.000Z" }, d)).prayers.length, 1);
+  await recordPrayed({ prayerId: prayer.id, expectedVersion: prayer.version }, d);
+  assert.equal((await getTodaysPrayers({ at: "2026-08-22T19:00:00.000Z" }, d)).prayers.length, 0);
+  assert.equal((await getTodaysPrayers({ at: "2026-09-16T19:00:00.000Z" }, d)).prayers.length, 1);
+  await assert.rejects(
+    () => updatePrayer({ prayerId: prayer.id, expectedVersion: prayer.version + 1, changes: { schedule: { kind: "monthly", dayOfMonth: 32 } } }, d),
+    { code: "invalid_prayer_schedule" }
+  );
 });
 
 test("updates reject stale versions and preserve exact prayer text", async () => {
@@ -190,4 +204,32 @@ test("malformed and partially structured Logos exports fail or surface manual re
   assert.equal(parsed.manualReview.length, 3);
   assert.ok(parsed.manualReview.some((item) => item.text === "Tags: urgent"));
   assert.ok(parsed.manualReview.some((item) => item.text === "Schedule: every other someday"));
+});
+
+test("Logos parser recognizes monthly day-of-month schedules", () => {
+  const parsed = parseParagraphs([
+    { text: "Prayer List: Monthly", style: "" },
+    { text: "Dwight Fleck", style: "" },
+    { text: "Schedule: every month on day 16", style: "" }
+  ]);
+  assert.deepEqual(parsed.prayers[0].schedule, { kind: "monthly", dayOfMonth: 16, timeZone: "America/Los_Angeles" });
+  assert.equal(parsed.manualReview.length, 0);
+});
+
+test("Logos parser preserves abbreviated weekdays and flags unanchored multi-week rotations", () => {
+  const abbreviated = parseParagraphs([
+    { text: "Prayer List: Weekly", style: "" },
+    { text: "Connection", style: "" },
+    { text: "Schedule: every week on Tue/Thu", style: "" }
+  ]);
+  assert.deepEqual(abbreviated.prayers[0].schedule, { kind: "weekly", weekdays: [2, 4], timeZone: "America/Los_Angeles" });
+  assert.equal(abbreviated.manualReview.length, 0);
+
+  const unanchored = parseParagraphs([
+    { text: "Prayer List: Fortnightly", style: "" },
+    { text: "Listen before writing", style: "" },
+    { text: "Schedule: every 2 weeks on Thursday", style: "" }
+  ]);
+  assert.equal(unanchored.prayers[0].schedule, null);
+  assert.equal(unanchored.manualReview.length, 1);
 });

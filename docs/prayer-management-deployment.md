@@ -23,6 +23,11 @@ Prayer Management reuses `bhe-product-api`, Firestore database `chatgptstorage`,
 1. In Logos, Print/Export the prayer list to Microsoft Word and save the DOCX. Do not edit or delete the Logos list.
 2. Attach the DOCX to `prayer_import_logos_docx` with one stable import ID.
 3. Review list and prayer counts, recovered titles/notes/tags/schedules/answers, duplicates, uncertain mappings, and every manual-review item.
+   Prayer schedules may be unscheduled, daily, weekly, monthly by day of month,
+   fixed-day intervals, or one-date reminders. Preserve the explicit Logos rule;
+   do not infer recurrence from the next due date alone.
+   A missed scheduled occurrence remains due until it is recorded as prayed,
+   matching Logos's carry-forward behavior.
 4. Only after approval, call `commitLogosImport` with the same import ID and `approved: true`.
 5. Read back the complete imported inventory and reconcile it with the preview. Keep Logos frozen for at least two weeks.
 
