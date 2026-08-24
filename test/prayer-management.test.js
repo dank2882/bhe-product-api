@@ -98,7 +98,9 @@ test("today view, search, schedules, and time zones work without a plaintext ind
 });
 
 test("monthly prayer schedules preserve Logos day-of-month rotations", async () => {
-  const { d, prayer } = await seed(deps(), { kind: "monthly", dayOfMonth: 16, timeZone: "America/Los_Angeles" });
+  const d = deps();
+  d.now = () => "2026-08-16T19:00:00.000Z";
+  const { prayer } = await seed(d, { kind: "monthly", dayOfMonth: 16, timeZone: "America/Los_Angeles" });
   assert.equal((await getTodaysPrayers({ at: "2026-08-16T19:00:00.000Z" }, d)).prayers.length, 1);
   assert.equal((await getTodaysPrayers({ at: "2026-08-17T19:00:00.000Z" }, d)).prayers.length, 1);
   await recordPrayed({ prayerId: prayer.id, expectedVersion: prayer.version }, d);
@@ -108,6 +110,15 @@ test("monthly prayer schedules preserve Logos day-of-month rotations", async () 
     () => updatePrayer({ prayerId: prayer.id, expectedVersion: prayer.version + 1, changes: { schedule: { kind: "monthly", dayOfMonth: 32 } } }, d),
     { code: "invalid_prayer_schedule" }
   );
+});
+
+test("a new rotation ignores occurrences before activation and then carries missed prayer forward", async () => {
+  const d = deps();
+  d.now = () => "2026-08-24T19:00:00.000Z";
+  await seed(d, { kind: "weekly", weekdays: [0], timeZone: "America/Los_Angeles" });
+  assert.equal((await getTodaysPrayers({ at: "2026-08-24T19:00:00.000Z" }, d)).prayers.length, 0);
+  assert.equal((await getTodaysPrayers({ at: "2026-08-30T19:00:00.000Z" }, d)).prayers.length, 1);
+  assert.equal((await getTodaysPrayers({ at: "2026-08-31T19:00:00.000Z" }, d)).prayers.length, 1);
 });
 
 test("updates reject stale versions and preserve exact prayer text", async () => {
