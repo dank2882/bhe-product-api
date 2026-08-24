@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   archivePrayer, commitLogosImport, createPrayer, createPrayerList, getPrayer,
-  getPrayerHistory, getTodaysPrayers, listPrayers, markPrayerAnswered,
+  getPrayerHistory, getPrayerImport, getTodaysPrayers, listPrayers, markPrayerAnswered,
   previewLogosImport, recordPrayed, reopenPrayer, searchPrayers, updatePrayer
 } = require("../lib/prayer-management-service");
 const { runIdempotentPrayerManagementOperation } = require("../lib/prayer-management-operation-execution");
@@ -185,12 +185,18 @@ test("Logos preview is approval-gated, encrypted, idempotent, and reconciled", a
   await assert.rejects(() => commitLogosImport({ importId: "logos-2026", approved: false }, d), { code: "prayer_import_approval_required" });
   const committed = await commitLogosImport({ importId: "logos-2026", approved: true }, d);
   assert.equal(committed.inventory.reconciled, true);
+  assert.equal(committed.import.status, "committed");
+  assert.equal(committed.import.version, 2);
+  const committedReadback = await getPrayerImport({ importId: "logos-2026" }, d);
+  assert.equal(committedReadback.import.status, "committed");
+  assert.equal(committedReadback.import.version, 2);
   const inventory = await listPrayers({ statuses: ["active", "answered", "archived"] }, d);
   assert.equal(inventory.totalCount, 2);
   assert.equal(inventory.prayers.find((prayer) => prayer.title === "Pastor transition").status, "answered");
   assert.deepEqual(inventory.prayers.find((prayer) => prayer.title === "Pastor transition").schedule.weekdays, [5]);
   const replayedCommit = await commitLogosImport({ importId: "logos-2026", approved: true }, d);
   assert.equal(replayedCommit.replayed, true);
+  assert.equal(replayedCommit.import.status, "committed");
 });
 
 test("malformed and partially structured Logos exports fail or surface manual review without dropping text", async () => {
