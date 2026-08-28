@@ -97,6 +97,10 @@ test("task management catalog exposes focused read and write operations", () => 
   assert.ok(catalog.operations.some(({ operation }) => operation === "updateStaffProfile"));
   assert.ok(catalog.operations.some(({ operation }) => operation === "captureThinkTankEntry"));
   assert.ok(catalog.operations.some(({ operation }) => operation === "buildThinkTankReview"));
+  assert.ok(catalog.operations.some(({ operation }) => operation === "prepareMeetingFrontLoad"));
+  assert.ok(catalog.operations.some(({ operation }) => operation === "addMeetingFrontLoadEntry"));
+  assert.ok(catalog.operations.some(({ operation }) => operation === "linkMeetingFrontLoadReference"));
+  assert.ok(catalog.operations.some(({ operation }) => operation === "buildMeetingFrontLoad"));
   assert.equal(catalog.operations.some(({ operation }) => operation === "createCalendarEvent"), false);
   assert.equal(catalog.operations.some(({ operation }) => operation === "completeTasksForPastEvents"), false);
 });
