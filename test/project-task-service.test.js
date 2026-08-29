@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   addTaskNote,
   BHE_DEPARTMENTS,
+  buildDailyBrief,
   buildDailyReview,
   buildLeadershipBrief,
   completeTasksForPastEvents,
@@ -452,6 +453,8 @@ test("daily review surfaces overdue, high-priority, waiting, and project gaps", 
   assert.equal(review.needsReview[0].reviewReason, "overdue");
   assert.equal(review.needsReview[0].daysOverdue, 1);
   assert.equal(review.summary.highPriorityNextCount, 2);
+  assert.equal(review.summary.activeNextCount, 2);
+  assert.deepEqual(review.activeNext.map((task) => task.taskId), ["task-overdue", "task-sarah"]);
   assert.equal(review.summary.waitingCount, 1);
   assert.equal(review.summary.followUpDueCount, 1);
   assert.equal(review.summary.highPriorityProjectCount, 1);
@@ -467,6 +470,73 @@ test("daily review surfaces overdue, high-priority, waiting, and project gaps", 
   assert.equal(review.sarahRequested[0].title, "Take check to the post office");
   assert.equal(review.summary.projectsWithoutNextActionCount, 1);
   assert.equal(review.projectsWithoutNextAction[0].projectId, "proj-without-next");
+});
+
+test("daily review keeps every next task active regardless of priority", async () => {
+  const deps = createDeps({
+    tasks: {
+      "task-high": {
+        taskId: "task-high",
+        title: "High active task",
+        status: "next",
+        priority: "high",
+        lifeArea: "work",
+        updatedAt: "2026-07-01T15:00:00.000Z"
+      },
+      "task-medium": {
+        taskId: "task-medium",
+        title: "Medium active task",
+        status: "next",
+        priority: "medium",
+        lifeArea: "church",
+        updatedAt: "2026-07-01T14:00:00.000Z"
+      },
+      "task-low": {
+        taskId: "task-low",
+        title: "Low active task",
+        status: "next",
+        priority: "low",
+        lifeArea: "personal",
+        updatedAt: "2026-07-01T13:00:00.000Z"
+      },
+      "task-future": {
+        taskId: "task-future",
+        title: "Future scheduled task",
+        status: "scheduled",
+        priority: "high",
+        workOnDate: "2026-07-10",
+        updatedAt: "2026-07-01T12:00:00.000Z"
+      },
+      "task-done": {
+        taskId: "task-done",
+        title: "Completed task",
+        status: "done",
+        priority: "high",
+        updatedAt: "2026-07-01T11:00:00.000Z"
+      }
+    }
+  });
+
+  const review = await buildDailyReview({ today: "2026-07-01" }, deps);
+
+  assert.equal(review.summary.activeNextCount, 3);
+  assert.deepEqual(
+    review.activeNext.map((task) => task.taskId),
+    ["task-high", "task-medium", "task-low"]
+  );
+  assert.deepEqual(
+    review.activeNext.map((task) => task.displayNumber),
+    [1, 2, 3]
+  );
+  assert.deepEqual(review.highPriorityNext.map((task) => task.taskId), ["task-high"]);
+
+  const brief = await buildDailyBrief({ today: "2026-07-01" }, deps);
+  assert.equal(brief.activeNextCount, 3);
+  assert.match(brief.briefText, /1\. Active \(high priority\): High active task/);
+  assert.match(brief.briefText, /2\. Active: Medium active task/);
+  assert.match(brief.briefText, /3\. Active: Low active task/);
+  assert.doesNotMatch(brief.briefText, /Future scheduled task/);
+  assert.doesNotMatch(brief.briefText, /Completed task/);
 });
 
 test("overdue tasks enter needs review without overwriting their priority", async () => {

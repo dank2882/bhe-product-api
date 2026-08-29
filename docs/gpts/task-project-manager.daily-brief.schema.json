@@ -52,6 +52,9 @@
                     "dueTodayCount": {
                       "type": "integer"
                     },
+                    "activeNextCount": {
+                      "type": "integer"
+                    },
                     "highPriorityNextCount": {
                       "type": "integer"
                     },
