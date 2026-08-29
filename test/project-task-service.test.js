@@ -91,6 +91,7 @@ function createDeps({
   taskNotes = {},
   routines = {},
   staffProfiles = {},
+  staffAuthorizationProfiles = {},
   notifications = {},
   randomId = "12345678-aaaa-bbbb-cccc-123456789012",
   now = "2026-07-01T16:00:00.000Z"
@@ -102,6 +103,7 @@ function createDeps({
     calendarEventsCollection: new FakeCollection(calendarEvents),
     routinesCollection: new FakeCollection(routines),
     taskStaffProfilesCollection: new FakeCollection(staffProfiles),
+    staffAuthorizationProfilesCollection: new FakeCollection(staffAuthorizationProfiles),
     taskNotificationsCollection: new FakeCollection(notifications),
     randomUUID: () => randomId,
     now: () => now
@@ -624,6 +626,157 @@ test("leadership brief groups only staff-visible work by assignee", async () => 
   assert.equal(brief.byPerson[0].tasksPlannedToday[0].title, "Prepare handout");
   assert.equal(brief.activeProjects[0].name, "Staff rollout");
   assert.equal(JSON.stringify(brief).includes("Private matter"), false);
+});
+
+test("leadership brief aggregates approved identity aliases without rewriting historical records", async () => {
+  const googleSubject = "google-oauth2|dan";
+  const waadSubject = "waad|bhe-microsoft-entra|dan";
+  const entraSubject = "entra|tenant|dan";
+  const pastorSubject = "entra|tenant|pastor";
+  const sarahSubject = "entra|tenant|sarah";
+  const danAliases = [googleSubject, waadSubject, entraSubject];
+  const staffTasks = Object.fromEntries([
+    ...Array.from({ length: 25 }, (_, index) => [
+      `task-google-${index + 1}`,
+      {
+        taskId: `task-google-${index + 1}`,
+        title: `Google task ${index + 1}`,
+        status: "next",
+        priority: "medium",
+        visibility: "staff",
+        assignedTo: "Dan",
+        assignedToSub: googleSubject
+      }
+    ]),
+    ...Array.from({ length: 5 }, (_, index) => [
+      `task-entra-${index + 1}`,
+      {
+        taskId: `task-entra-${index + 1}`,
+        title: `Entra task ${index + 1}`,
+        status: "next",
+        priority: "medium",
+        visibility: "staff",
+        assignedTo: "Dan Kirchner",
+        assignedToSub: entraSubject
+      }
+    ]),
+    ["task-pastor", {
+      taskId: "task-pastor",
+      title: "Pastor task",
+      status: "next",
+      priority: "medium",
+      visibility: "staff",
+      assignedTo: "Pastor",
+      assignedToSub: pastorSubject
+    }],
+    ["task-private-google", {
+      taskId: "task-private-google",
+      title: "Private historical task",
+      status: "next",
+      priority: "medium",
+      visibility: "private",
+      ownerSub: googleSubject,
+      workOnDate: "2026-07-23",
+      estimatedMinutes: 30
+    }]
+  ]);
+  const deps = createDeps({
+    tasks: staffTasks,
+    staffProfiles: {
+      "profile-google-dan": { subject: googleSubject, displayName: "Dan", role: "admin", status: "active" },
+      "profile-waad-dan": { subject: waadSubject, displayName: "Dan Kirchner", email: "dan@example.com", role: "admin", status: "active" },
+      "profile-entra-dan": {
+        subject: entraSubject,
+        displayName: "Dan Kirchner",
+        email: "dan@example.com",
+        role: "admin",
+        status: "active",
+        weeklyCapacityMinutes: 2400,
+        sharePrivateCapacity: true
+      },
+      "profile-pastor": { subject: pastorSubject, displayName: "Pastor", role: "manager", status: "active" },
+      "profile-sarah": { subject: sarahSubject, displayName: "Sarah Kirchner", role: "admin", status: "active" }
+    },
+    staffAuthorizationProfiles: {
+      "authorization-entra-dan": {
+        subject: entraSubject,
+        identitySubjects: danAliases,
+        displayName: "Dan Kirchner",
+        email: "dan@example.com",
+        status: "active",
+        taskRole: "admin"
+      },
+      "authorization-waad-dan": {
+        subject: waadSubject,
+        identitySubjects: danAliases,
+        displayName: "Dan Kirchner",
+        email: "dan@example.com",
+        status: "active",
+        taskRole: "admin"
+      },
+      "authorization-pastor": {
+        subject: pastorSubject,
+        identitySubjects: [pastorSubject],
+        displayName: "Pastor",
+        email: "pastor@example.com",
+        status: "active",
+        taskRole: "manager"
+      },
+      "authorization-sarah": {
+        subject: sarahSubject,
+        identitySubjects: [sarahSubject],
+        displayName: "Sarah Kirchner",
+        email: "sarah@example.com",
+        status: "active",
+        taskRole: "admin"
+      }
+    },
+    now: "2026-07-22T16:00:00.000Z"
+  });
+  deps.taskAccess = { role: "admin", subject: entraSubject, subjects: danAliases, name: "Dan Kirchner" };
+  const historicalTasksBefore = clone(Object.fromEntries(deps.tasksCollection.store));
+
+  const brief = await buildLeadershipBrief({ today: "2026-07-22", horizonDays: 7 }, deps);
+  const danEntries = brief.byPerson.filter((person) => person.email === "dan@example.com");
+  const dan = danEntries[0];
+
+  assert.equal(danEntries.length, 1);
+  assert.equal(dan.subject, entraSubject);
+  assert.equal(dan.openTaskCount, 30);
+  assert.equal(dan.privateOpenTaskCount, 1);
+  assert.equal(dan.privatePlannedMinutesInHorizon, 30);
+  assert.equal(dan.weeklyCapacityMinutes, 2400);
+  assert.equal(brief.summary.staffDirectoryCount, 3);
+  assert.equal(brief.byPerson.filter((person) => person.subject === pastorSubject).length, 1);
+  assert.equal(brief.byPerson.filter((person) => person.subject === sarahSubject).length, 1);
+  assert.deepEqual(Object.fromEntries(deps.tasksCollection.store), historicalTasksBefore);
+});
+
+test("leadership brief fails closed when distinct people claim one identity alias", async () => {
+  const deps = createDeps({
+    staffAuthorizationProfiles: {
+      "authorization-alex": {
+        subject: "entra|tenant|alex",
+        identitySubjects: ["entra|tenant|alex", "shared|legacy"],
+        displayName: "Alex",
+        email: "alex@example.com",
+        status: "active"
+      },
+      "authorization-jordan": {
+        subject: "entra|tenant|jordan",
+        identitySubjects: ["entra|tenant|jordan", "shared|legacy"],
+        displayName: "Jordan",
+        email: "jordan@example.com",
+        status: "active"
+      }
+    }
+  });
+  deps.taskAccess = { role: "admin", subject: "entra|tenant|dan", name: "Dan" };
+
+  await assert.rejects(
+    () => buildLeadershipBrief({ today: "2026-07-22" }, deps),
+    { code: "staff_identity_alias_conflict", statusCode: 409 }
+  );
 });
 
 test("leadership brief rejects ordinary members", async () => {

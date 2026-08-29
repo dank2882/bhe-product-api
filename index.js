@@ -2616,6 +2616,7 @@ function getProjectTaskDependencies(overrides = {}) {
     taskAttachmentBucket: storage.bucket(BUCKET_NAME),
     taskManagementAuditEventsCollection,
     taskStaffProfilesCollection,
+    staffAuthorizationProfilesCollection,
     taskNotificationsCollection,
     calendarEventsCollection,
     routinesCollection,
