@@ -195,7 +195,7 @@ test("profile updates reject unsupported permissions and stale versions", async 
 });
 
 test("the backend allowlist exactly covers the unified OAuth resource", () => {
-  assert.equal(STAFF_AUTHORIZATION_SCOPES.length, 20);
+  assert.equal(STAFF_AUTHORIZATION_SCOPES.length, 22);
   assert.ok(STAFF_AUTHORIZATION_SCOPES.includes("prayer.read"));
   assert.ok(STAFF_AUTHORIZATION_SCOPES.includes("prayer.write"));
   assert.equal(
@@ -231,7 +231,9 @@ test("approved display-role aliases produce the expected least-privilege profile
       "correspondence.write",
       "care.read.main",
       "care.read.spanish",
-      "care.search"
+      "care.search",
+      "care.records.read",
+      "care.records.write"
     ],
     taskRole: "manager"
   });
