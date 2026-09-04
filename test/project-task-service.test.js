@@ -1686,9 +1686,10 @@ test("first sign-in registers staff and administrators can promote a manager wit
   const promoted = await updateStaffProfile({
     subject: "auth0|pastor",
     expectedVersion: 1,
-    changes: { role: "manager", managerSub: "auth0|dan" }
+    changes: { role: "manager", managerSub: "auth0|dan", leadershipAreas: ["missions", "bhe", "bhe"] }
   }, deps);
   assert.equal(promoted.profile.role, "manager");
+  assert.deepEqual(promoted.profile.leadershipAreas, ["bhe", "missions"]);
 
   const resolved = await resolveStaffIdentity({
     subject: "auth0|pastor",
@@ -1701,6 +1702,17 @@ test("first sign-in registers staff and administrators can promote a manager wit
   const directory = await listStaffProfiles({ status: "active" }, deps);
   assert.equal(directory.count, 1);
   assert.equal(directory.profiles[0].displayName, "Pastor");
+  assert.deepEqual(directory.profiles[0].leadershipAreas, ["bhe", "missions"]);
+  assert.equal((await listStaffProfiles({ query: "missions" }, deps)).count, 1);
+
+  await assert.rejects(
+    () => updateStaffProfile({
+      subject: "auth0|pastor",
+      expectedVersion: promoted.profile.version,
+      changes: { leadershipAreas: ["finance"] }
+    }, deps),
+    { code: "invalid_staff_leadership_areas", statusCode: 400 }
+  );
 });
 
 test("assignees receive an in-system notification and can request clarification", async () => {
