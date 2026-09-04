@@ -169,6 +169,19 @@ test("team registry includes the accepted operations team", async () => {
   });
 });
 
+test("classifying a legacy staff project normalizes its missing department before cascading", async () => {
+  const deps = createDeps({
+    projects: { legacy: { projectId: "legacy", name: "Legacy shared work", visibility: "staff", version: 2 } },
+    tasks: { legacyTask: { taskId: "legacyTask", title: "Legacy task", projectId: "legacy", visibility: "staff", version: 1 } }
+  });
+  deps.taskAccess = { role: "admin", subject: "admin", subjects: ["admin"], teamIds: ["bhe"], teamEnforcementEnabled: false };
+  const result = await updateProject({ projectId: "legacy", expectedVersion: 2, changes: { teamId: "bhe" } }, deps);
+  assert.equal(result.project.department, "");
+  assert.equal(result.project.teamId, "bhe");
+  assert.equal((await getTask({ taskId: "legacyTask" }, deps)).task.department, "");
+  assert.equal((await getTask({ taskId: "legacyTask" }, deps)).task.teamId, "bhe");
+});
+
 test("team enforcement hides unclassified staff records and requires a team on new staff work", async () => {
   const deps = createDeps({ projects: { legacy: { projectId: "legacy", name: "Legacy", visibility: "staff" } } });
   deps.taskAccess = { role: "member", subject: "member", subjects: ["member"], teamIds: ["bhe"], teamEnforcementEnabled: true };
