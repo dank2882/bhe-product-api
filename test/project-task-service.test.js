@@ -921,6 +921,7 @@ test("personal daily reviews include historical tasks owned by an approved ident
         status: "next",
         priority: "high",
         lifeArea: "home",
+        teamId: "operations",
         assignedToSub: "google-oauth2|106948814779912948467",
         visibility: "private"
       },
@@ -969,6 +970,7 @@ test("personal daily reviews include historical tasks owned by an approved ident
   assert.equal(Object.prototype.hasOwnProperty.call(listed.tasks[0], "updatedBySub"), false);
   assert.equal(listed.tasks[0].title, "Historical Google task");
   assert.equal(listed.tasks[0].status, "next");
+  assert.equal(listed.tasks[0].teamId, "operations");
 });
 
 test("creates and lists calendar events", async () => {
