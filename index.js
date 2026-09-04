@@ -11644,7 +11644,16 @@ function buildTaskAccessFromRequest(req) {
     })(),
     name: req.header("x-bhe-actor-name"),
     email: req.header("x-bhe-actor-email"),
-    scopes: (req.header("x-bhe-task-scopes") || "").split(" ").filter(Boolean)
+    scopes: (req.header("x-bhe-task-scopes") || "").split(" ").filter(Boolean),
+    teamIds: (() => {
+      try {
+        const parsed = JSON.parse(req.header("x-bhe-task-teams") || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })(),
+    teamEnforcementEnabled: req.header("x-bhe-team-authorization-enabled") === "true"
   });
 }
 

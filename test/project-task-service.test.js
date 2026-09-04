@@ -20,6 +20,7 @@ const {
   listStaffProfiles,
   listRoutines,
   listTasks,
+  listTeams,
   listTaskNotes,
   markNotificationRead,
   respondToAssignment,
@@ -133,6 +134,49 @@ test("creates and lists projects", async () => {
   const listed = await listProjects({ status: "active", priority: "high", targetOnOrBefore: "2026-07-06" }, deps);
   assert.equal(listed.count, 1);
   assert.equal(listed.projects[0].name, "Launch personal task GPT");
+});
+
+test("team enforcement allows team members and assigned outsiders without exposing the project", async () => {
+  const deps = createDeps();
+  deps.taskAccess = {
+    role: "admin", subject: "admin", subjects: ["admin"],
+    teamIds: ["bhe", "finance"], teamEnforcementEnabled: true
+  };
+  const { project } = await createProject({ name: "BHE exhibit", visibility: "staff", teamId: "bhe" }, deps);
+  await createTask({
+    title: "Review exhibit copy", projectId: project.projectId,
+    assignedTo: "Finance helper", assignedToSub: "outsider"
+  }, deps);
+
+  const bheDeps = { ...deps, taskAccess: { role: "member", subject: "bhe-user", subjects: ["bhe-user"], teamIds: ["bhe"], teamEnforcementEnabled: true } };
+  assert.equal((await listProjects({}, bheDeps)).projects.length, 1);
+  assert.equal((await listTasks({}, bheDeps)).tasks.length, 1);
+
+  const financeDeps = { ...deps, taskAccess: { role: "member", subject: "finance-user", subjects: ["finance-user"], teamIds: ["finance"], teamEnforcementEnabled: true } };
+  assert.equal((await listProjects({}, financeDeps)).projects.length, 0);
+  assert.equal((await listTasks({}, financeDeps)).tasks.length, 0);
+
+  const outsiderDeps = { ...deps, taskAccess: { role: "collaborator", subject: "outsider", subjects: ["outsider"], teamIds: [], teamEnforcementEnabled: true } };
+  assert.equal((await listProjects({}, outsiderDeps)).projects.length, 0);
+  assert.equal((await listTasks({}, outsiderDeps)).tasks.length, 1);
+});
+
+test("team registry includes the accepted operations team", async () => {
+  const { teams } = await listTeams();
+  assert.equal(teams.length, 8);
+  assert.deepEqual(teams.find(({ teamId }) => teamId === "operations"), {
+    teamId: "operations", displayName: "Operations", version: 1, status: "active"
+  });
+});
+
+test("team enforcement hides unclassified staff records and requires a team on new staff work", async () => {
+  const deps = createDeps({ projects: { legacy: { projectId: "legacy", name: "Legacy", visibility: "staff" } } });
+  deps.taskAccess = { role: "member", subject: "member", subjects: ["member"], teamIds: ["bhe"], teamEnforcementEnabled: true };
+  assert.equal((await listProjects({}, deps)).projects.length, 0);
+  await assert.rejects(
+    () => createProject({ name: "Unclassified", visibility: "staff" }, deps),
+    (error) => error.code === "task_access_denied"
+  );
 });
 
 test("BHE departments are optional, controlled, and inherited from projects", async () => {

@@ -75,7 +75,11 @@ test("active profiles return only approved stored scopes and task role", async (
         "BHE Correspondence Editor",
         "BHE Pastoral Care Administrator"
       ],
-      taskRole: "manager"
+      taskRole: "manager",
+      teamMemberships: [
+        { teamId: "finance", role: "member", status: "disabled" },
+        { teamId: "bhe", role: "manager", status: "active" }
+      ]
     },
     expectedVersion: 0,
     updatedBySub: "waad|dan",
@@ -110,6 +114,10 @@ test("active profiles return only approved stored scopes and task role", async (
   assert.deepEqual(result.effectiveIdentitySubjects, [
     "google-oauth2|shawna",
     "waad|shawna"
+  ]);
+  assert.deepEqual(result.effectiveTeamIds, ["bhe"]);
+  assert.deepEqual(result.effectiveTeamMemberships, [
+    { teamId: "bhe", role: "manager", status: "active" }
   ]);
 });
 
