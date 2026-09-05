@@ -97,6 +97,53 @@ test("today view, search, schedules, and time zones work without a plaintext ind
   assert.equal(found.plaintextIndexCreated, false);
 });
 
+test("today view always returns Dan's stable upward, inward, and outward prayer format with notes", async () => {
+  const d = deps();
+  const { list: personal } = await createPrayerList({ title: "01. Personal", description: "Imported from Logos" }, d);
+  const { list: sarah } = await createPrayerList({ title: "02. Sarah", description: "Imported from Logos" }, d);
+  await createPrayer({
+    listId: personal.id,
+    title: "Fill me with your Holy Spirit",
+    prayerText: "Fill me with your Holy Spirit",
+    privateContext: "Help me listen.",
+    schedule: { kind: "daily", timeZone: "America/Los_Angeles" },
+    presentation: { area: "upward", group: "christ", subheader: "relationship-with-god", order: 1 }
+  }, d);
+  await createPrayer({ listId: personal.id, title: "Physical Fitness", prayerText: "Physical Fitness", schedule: { kind: "daily" } }, d);
+  await createPrayer({ listId: sarah.id, title: "Sarah's needs", prayerText: "Sarah's needs", schedule: { kind: "daily" } }, d);
+
+  const today = await getTodaysPrayers({ at: "2026-08-21T17:00:00.000Z" }, d);
+  assert.equal(today.presentation.formatVersion, "dan-upward-inward-outward-v1");
+  assert.deepEqual(today.presentation.sections.map(({ number, key }) => ({ number, key })), [
+    { number: "1", key: "upward" }, { number: "2", key: "inward" }, { number: "3", key: "outward" }
+  ]);
+  const upward = today.presentation.sections[0].groups[0].subheaders[0];
+  const inward = today.presentation.sections[1].groups[0].subheaders[0];
+  const companion = today.presentation.sections[2].groups[0].subheaders[0];
+  assert.equal(today.prayers.find((prayer) => prayer.id === upward.prayerIds[0]).number, "1.1.1.1");
+  assert.equal(today.prayers.find((prayer) => prayer.id === upward.prayerIds[0]).note, "Help me listen.");
+  assert.equal(today.prayers.find((prayer) => prayer.id === upward.prayerIds[0]).sourceList.title, "01. Personal");
+  assert.equal(today.prayers.find((prayer) => prayer.id === inward.prayerIds[0]).title, "Physical Fitness");
+  assert.equal(today.prayers.find((prayer) => prayer.id === companion.prayerIds[0]).title, "Sarah's needs");
+  assert.deepEqual(today.prayers.map((prayer) => prayer.number), ["1.1.1.1", "2.1.1.1", "3.1.1.1"]);
+  assert.equal(today.presentation.sections[2].groups.find((group) => group.key === "world").subheaders.length, 3);
+});
+
+test("prayer presentation validation is explicit and versioned updates preserve private prayer text", async () => {
+  const { d, prayer } = await seed();
+  await assert.rejects(
+    () => updatePrayer({ prayerId: prayer.id, expectedVersion: prayer.version, changes: { presentation: { area: "sideways", group: "personal" } } }, d),
+    { code: "invalid_prayer_presentation" }
+  );
+  const updated = await updatePrayer({
+    prayerId: prayer.id,
+    expectedVersion: prayer.version,
+    changes: { presentation: { area: "outward", group: "world", subheader: "missionaries", order: 7 } }
+  }, d);
+  assert.equal(updated.prayer.prayerText, "Lord, strengthen them.");
+  assert.deepEqual(updated.prayer.presentation, { area: "outward", group: "world", subheader: "missionaries", order: 7 });
+});
+
 test("monthly prayer schedules preserve Logos day-of-month rotations", async () => {
   const d = deps();
   d.now = () => "2026-08-16T19:00:00.000Z";
