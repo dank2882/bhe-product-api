@@ -1,3 +1,4 @@
+const { readCompleteQuery } = require("./lib/complete-query");
 const express = require("express");
 const multer = require("multer");
 const fs = require("node:fs");
@@ -6175,7 +6176,8 @@ async function getRequiredRepositoryDocument(repositoryDocuments, documentId) {
   return {
     documentId: cleanDocumentId,
     docRef,
-    document: doc.data() || {}
+    document: doc.data() || {},
+    snapshot: doc
   };
 }
 
@@ -6199,7 +6201,8 @@ async function getRequiredRepositoryItem(repositoryItems, itemId) {
   return {
     itemId: cleanItemId,
     docRef,
-    item: doc.data() || {}
+    item: { version: 1, ...doc.data() },
+    snapshot: doc
   };
 }
 
@@ -6300,7 +6303,7 @@ async function getRepositoryDocumentSourceText(
 }
 
 async function createRepositoryItem(
-  { title, itemType },
+  { title, itemType, idempotencyKey },
   deps = getRepositoryWorkflowDependencies()
 ) {
   if (typeof title !== "string" || !title.trim()) {
@@ -6320,14 +6323,29 @@ async function createRepositoryItem(
     });
   }
 
-  const item = buildDefaultRepositoryItemRecord({
-    itemId: randomUUID(),
+  if (idempotencyKey !== undefined && (typeof idempotencyKey !== "string" || idempotencyKey.length < 8 || idempotencyKey.length > 200)) throw createWorkflowError("idempotencyKey must be 8 to 200 characters", 400);
+  const fingerprint = createHash("sha256").update(JSON.stringify({ title: cleanTitle, itemType: cleanItemType })).digest("hex");
+  const itemId = `repository-item-${createHash("sha256").update(idempotencyKey || fingerprint).digest("hex").slice(0, 40)}`;
+  const item = { ...buildDefaultRepositoryItemRecord({
+    itemId,
     title: cleanTitle,
     itemType: cleanItemType,
     createdAt: getNowIso()
-  });
+  }), version: 1, creationFingerprint: fingerprint };
 
-  await deps.repositoryItemsCollection.doc(item.itemId).set(item);
+  const ref = deps.repositoryItemsCollection.doc(item.itemId);
+  try {
+    if (typeof ref.create === "function") await ref.create(item);
+    else { // in-memory test adapter
+      if ((await ref.get()).exists) throw Object.assign(new Error("exists"), { code: 6 });
+      await ref.set(item);
+    }
+  } catch (error) {
+    if (Number(error.code) !== 6) throw error;
+    const saved = (await ref.get()).data();
+    if (saved?.creationFingerprint !== fingerprint) throw createWorkflowError("Repository idempotency key was reused for different input", 409);
+    return { item: saved, replayed: true };
+  }
 
   return {
     item
@@ -6385,29 +6403,34 @@ async function getRepositoryItemDocuments(
 }
 
 async function saveRepositoryItemSummary(
-  { itemId, canonicalSummary },
+  { itemId, canonicalSummary, expectedVersion },
   deps = getRepositoryWorkflowDependencies()
 ) {
   const {
     docRef,
-    item
+    item, snapshot
   } = await getRequiredRepositoryItem(deps.repositoryItemsCollection, itemId);
 
   if (typeof canonicalSummary !== "string" || !canonicalSummary.trim()) {
     throw createWorkflowError("Missing or invalid canonicalSummary", 400);
   }
 
+  if (expectedVersion !== undefined && expectedVersion !== item.version) throw createWorkflowError("Repository item version changed; reload it", 409);
   const updatedAt = getNowIso();
   const updatedItem = {
     ...item,
     canonicalSummary: canonicalSummary.trim(),
+    version: item.version + 1,
     updatedAt
   };
 
-  await docRef.update({
-    canonicalSummary: updatedItem.canonicalSummary,
-    updatedAt
-  });
+  try {
+    await docRef.update({ canonicalSummary: updatedItem.canonicalSummary, version: updatedItem.version, updatedAt },
+      snapshot.updateTime ? { lastUpdateTime: snapshot.updateTime } : undefined);
+  } catch (error) {
+    if ([9, 10].includes(Number(error.code))) throw createWorkflowError("Repository item changed during save; reload it", 409);
+    throw error;
+  }
 
   return {
     item: updatedItem
@@ -6421,7 +6444,7 @@ async function linkRepositoryItemDocuments(
   const {
     itemId: cleanItemId,
     docRef: itemDocRef,
-    item: existingItem
+    item: existingItem, snapshot: itemSnapshot
   } = await getRequiredRepositoryItem(deps.repositoryItemsCollection, itemId);
 
   if (!Array.isArray(documentIds) || documentIds.length === 0) {
@@ -6462,15 +6485,18 @@ async function linkRepositoryItemDocuments(
   const updatedItem = {
     ...existingItem,
     linkedDocumentIds,
+    version: existingItem.version + 1,
     updatedAt
   };
 
-  await itemDocRef.update({
-    linkedDocumentIds,
-    updatedAt
-  });
+  const firestore = deps.repositoryItemsCollection.firestore;
+  const batch = firestore?.batch();
+  const write = (ref, updates, snapshot) => batch
+    ? batch.update(ref, updates, { lastUpdateTime: snapshot.updateTime })
+    : ref.update(updates);
+  await write(itemDocRef, { linkedDocumentIds, version: updatedItem.version, updatedAt }, itemSnapshot);
 
-  for (const { docRef, document } of repositoryDocuments) {
+  for (const { docRef, document, snapshot } of repositoryDocuments) {
     const existingLinkedKnowledgeItemIds = Array.isArray(document.linkedKnowledgeItemIds)
       ? document.linkedKnowledgeItemIds.filter((id) => typeof id === "string" && id.trim())
       : [];
@@ -6478,12 +6504,15 @@ async function linkRepositoryItemDocuments(
       new Set(existingLinkedKnowledgeItemIds.concat(cleanItemId))
     );
 
-    await docRef.update({
-      linkedKnowledgeItemIds,
-      updatedAt
-    });
+    await write(docRef, { linkedKnowledgeItemIds, version: Number(document.version || 1) + 1, updatedAt }, snapshot);
   }
 
+  if (batch) {
+    try { await batch.commit(); } catch (error) {
+      if ([9, 10].includes(Number(error.code))) throw createWorkflowError("Repository links changed during save; reload and retry", 409);
+      throw error;
+    }
+  }
   return {
     itemId: cleanItemId,
     linkedCount: normalizedDocumentIds.length,
@@ -6503,7 +6532,7 @@ async function searchRepositoryItems(
   const cleanQuery = query.trim().toLowerCase();
   const tokens = cleanQuery.split(/\s+/).filter(Boolean);
   const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 25);
-  const snapshot = await deps.repositoryItemsCollection.limit(200).get();
+  const snapshot = { docs: await readCompleteQuery(deps.repositoryItemsCollection) };
 
   const results = snapshot.docs
     .map((doc) => {
@@ -6524,13 +6553,15 @@ async function searchRepositoryItems(
 
       return (b.updatedAt || "").localeCompare(a.updatedAt || "");
     })
-    .slice(0, safeLimit)
+    .slice(0, safeLimit + 1)
     .map(({ _score, ...item }) => item);
 
   return {
     query: cleanQuery,
-    count: results.length,
-    results
+    count: Math.min(results.length, safeLimit),
+    hasMore: results.length > safeLimit,
+    searchComplete: true,
+    results: results.slice(0, safeLimit)
   };
 }
 
@@ -6998,7 +7029,7 @@ async function searchRepositoryDocuments(
     typeof originalFolderLabel === "string" ? originalFolderLabel.trim() : "";
   const cleanBinLabel = typeof binLabel === "string" ? binLabel.trim() : "";
   const cleanScanBatchLabel = typeof scanBatchLabel === "string" ? scanBatchLabel.trim() : "";
-  const snapshot = await deps.repositoryDocumentsCollection.limit(200).get();
+  const snapshot = { docs: await readCompleteQuery(deps.repositoryDocumentsCollection) };
 
   const results = snapshot.docs
     .map((doc) => {
@@ -7026,13 +7057,15 @@ async function searchRepositoryDocuments(
 
       return (b.uploadedAt || "").localeCompare(a.uploadedAt || "");
     })
-    .slice(0, safeLimit)
+    .slice(0, safeLimit + 1)
     .map(({ _matchesFilters, _score, ...item }) => item);
 
   return {
     query: cleanQuery,
-    count: results.length,
-    results
+    count: Math.min(results.length, safeLimit),
+    hasMore: results.length > safeLimit,
+    searchComplete: true,
+    results: results.slice(0, safeLimit)
   };
 }
 
@@ -7056,7 +7089,7 @@ async function listRepositoryDocumentsByProvenance(
     );
   }
 
-  const snapshot = await deps.repositoryDocumentsCollection.limit(200).get();
+  const snapshot = { docs: await readCompleteQuery(deps.repositoryDocumentsCollection) };
 
   const documents = snapshot.docs
     .map((doc) => {
@@ -12434,7 +12467,8 @@ app.post("/repository/items/:itemId/summary/save", async (req, res) => {
     const result = await saveRepositoryItemSummary(
       {
         itemId: req.params.itemId,
-        canonicalSummary: req.body?.canonicalSummary
+        canonicalSummary: req.body?.canonicalSummary,
+        expectedVersion: req.body?.expectedVersion
       },
       getRepositoryWorkflowDependencies()
     );
@@ -12488,6 +12522,8 @@ app.post("/repository/items/search", async (req, res) => {
       ok: true,
       query: result.query,
       count: result.count,
+      hasMore: result.hasMore,
+      searchComplete: result.searchComplete,
       results: result.results
     });
   } catch (error) {
@@ -12509,6 +12545,8 @@ app.post("/repository/documents/search", async (req, res) => {
       ok: true,
       query: result.query,
       count: result.count,
+      hasMore: result.hasMore,
+      searchComplete: result.searchComplete,
       results: result.results
     });
   } catch (error) {

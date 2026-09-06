@@ -453,7 +453,7 @@ test("getRepositoryItemById returns the stored repository item", async () => {
 
   const result = await getRepositoryItemById({ itemId }, deps);
 
-  assert.deepEqual(result.item, storedItem);
+  assert.deepEqual(result.item, { version: 1, ...storedItem });
 });
 
 test("getRepositoryItemById fails clearly when the repository item does not exist", async () => {
@@ -2306,4 +2306,23 @@ test("normalizeRepositoryDocumentOcr rejects missing normalization source text",
       return true;
     }
   );
+});
+
+
+test("repository item creation retries reuse the same record and reject a changed key payload", async () => {
+  const { deps } = createDeps();
+  const first = await createRepositoryItem({ title: "Reliability sample", itemType: "topic", idempotencyKey: "repository-retry-test" }, deps);
+  const replay = await createRepositoryItem({ title: "Reliability sample", itemType: "topic", idempotencyKey: "repository-retry-test" }, deps);
+  assert.equal(replay.item.itemId, first.item.itemId);
+  assert.equal(replay.replayed, true);
+  await assert.rejects(createRepositoryItem({ title: "Changed", itemType: "topic", idempotencyKey: "repository-retry-test" }, deps), error => error.statusCode === 409);
+});
+
+test("repository search finds a match beyond the former 200-record ceiling", async () => {
+  const repositoryItems = Object.fromEntries(Array.from({ length: 205 }, (_, i) => [`item-${i}`, { itemId: `item-${i}`, title: i === 204 ? "Unique late record" : "Other", itemType: "topic" }]));
+  const { deps } = createDeps({ repositoryItems });
+  const result = await searchRepositoryItems({ query: "Unique", limit: 10 }, deps);
+  assert.equal(result.count, 1);
+  assert.equal(result.results[0].itemId, "item-204");
+  assert.equal(result.hasMore, false);
 });
