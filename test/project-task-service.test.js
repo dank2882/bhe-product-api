@@ -1835,3 +1835,29 @@ test("leadership brief combines staff plans with opt-in anonymous private capaci
   assert.equal(brief.atRiskProjects[0].derivedHealth, "at_risk");
   assert.ok(!JSON.stringify(brief).includes("Private personal preparation"));
 });
+
+test("Maintenance editors can edit/archive/restore peers' work but cannot change sharing", async () => {
+  const root = { projectId: "maintenance", name: "Maintenance", visibility: "branch", lifeArea: "church", teamId: "maintenance", ownerSub: "dan", createdBySub: "dan", version: 1, collaborationPolicy: "editor_archive_creator_delete", branchMembers: [{ subject: "andy", role: "editor" }] };
+  const deps = createDeps({ projects: { maintenance: root }, tasks: { repair: { taskId: "repair", title: "Repair", projectId: "maintenance", visibility: "staff", lifeArea: "church", ownerSub: "dan", createdBySub: "dan", version: 1, status: "next" } } });
+  deps.taskAccess = { role: "member", subject: "andy" };
+  const archived = await updateTask({ taskId: "repair", changes: { status: "dropped" }, expectedVersion: 1 }, deps);
+  assert.equal(archived.task.status, "dropped");
+  const restored = await restoreTaskRecord({ recordType: "task", recordId: "repair", expectedVersion: 2 }, deps);
+  assert.equal(restored.task.status, "next");
+  assert.equal((await updateProject({ projectId: "maintenance", changes: { status: "archived" }, expectedVersion: 1 }, deps)).project.status, "archived");
+  await assert.rejects(updateProject({ projectId: "maintenance", changes: { branchMembers: [] }, expectedVersion: 2 }, deps), { code: "project_sharing_denied" });
+  await assert.rejects(createProject({ name: "Unauthorized grant", parentProjectId: "maintenance", branchMembers: [{subject: "outsider", role: "editor"}] }, deps), { code: "project_sharing_denied" });
+});
+
+test("creator-delete policy honors creator aliases, excludes assignees and managers, and protects private work", () => {
+  const { assertCanDeleteTaskRecord } = require("../lib/task-management-access");
+  const root = { projectId: "maintenance", visibility: "branch", ownerSub: "dan", collaborationPolicy: "editor_archive_creator_delete", branchMembers: [{subject:"andy",role:"editor"},{subject:"pastor",role:"editor"}] };
+  const task = { taskId:"repair", projectId:"maintenance", visibility:"staff", lifeArea:"church", createdBySub:"legacy-andy", ownerSub:"dan", assignedToSub:"pastor" };
+  const deps = subject => ({ projectGraph:new Map([[root.projectId,root]]), taskAccess:{subject,role:subject === "pastor" ? "manager" : "member",subjects:subject === "andy" ? ["andy","legacy-andy"]:[subject]} });
+  assert.doesNotThrow(()=>assertCanDeleteTaskRecord(task,deps("andy")));
+  assert.doesNotThrow(()=>assertCanDeleteTaskRecord(task,deps("dan")));
+  assert.throws(()=>assertCanDeleteTaskRecord(task,deps("pastor")), {code:"task_access_denied"});
+  assert.throws(()=>assertCanDeleteTaskRecord(task,deps("outsider")), {code:"task_access_denied"});
+  assert.throws(()=>assertCanDeleteTaskRecord({...task,visibility:"private"},deps("dan")), {code:"task_access_denied"});
+  assert.throws(()=>assertCanDeleteTaskRecord(root,deps("dan")), {code:"task_access_denied"});
+});
