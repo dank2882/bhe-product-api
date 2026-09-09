@@ -1861,3 +1861,26 @@ test("creator-delete policy honors creator aliases, excludes assignees and manag
   assert.throws(()=>assertCanDeleteTaskRecord({...task,visibility:"private"},deps("dan")), {code:"task_access_denied"});
   assert.throws(()=>assertCanDeleteTaskRecord(root,deps("dan")), {code:"task_access_denied"});
 });
+
+test("archive-only team members see archive attribution, restore peers' items, and never delete", async () => {
+  const root={projectId:"maintenance",name:"Maintenance",visibility:"branch",lifeArea:"church",ownerSub:"dan",createdBySub:"dan",version:1,collaborationPolicy:"editor_archive_owner_delete",branchMembers:[{subject:"andy",role:"editor"},{subject:"pastor",role:"editor"}]};
+  const deps=createDeps({projects:{maintenance:root},tasks:{repair:{taskId:"repair",title:"Repair",projectId:"maintenance",visibility:"branch",lifeArea:"church",createdBySub:"andy",ownerSub:"andy",version:1,status:"next"}}});
+  deps.taskAccess={role:"member",subject:"andy",name:"Andy Lee"};
+  const archived=await updateTask({taskId:"repair",expectedVersion:1,changes:{status:"dropped"}},deps);
+  assert.equal(archived.task.archivedByName,"Andy Lee");
+  assert.ok(archived.task.lastArchivedAt);
+  assert.equal((await listTasks({},deps)).count,0);
+  assert.equal((await listTasks({status:"dropped",detailLevel:"full"},deps)).tasks[0].archivedByName,"Andy Lee");
+  const {assertCanDeleteTaskRecord}=require('../lib/task-management-access');
+  assert.throws(()=>assertCanDeleteTaskRecord(archived.task,{...deps,projectGraph:new Map([["maintenance",root]])}),{code:"task_access_denied"});
+  deps.taskAccess={role:"manager",subject:"pastor",name:"Pastor Smith"};
+  const restored=await restoreTaskRecord({recordType:"task",recordId:"repair",expectedVersion:2},deps);
+  assert.equal(restored.task.status,"next");
+  assert.equal(restored.task.archivedByName,"Andy Lee");
+  await updateProject({projectId:"maintenance",expectedVersion:1,changes:{status:"archived"}},deps);
+  assert.equal((await listProjects({},deps)).count,0);
+  assert.equal((await listProjects({status:"archived"},deps)).projects[0].archivedByName,"Pastor Smith");
+  await assert.rejects(updateProject({projectId:"maintenance",expectedVersion:2,changes:{collaborationPolicy:"editor_archive_creator_delete"}},deps),{code:"project_sharing_denied"});
+  deps.taskAccess={role:"admin",subject:"dan"};
+  assert.equal((await restoreTaskRecord({recordType:"project",recordId:"maintenance",expectedVersion:2},deps)).project.status,"active");
+});
