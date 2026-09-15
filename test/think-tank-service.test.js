@@ -226,3 +226,15 @@ test("entry listing and weekly board expose explicit pagination and triage group
   assert.equal(board.countsByTopic.growth, 2);
   assert.equal(board.groups.inbox[0].ageDays, 7);
 });
+
+
+test('delegated Think Tank read and edit preserve the owner and identify the editor', async () => {
+  const deps = createDeps();
+  const { thought } = await captureThinkTankEntry({ exactText: 'Original owner text' }, deps);
+  const delegated = { ...deps, privateDelegationEnv: { DAN_PRIVATE_OWNER_SUBJECTS: 'auth0|dan', DAN_PRIVATE_DELEGATE_SUBJECTS: 'auth0|sarah' }, taskAccess: { subject: 'auth0|sarah', subjects: ['auth0|sarah'], name: 'Sarah', role: 'admin' } };
+  assert.equal((await getThinkTankEntry({ thoughtId: thought.thoughtId }, delegated)).thought.ownerSub, 'auth0|dan');
+  const result = await updateThinkTankEntry({ thoughtId: thought.thoughtId, expectedVersion: 1, changes: { status: 'incubating' } }, delegated);
+  assert.equal(result.thought.ownerSub, 'auth0|dan');
+  assert.equal(result.thought.updatedBySub, 'auth0|sarah');
+  await assert.rejects(() => getThinkTankEntry({ thoughtId: thought.thoughtId }, { ...delegated, privateDelegationEnv: {} }), { code: 'think_tank_owner_only' });
+});

@@ -297,3 +297,26 @@ test("Logos parser preserves abbreviated weekdays and flags unanchored multi-wee
   assert.equal(unanchored.prayers[0].schedule, null);
   assert.equal(unanchored.manualReview.length, 1);
 });
+
+
+test('delegated prayer read and edit retain encryption ownership and the true actor', async () => {
+  const { d, prayer } = await seed();
+  const delegated = { ...d, privateDelegationEnv: { DAN_PRIVATE_OWNER_SUBJECTS: 'entra|dan', DAN_PRIVATE_DELEGATE_SUBJECTS: 'entra|sarah' }, taskAccess: { subject: 'entra|sarah', subjects: ['entra|sarah'], name: 'Sarah', scopes: ['prayer.read', 'prayer.write'] } };
+  assert.equal((await getPrayer({ prayerId: prayer.id }, delegated)).prayer.ownerSub, 'entra|dan');
+  const updated = await updatePrayer({ prayerId: prayer.id, expectedVersion: 1, changes: { title: 'Updated by Sarah' } }, delegated);
+  assert.equal(updated.prayer.ownerSub, 'entra|dan');
+  const { assertPrayerAccess } = require('../lib/prayer-management-service');
+  assert.equal(assertPrayerAccess(delegated, 'prayer.write').actorSubject, 'entra|sarah');
+  assert.deepEqual(delegated.taskAccess.subjects, ['entra|sarah']);
+  await assert.rejects(() => getPrayer({ prayerId: prayer.id }, { ...delegated, privateDelegationEnv: {} }), { code: 'prayer_owner_only' });
+});
+
+test("delegated prayer commands audit the delegate separately from the owner", async () => {
+  const { d, prayer } = await seed();
+  const delegated = { ...d, privateDelegationEnv: { DAN_PRIVATE_OWNER_SUBJECTS: 'entra|dan', DAN_PRIVATE_DELEGATE_SUBJECTS: 'entra|sarah' }, taskAccess: { subject: 'entra|sarah', subjects: ['entra|sarah'], name: 'Sarah', scopes: ['prayer.read', 'prayer.write'] } };
+  await runIdempotentPrayerManagementOperation({ mode: 'command', operation: 'updatePrayer', arguments: { prayerId: prayer.id, expectedVersion: 1, changes: { title: 'Delegate edit' } }, idempotencyKey: 'delegation-audit-test' }, delegated);
+  const audit = [...d.prayerAuditEventsCollection.store.values()][0];
+  assert.equal(audit.ownerSub, 'entra|dan');
+  assert.equal(audit.actorSub, 'entra|sarah');
+  assert.equal([...d.prayerOperationExecutionsCollection.store.values()][0].actorSub, 'entra|sarah');
+});
