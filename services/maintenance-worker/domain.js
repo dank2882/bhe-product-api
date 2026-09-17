@@ -32,7 +32,7 @@ const GUIDE = Object.freeze({
   recurring: "Use createRoutine with Maintenance projectId; log each occurrence with recordMaintenanceRoutineCompletion."
 });
 
-function createDomain({ communicationsDb, taskDb, bucket, enqueue, send, mediaLoader }) {
+function createDomain({ communicationsDb, taskDb, bucket, enqueue, send, mediaLoader, isSendingAllowed = () => false }) {
   const messages = communicationsDb.collection("maintenanceMessages");
   const media = communicationsDb.collection("maintenanceMedia");
   const reporters = communicationsDb.collection("maintenanceReporters");
@@ -208,6 +208,7 @@ function createDomain({ communicationsDb, taskDb, bucket, enqueue, send, mediaLo
         const draft = doc.data();
         if (input.contentDigest !== draft.contentDigest) fail("Approved content differs from draft", 409);
         if (draft.status !== "draft") return { draftId: draft.draftId, status: draft.status, replayed: true };
+        if (!isSendingAllowed(draft.channel)) fail("Outbound channel is disabled", 503);
         if (draft.version !== input.expectedVersion) fail("Draft version changed", 409);
         tx.update(ref, { status: "approved", version: draft.version + 1, approvedBySub: actor.subject, approvedAt: now() });
         return { draftId: draft.draftId, status: "approved" };
@@ -221,6 +222,9 @@ function createDomain({ communicationsDb, taskDb, bucket, enqueue, send, mediaLo
     const ref = outbox.doc(id(draftId));
     const current = await ref.get(); if (!current.exists || current.data().status !== "approved") return;
     const draft = current.data();
+    // Check before claiming a send: disabling a channel must not create an
+    // ambiguous provider attempt or allow already-queued work to bypass it.
+    if (!isSendingAllowed(draft.channel)) fail("Outbound channel is disabled", 503);
     try {
       await manager({ subject: draft.approvedBySub });
       const known = await reporter(draft.channel, draft.recipient);

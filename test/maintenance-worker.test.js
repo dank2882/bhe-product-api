@@ -6,6 +6,29 @@ const sharp = require("../services/maintenance-worker/node_modules/sharp");
 const { createApp } = require("../services/maintenance-worker");
 const { createProviders, pollMailbox, boundedBody } = require("../services/maintenance-worker/providers");
 const { fakeFirestore } = require("./helpers/maintenance-firestore");
+const { configFromEnv } = require("../services/maintenance-worker");
+const { isSendingAllowed } = require("../services/maintenance-worker/sending-policy");
+
+test("email can be enabled independently; SMS and absent channel flags stay disabled", async () => {
+  const base = { MAINTENANCE_SENDING_ENABLED: "true" };
+  assert.equal(isSendingAllowed(configFromEnv(base), "email"), false);
+  const emailConfig = configFromEnv({ ...base, MAINTENANCE_EMAIL_SENDING_ENABLED: "true" });
+  assert.equal(isSendingAllowed(emailConfig, "email"), true);
+  assert.equal(isSendingAllowed(emailConfig, "sms"), false);
+  assert.equal(isSendingAllowed(emailConfig, "other"), false);
+  assert.equal(isSendingAllowed({ ...emailConfig, sendingEnabled: false }, "email"), false);
+  let requests = 0;
+  const providers = createProviders({ config: { ...emailConfig, mailbox: "maintenance@foundedonfaith.com", tenantId: "test", clientId: "test", clientSecret: "test-only" }, fetchImpl: async url => {
+    requests++;
+    if (String(url).includes("/token")) return Response.json({ access_token: "test-only", expires_in: 3600 });
+    assert.match(String(url), /maintenance%40foundedonfaith.com\/sendMail$/);
+    return new Response(null, { status: 202 });
+  } });
+  await assert.rejects(providers.send({ channel: "sms" }, []), { statusCode: 503 });
+  assert.equal(requests, 0);
+  assert.equal((await providers.send({ channel: "email", recipient: "test@example.com", subject: "Test", body: "Test", draftId: "test" }, [])).status, "accepted");
+  assert.equal(requests, 2);
+});
 
 const config = { url: "https://maintenance.example.run.app", twilioEnabled: true, twilioAccountSid: `AC${"1".repeat(32)}`, twilioAuthToken: "test-only-token", twilioNumber: "+12065550101", apiServiceAccount: "api@example.iam.gserviceaccount.com", queueServiceAccount: "queue@example.iam.gserviceaccount.com", schedulerServiceAccount: "scheduler@example.iam.gserviceaccount.com", sendingEnabled: false, mailbox: "maintenance@foundedonfaith.com" };
 async function server(t, domain = {}, verifyToken = async token => ({ email: token, email_verified: true })) {
