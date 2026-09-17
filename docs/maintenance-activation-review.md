@@ -1,6 +1,7 @@
 # Maintenance activation review — September 16, 2026
 
-Status: worker deployed with intake/sending disabled; API/MCP release and provider activation pending.
+Status: API, MCP and worker deployed; Twilio inbound connected. Outbound disabled.
+Microsoft credential and actual-user/message acceptance remain pending.
 
 Dan approved continuing at the quoted Twilio price and postponing nonprofit
 pricing. Dan then selected a 253 area code and completed the purchase himself.
@@ -114,3 +115,49 @@ starts at activation time unless Dan requests historical mail.
 7. Verify Shawna's actual staff session and turn on recurring intake.
 
 Reference runbook: [maintenance-launch.md](maintenance-launch.md).
+
+## Subsequent activation receipt — 2026-09-17 UTC
+
+- Merged API PR #1 at `16ca4082a16d313bcc9e2d3633a5d19276bf4f31` and
+  platform PR #4 at `8668ffa475295dfbd6b2f7153420181f04061ab5`.
+- Existing release helper reran all checks: **618 API tests, 171 platform tests**,
+  zero failures. Main API deployed as `bhe-product-api-00280-bz8`, then worker URL
+  configuration produced `bhe-product-api-00281-f44`; MCP revision
+  `fbc-staff-tools-mcp-entra-prod-00043-kkq`. Both serve 100 percent. Deployment
+  receipts were independently recorded/read back in Developer Tools.
+- Worker revision `fbc-maintenance-messaging-worker-00004-zfg` serves 100 percent.
+  Twilio intake is enabled; provider sending remains disabled. Internal
+  unauthenticated routes reject with 401; unsigned Twilio intake rejects with 403.
+- Existing Twilio auth token transferred directly into the approved Secret Manager
+  secret, version 1, without placing the value in chat/files/Git. Read-only Twilio
+  REST authentication succeeded and verified the 253 number's SMS/MMS capabilities.
+- Maintenance-only messaging service inbound URL was set to the worker's
+  `/twilio/inbound`, POST, `UseInboundWebhookOnNumber=false`, and independently
+  read back. Dedicated queue is RUNNING. No earlier inbound messages existed on
+  the 253 number at the preactivation inventory check.
+- A2P outbound registration remains pending. Twilio documents that inbound
+  traffic is not affected by unregistered outbound filtering:
+  https://help.twilio.com/articles/14910496447771-Shutdown-of-Unregistered-10DLC-Messaging-FAQ
+- Live authenticated API checks succeeded for access, the exact ten-column board,
+  routines and the worker inbox. Inbox success verifies API-to-worker OIDC and
+  worker reads of both named databases. It does not verify image decoding,
+  object storage or real SMS/MMS delivery. Board currently has the existing
+  back-door task only, routines zero; the full master has **not** been imported.
+- Shawna's active individual profile was resolved by exact email. As verified Dan,
+  `setMaintenanceAccess` appointed her manager with version 2 -> 3 and an
+  idempotency key. Independent `getMaintenanceAccess` confirmed the grant;
+  permanent deletion remains owner-only. Shawna's actual client session is untested.
+- This chat's connector schema still caches the pre-release operation enum and
+  rejects the new Maintenance query names. The live operation catalog advertises
+  all 17 operations; backend checks use the established authenticated backend
+  client with Dan's current profile. Fresh FBC connection discovery is still needed.
+- Microsoft secret container still has no versions. Entra's new-client-secret
+  dialog is prepared with description `FBC Maintenance Cloud Run`, default
+  recommended 180-day expiration. Google Secret Manager's matching new-version
+  dialog is prepared. Dan must create the Microsoft credential and paste its
+  **Value** directly into Secret Manager, not chat. New browser credentials require
+  user handoff. No Scheduler exists; mailbox polling remains inactive.
+
+Next: secure Microsoft credential; actual Graph scoped allow/deny test; actual
+text/photo ingestion and Shawna session; approved workers/consent and A2P campaign;
+reconciled master import. No real outgoing messages have been sent.
