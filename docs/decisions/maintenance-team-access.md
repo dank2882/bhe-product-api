@@ -34,3 +34,11 @@ Individual staff-client acceptance is a separate final gate. Rollback uses the
 previous Cloud Run revision; root/profile records are additive, preserved data.
 
 Archive behavior: ordinary collaborative project/task lists exclude archived/dropped records. Explicit status filters or includeArchived:true expose the authorized archive. archivedBySub, archivedByName and lastArchivedAt are written from the authenticated actor and retained across restoration. Historical blanks are not guessed.
+
+September 16, 2026 accepted extension: Dan authorized the Maintenance module
+with Shawna managing Maintenance access. The dedicated `setMaintenanceAccess`
+command permits an owner-appointed Maintenance manager to manage root branch
+viewer/editor memberships. Only Dan appoints/removes managers; ownership,
+permanent deletion, branch moves and global authorization stay unchanged. See
+[fbc-maintenance-module.md](fbc-maintenance-module.md) for the accepted design.
+Implementation/deployment status is tracked separately from this decision.
