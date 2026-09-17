@@ -47,8 +47,15 @@ until provider configuration and allow/deny tests pass.
 
 ## Microsoft and credentials
 
-Inspect existing Microsoft app registrations first. The required background
-application access is `Mail.Read` and `Mail.Send`, scoped in Exchange application
+Inspected the live tenant's 17 app registrations as Dan. No Maintenance mailbox
+application is listed. Existing FBC Staff Tools MCP Production currently has
+only delegated `User.Read` in its configured API permissions. Recommend keeping
+that working login identity separate from a new **FBC Maintenance Mail Worker**
+single-tenant app (no redirect URI), preserving isolation of mailbox credentials.
+The new registration form is prepared but **not submitted**. Its final action
+also accepts the Microsoft Platform Policies and needs action-time approval.
+
+The required background application access is `Mail.Read` and `Mail.Send`, scoped in Exchange application
 RBAC to **maintenance@foundedonfaith.com only**, with no additive tenant-wide
 mail permissions. A separate app, if needed, requires an explicit decision.
 The initial poll starts at activation time unless Dan requests historical mail.
@@ -63,7 +70,8 @@ user handoff. Verify mailbox allow and unrelated-mailbox deny before activation.
 1. Accept required number terms, purchase once, and independently read back.
 2. Review exact Maintenance campaign registration charge and content, then
    register; provider approval may not be immediate.
-3. Approve/provision scoped runtime access and provider secret storage.
+3. Approve/provision scoped runtime access and provider secret storage; approve
+   the dedicated Microsoft app and its Platform Policies before registration.
 4. Deploy from reconciled, tested release code using the existing release
    process; preserve current live revisions for rollback.
 5. Configure provider routes and approve actual workers/opt-in.
