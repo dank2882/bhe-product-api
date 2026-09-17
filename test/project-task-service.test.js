@@ -1620,6 +1620,26 @@ test("records work-on time, assignment provenance, and Outlook synchronization m
   assert.equal(reassigned.task.assignedBySub, "google-oauth2|dan");
 });
 
+test("explicitly unassigned imports stay unassigned through creation and readback", async () => {
+  const deps = createDeps();
+  deps.taskAccess = { role: "admin", subject: "entra|dan", name: "Dan", email: "dan@example.com" };
+  const created = await createTask({ title: "Repair fixture", assignedTo: "", assignedToSub: "", assignedToEmail: "" }, deps);
+  const read = await getTask({ taskId: created.task.taskId }, deps);
+  for (const task of [created.task, read.task]) {
+    assert.equal(task.assignedTo, "");
+    assert.equal(task.assignedToSub, "");
+    assert.equal(task.assignedToEmail, "");
+    assert.equal(task.assignmentStatus, "unassigned");
+    assert.equal(task.assignmentRespondedAt, "");
+  }
+  const named = await createTask({ title: "Inspect fixture", assignedTo: "Steve M. asked", assignedToSub: "", assignedToEmail: "" }, deps);
+  assert.equal(named.task.assignmentStatus, "proposed");
+  assert.equal(named.task.assignedToSub, "");
+  const self = await createTask({ title: "My normal task" }, deps);
+  assert.equal(self.task.assignedToSub, "entra|dan");
+  assert.equal(self.task.assignmentStatus, "accepted");
+});
+
 test("manager edits require the current record version", async () => {
   const deps = createDeps({
     tasks: {
