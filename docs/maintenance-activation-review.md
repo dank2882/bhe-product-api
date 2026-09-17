@@ -1,6 +1,6 @@
 # Maintenance activation review — September 16, 2026
 
-Status: implementation built; provider activation and production deployment pending.
+Status: worker deployed with intake/sending disabled; API/MCP release and provider activation pending.
 
 Dan approved continuing at the quoted Twilio price and postponing nonprofit
 pricing. Dan then selected a 253 area code and completed the purchase himself.
@@ -26,13 +26,16 @@ church/prayer number +1 360 972 3296 and its service are unchanged.
 - Platform branch reconciled with GitHub main `6539548`; 171 tests pass and
   `npm run check` passes after reconciliation.
 - Existing live API remains `bhe-product-api-00279-cpw`; existing FBC MCP
-  remains `fbc-staff-tools-mcp-entra-prod-00042-96q`. No deployment performed.
-- Developer Tools connector currently requires OAuth reauthorization. This
-  file is Git evidence; no registry update has been claimed.
+  remains `fbc-staff-tools-mcp-entra-prod-00042-96q`. These two services have not yet been released.
+- Developer Tools connector requires OAuth reauthorization. The established release
+  helper can access the registry using the independently verified Dan individual
+  subject and existing service credential in memory.
 
-## Access changes to approve before provisioning
+## Approved and provisioned access
 
-Project: `location-map-985`; region: `us-west1`.
+Project: `location-map-985`; region: `us-west1`. Dan explicitly approved these
+grants, the dedicated Microsoft app and its registration terms. Applied grants
+were independently read back. See `scripts/provision-maintenance-cloud.py`.
 
 | Principal | Target | Access and purpose |
 | --- | --- | --- |
@@ -57,31 +60,52 @@ until provider configuration and allow/deny tests pass.
 
 ## Microsoft and credentials
 
-Inspected the live tenant's 17 app registrations as Dan. No Maintenance mailbox
-application is listed. Existing FBC Staff Tools MCP Production currently has
-only delegated `User.Read` in its configured API permissions. Recommend keeping
-that working login identity separate from a new **FBC Maintenance Mail Worker**
-single-tenant app (no redirect URI), preserving isolation of mailbox credentials.
-The new registration form is prepared but **not submitted**. Its final action
-also accepts the Microsoft Platform Policies and needs action-time approval.
+The reuse review found no existing Maintenance mailbox application; the working
+FBC Staff Tools login app remains unchanged. Created **FBC Maintenance Mail Worker**,
+single tenant, no redirects:
 
-The required background application access is `Mail.Read` and `Mail.Send`, scoped in Exchange application
-RBAC to **maintenance@foundedonfaith.com only**, with no additive tenant-wide
-mail permissions. A separate app, if needed, requires an explicit decision.
-The initial poll starts at activation time unless Dan requests historical mail.
+- Application ID: `97aca4e1-1d64-4b8c-8fd1-ba5737e9f120`.
+- App registration object ID: `ac62cd98-b826-4150-b8e4-015bccd00acb`.
+- Enterprise service principal ID: `8594f3a9-2d9d-49c4-9033-b514d34f74fa`.
+- Tenant ID: `8645ddd9-9cc8-4b1b-9d95-1eddf5df7492`.
 
-Twilio authentication and Microsoft app credentials belong in Google Secret
-Manager. No provider secrets exist in this project yet. Never place values in
-Git, chat, logs, or shell arguments. Browser credential-creation steps require
-user handoff. Verify mailbox allow and unrelated-mailbox deny before activation.
+`configure-maintenance-mail.ps1` provisioned Exchange application roles
+`Application Mail.Read` and `Application Mail.Send` under **FBC Maintenance
+Mailbox Only** (`PrimarySmtpAddress -eq 'maintenance@foundedonfaith.com'`).
+The recipient filter resolved to exactly one mailbox. At
+`2026-09-17T05:32:25.3818490Z`, Test-ServicePrincipalAuthorization returned both
+roles in scope for Maintenance and both out of scope for Dan's mailbox.
+The app's Entra API permissions page independently showed only delegated User.Read;
+no additive application/tenant-wide mail grants. Actual Graph allow/deny acceptance
+still requires the new client credential and permission propagation.
+
+Secret Manager containers `fbc-maintenance-twilio-auth-token` and
+`fbc-maintenance-microsoft-client-secret` now exist with worker-only accessor grants,
+but have no secret versions yet. Never place values in Git, chat, logs or shell
+arguments. Browser credential creation requires user handoff. Initial polling
+starts at activation time unless Dan requests historical mail.
+
+## Disabled worker deployment
+
+- Revision: `fbc-maintenance-messaging-worker-00002-fwk`, serving 100 percent.
+- URL: `https://fbc-maintenance-messaging-worker-265001256563.us-west1.run.app`.
+- Runtime: dedicated worker identity, max 2 instances, concurrency 10, 512 MiB.
+- `/health`: HTTP 200, `sendingEnabled:false`.
+- Unauthenticated POSTs to `/internal/operation`, `/internal/work`, `/internal/poll`:
+  HTTP 401 each.
+- Dedicated task queue created and paused; no Scheduler job yet.
+- Photo bucket has uniform access and public access prevention enforced.
+- Twilio intake and provider sending remain disabled. No test message was sent.
+- IAM bindings were read back; live runtime database/media allow/deny acceptance
+  remains separate and pending.
 
 ## Remaining activation gates
 
 1. Number purchase and independent inventory read-back: complete, +1 253 319 3260.
 2. Review exact Maintenance campaign registration charge and content, then
    register; provider approval may not be immediate.
-3. Approve/provision scoped runtime access and provider secret storage; approve
-   the dedicated Microsoft app and its Platform Policies before registration.
+3. Scoped runtime access, secret containers, and Microsoft registration: complete.
+   Populate credentials securely and verify actual Graph allow/deny behavior.
 4. Deploy from reconciled, tested release code using the existing release
    process; preserve current live revisions for rollback.
 5. Configure provider routes and approve actual workers/opt-in.

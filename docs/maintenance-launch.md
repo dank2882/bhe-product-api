@@ -8,8 +8,8 @@ This is an implementation runbook, not evidence of deployment.
 | --- | --- |
 | Existing product API | `MAINTENANCE_WORKER_URL` points to worker's HTTPS Cloud Run origin |
 | Worker | `fbc-maintenance-messaging-worker`, `location-map-985`, `us-west1` |
-| Runtime identity | Proposed `fbc-maintenance-worker@location-map-985.iam.gserviceaccount.com` |
-| Job caller identity | Proposed `fbc-maintenance-jobs@location-map-985.iam.gserviceaccount.com` |
+| Runtime identity | `fbc-maintenance-worker@location-map-985.iam.gserviceaccount.com` |
+| Job caller identity | `fbc-maintenance-jobs@location-map-985.iam.gserviceaccount.com` |
 | API caller | Existing `gpt-firestore-api@location-map-985.iam.gserviceaccount.com`; verify live before binding |
 | Queue | Dedicated `fbc-maintenance-messaging`, rate/concurrency limits; authenticated OIDC jobs |
 | Scheduler | Dedicated poll every five minutes; OIDC POST `/internal/poll` |
@@ -108,3 +108,8 @@ that the account was suspended for lack of funds. Billing was opened for Dan;
 no recharge, purchase, registration, webhook change or live send was performed.
 Verify the live billing state again before activation. This observation is not
 proof of the delivery state of any earlier church messages.
+
+Subsequent activation work resolved funding; Dan purchased +1 253 319 3260.
+See [maintenance-activation-review.md](maintenance-activation-review.md) for the
+current service, cloud deployment and mailbox-scope receipts. The suspension
+observation above is historical.
