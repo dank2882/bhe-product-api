@@ -2608,8 +2608,11 @@ function getMinistryPlanningDependencies(overrides = {}) {
   };
 }
 
+const maintenanceMessagingRequest = require("./lib/maintenance-messaging-client").createMaintenanceMessagingClient(process.env.MAINTENANCE_WORKER_URL);
+
 function getProjectTaskDependencies(overrides = {}) {
   return {
+    maintenanceMessagingRequest,
     projectsCollection,
     tasksCollection,
     taskNotesCollection,
