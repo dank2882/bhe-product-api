@@ -14,5 +14,7 @@ jobs:
       - run: npm ci
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
+      - name: Install Maintenance worker dependencies
+        run: npm ci --prefix services/maintenance-worker
       - run: npm run check --if-present
       - run: npm test
