@@ -1,7 +1,7 @@
 # Maintenance activation review — September 16, 2026
 
 Status: API, MCP and worker deployed; Twilio inbound connected. Outbound disabled.
-Microsoft credential and actual-user/message acceptance remain pending.
+Microsoft credential is connected; actual-user/message acceptance remains pending.
 
 Dan approved continuing at the quoted Twilio price and postponing nonprofit
 pricing. Dan then selected a 253 area code and completed the purchase himself.
@@ -161,3 +161,35 @@ Reference runbook: [maintenance-launch.md](maintenance-launch.md).
 Next: secure Microsoft credential; actual Graph scoped allow/deny test; actual
 text/photo ingestion and Shawna session; approved workers/consent and A2P campaign;
 reconciled master import. No real outgoing messages have been sent.
+
+## Microsoft connection receipt — September 17, 2026
+
+Dan created the client secret in Entra. The one-time visible Value was transferred
+directly to `fbc-maintenance-microsoft-client-secret` version 1, and its enabled
+state was independently verified. No credential value was printed or stored in Git,
+chat, logs, or local files. Token authentication returned HTTP 200. Actual Graph
+message-read probes returned HTTP 200 for `maintenance@foundedonfaith.com` and
+HTTP 403 `ErrorAccessDenied` for `dank@foundedonfaith.com`. These are live read
+allow/deny checks; no email was sent as a test.
+
+Worker revision `fbc-maintenance-messaging-worker-00005-4q2` serves 100 percent
+with the Microsoft secret reference bound. Mail ingestion begins at
+`2026-09-17T16:09:01Z`, Inbox only; no historical-mail import. Twilio intake remains
+enabled and all provider sending remains disabled.
+
+Created `fbc-maintenance-mail-poll`, us-west1, every five minutes, using the
+existing dedicated jobs identity and OIDC audience equal to the worker origin.
+No automatic retry is configured; the next scheduled poll resumes from its
+persisted cursor. Two initial worker poll requests returned HTTP 200. Scheduler's last attempt
+at `2026-09-17T16:11:43.628474Z` succeeded; the persisted Inbox cursor was
+independently read back with checkedAt `2026-09-17T16:11:44.369Z` and its lease
+released. This verifies Scheduler OIDC, worker credential access, Graph polling
+and durable cursor updates, without asserting a real test email was received.
+The Google-managed Scheduler service agent role was read back. Google documents
+that the first job in a project may need a few minutes for initial setup:
+https://docs.cloud.google.com/scheduler/docs/schedule-run-cron-job
+
+The Entra creation dialog used its default recommended 180-day expiration;
+credential rotation must be completed before expiry. Actual phone text/photo,
+mail attachment, worker approval/opt-in, Shawna session and outgoing-delivery
+acceptance remain pending, together with A2P registration and full-list import.
