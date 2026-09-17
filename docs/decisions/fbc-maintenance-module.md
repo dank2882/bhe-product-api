@@ -27,6 +27,25 @@ than silently converting source assertions into confirmed work.
 Recurring duties use the existing routines collection with inherited project
 access and append-only occurrence receipts. Completion does not end the duty.
 
+### Working table in chat (accepted September 17, 2026)
+
+Dan specified: "I don't want to spreadsheet to download but a table we can
+operate off of in chat." Extend the existing board queries with a backend-rendered
+Markdown table, preserving the ten columns. Default to readable pages grouped
+in B Building, A Building, other scopes and unconfirmed locations order. Include
+matching/authorized totals, building counts, stable record references and filters.
+This is a retrieved view, not an automatically refreshing or cell-editable widget.
+Changes are requested conversationally through existing authenticated, versioned
+commands, read back, and reflected in refreshed rows. Do not create a spreadsheet
+unless explicitly requested.
+
+Compact Notes are labeled excerpts; original notes and source history remain
+unchanged in Task Management. `detailLevel: full` retrieves complete notes.
+Routine tables include cadence and last-completion metadata, while completion
+still records an occurrence rather than ending the duty. Pagination is bound to
+the authorized result and query; a changed result requires restarting the view.
+These changes introduce no service, database, OAuth application or write endpoint.
+
 Shawna can manage work, approved reporters, messages and Maintenance membership.
 Only Dan, the root owner, appoints/removes Maintenance managers and permanently
 deletes work. Editors archive/restore and retain attribution. Reporter approval

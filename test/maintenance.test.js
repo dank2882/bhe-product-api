@@ -29,6 +29,63 @@ test("maintenance fields survive normal CRUD and the exact table projection; unk
   await assert.rejects(createTask({ title: "Other", maintenance: { building: "A" } }, f.deps), /Maintenance/);
   await assert.rejects(updateTask({ taskId: "repair", expectedVersion: 2, changes: { maintenance: { cost: { actual: -1 } } } }, f.deps), /nonnegative/);
 });
+test("chat board groups and filters the complete authorized set before paging, with stable references", async () => {
+  const f = await fixture();
+  for (let i = 0; i < 27; i++) await createTask({ taskId: `job-${i}`, projectId: ROOT_ID, title: `Repair ${String(i).padStart(2, "0")}`, assignedTo: "", maintenance: { building: i < 25 ? "B Building" : "A Building", area: "Hallway" } }, f.deps);
+  await f.db.collection("tasks").doc("unrelated").set({ title: "Not Maintenance", visibility: "staff", status: "next", projectId: "other" });
+  const first = await maintenance.listMaintenanceBoard({}, f.deps);
+  assert.equal(first.count, 20); assert.equal(first.totalCount, 27); assert.equal(first.complete, false);
+  assert.deepEqual(first.summary.byBuilding, { "B Building": 25, "A Building": 2 });
+  assert.ok(first.rows.every(row => row.building === "B Building"));
+  const second = await maintenance.listMaintenanceBoard({ cursor: first.nextCursor }, f.deps);
+  assert.equal(second.count, 7); assert.equal(second.hasMore, false); assert.equal(second.complete, false);
+  assert.equal(new Set([...first.rows, ...second.rows].map(row => row.taskId)).size, 27);
+  const selected = await maintenance.listMaintenanceBoard({ building: "a", unassigned: true }, f.deps);
+  assert.equal(selected.count, 2); assert.equal(selected.authorizedTotalCount, 27); assert.equal(selected.complete, true);
+  const found = await maintenance.listMaintenanceBoard({ reference: second.rows.at(-1).reference }, f.deps);
+  assert.equal(found.rows[0].taskId, second.rows.at(-1).taskId);
+  await assert.rejects(maintenance.listMaintenanceBoard({ building: "A", cursor: first.nextCursor }, f.deps), { statusCode: 409 });
+  await updateTask({ taskId: "job-0", expectedVersion: 1, changes: { title: "Changed" } }, f.deps);
+  await assert.rejects(maintenance.listMaintenanceBoard({ cursor: first.nextCursor }, f.deps), { statusCode: 409 });
+  await assert.rejects(maintenance.listMaintenanceBoard({}, { ...f.deps, taskAccess: { subject: "outsider", role: "admin" } }), { statusCode: 403 });
+});
+test("chat table retains source notes, escapes Markdown and presents proposed assignees and unknown costs honestly", async () => {
+  const f = await fixture();
+  const notes = "Source notes | <unsafe> [link](https://example.com)\n" + "original history ".repeat(100).trimEnd();
+  await createTask({ taskId: "source", projectId: ROOT_ID, title: "Door | <test>\nrepair", assignedTo: "Volunteer", assignedToSub: "", notes, maintenance: { building: "B Building", area: "Hall | <one>", cost: { estimate: 0 } } }, f.deps);
+  const compact = await maintenance.listMaintenanceBoard({}, f.deps);
+  assert.ok(compact.rows[0].notesTruncated); assert.ok(compact.rows[0].columns.Notes.length < 250);
+  assert.match(compact.markdown, /Volunteer \(proposed\)/);
+  assert.match(compact.markdown, /Estimate: USD 0; actual: unknown/);
+  assert.match(compact.markdown, /&#124;/); assert.match(compact.markdown, /&lt;test&gt;/);
+  assert.ok(!compact.markdown.includes("<unsafe>")); assert.ok(!compact.markdown.includes("[link](https://example.com)"));
+  const full = await maintenance.listMaintenanceBoard({ reference: compact.rows[0].reference, detailLevel: "full" }, f.deps);
+  assert.equal(full.rows[0].columns.Notes, notes); assert.equal(full.rows[0].notesTruncated, false);
+  assert.equal((await f.db.collection("tasks").doc("source").get()).data().notes, notes);
+  assert.equal((await f.db.collection("tasks").doc("source").get()).data().version, 1);
+  await assert.rejects(maintenance.listMaintenanceBoard({ limit: 1000 }, f.deps), { statusCode: 400 });
+});
+test("a referenced table task updates through existing versioned commands and reads back without changing source notes", async () => {
+  const f = await fixture();
+  await createTask({ taskId: "door", projectId: ROOT_ID, title: "Repair door", notes: "Original evidence", maintenance: { building: "B Building", workflowStatus: "In Progress" } }, f.deps);
+  const row = (await maintenance.listMaintenanceBoard({}, f.deps)).rows[0];
+  const fresh = (await require("../lib/project-task-service").getTask({ taskId: row.taskId }, f.deps)).task;
+  await updateTask({ taskId: row.taskId, expectedVersion: fresh.version, changes: { status: "done" } }, f.deps);
+  const saved = (await maintenance.listMaintenanceBoard({ reference: row.reference }, f.deps)).rows[0];
+  assert.equal(saved.columns.Status, "Completed"); assert.equal(saved.version, fresh.version + 1); assert.equal(saved.columns.Notes, "Original evidence");
+  await assert.rejects(updateTask({ taskId: row.taskId, expectedVersion: fresh.version, changes: { status: "waiting" } }, f.deps), { statusCode: 409 });
+});
+test("recurring duty table preserves cadence and source details and remains active after occurrence completion", async () => {
+  const f = await fixture();
+  await createRoutine({ routineId: "doors", projectId: ROOT_ID, title: "Check doors", recurrence: "daily", recurrenceNotes: "Each school day", notes: "Long source ".repeat(100), maintenance: { building: "B Building" } }, f.deps);
+  const board = await maintenance.listMaintenanceRoutines({}, f.deps);
+  assert.equal(board.rows[0].recurrence, "daily"); assert.ok(board.rows[0].notesTruncated);
+  const full = await maintenance.listMaintenanceRoutines({ reference: board.rows[0].reference, detailLevel: "full" }, f.deps);
+  assert.equal(full.routines[0].notes, "Long source ".repeat(100).trimEnd());
+  await maintenance.recordMaintenanceRoutineCompletion({ routineId: "doors", occurrenceKey: "2026-09-17", expectedVersion: full.rows[0].version }, f.deps);
+  const saved = await maintenance.listMaintenanceRoutines({ reference: board.rows[0].reference }, f.deps);
+  assert.equal(saved.rows[0].columns.Status, "active"); assert.ok(saved.rows[0].lastCompletedAt);
+});
 test("scoped managers grant membership but cannot appoint managers, alter owner or delete work", async () => {
   const f = await fixture();
   await maintenance.setMaintenanceAccess({ kind: "member", subject: "new", role: "editor", expectedVersion: 2 }, f.deps);
