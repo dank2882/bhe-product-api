@@ -3,10 +3,20 @@
 Status: implementation built; provider activation and production deployment pending.
 
 Dan approved continuing at the quoted Twilio price and postponing nonprofit
-pricing. The dedicated number selected is +1 360 858 8149, quoted at $0.8625
-immediately and monthly, plus usage. It has **not been purchased**: checkout
-requires acceptance of Twilio's Emergency Calling Terms. An action-time
-confirmation is pending. Existing church/prayer routing is unchanged.
+pricing. Dan then selected a 253 area code and completed the purchase himself.
+Independently verified **+1 253 319 3260** in Twilio's Active Numbers inventory;
+phone number SID `PN5ad79d225b3ddb342ffd94b5001e58c0`. Checkout quoted $0.8625
+immediately and monthly, plus usage. The earlier 360 candidate was not purchased.
+Created and independently read back **FBC Maintenance**, Messaging Service SID
+`MG78fdba38f69ceae19120dcd49a7b1305`, Discussion use case, with only the 253
+number assigned. During setup, inbound handling was set to **Receive the
+message**: retain messages in Twilio API/logs without invoking the demo webhook.
+No backend webhook is active and no A2P campaign is connected. Purchase and
+service assignment are verified; Maintenance backend integration is not active.
+Advanced Opt-Out was enabled and independently read back as Enabled, retaining
+Twilio's standard STOP/START/HELP keywords and responses. No live message was sent.
+Existing
+church/prayer number +1 360 972 3296 and its service are unchanged.
 
 ## Prepared build
 
@@ -67,7 +77,7 @@ user handoff. Verify mailbox allow and unrelated-mailbox deny before activation.
 
 ## Remaining activation gates
 
-1. Accept required number terms, purchase once, and independently read back.
+1. Number purchase and independent inventory read-back: complete, +1 253 319 3260.
 2. Review exact Maintenance campaign registration charge and content, then
    register; provider approval may not be immediate.
 3. Approve/provision scoped runtime access and provider secret storage; approve
