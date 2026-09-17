@@ -9,6 +9,7 @@ const { randomUUID } = require("node:crypto");
 const { createDomain } = require("./domain");
 const { createProviders, pollMailbox } = require("./providers");
 const { fail } = require("../../lib/maintenance-fields");
+const { isSendingAllowed } = require("./sending-policy");
 
 function configFromEnv(env = process.env) {
   return {
@@ -18,6 +19,7 @@ function configFromEnv(env = process.env) {
     url: env.MAINTENANCE_WORKER_URL || "", apiServiceAccount: env.MAINTENANCE_API_SERVICE_ACCOUNT || "",
     queueServiceAccount: env.MAINTENANCE_QUEUE_SERVICE_ACCOUNT || "", schedulerServiceAccount: env.MAINTENANCE_SCHEDULER_SERVICE_ACCOUNT || "",
     queue: env.MAINTENANCE_QUEUE || "fbc-maintenance-messaging", sendingEnabled: env.MAINTENANCE_SENDING_ENABLED === "true",
+    emailSendingEnabled: env.MAINTENANCE_EMAIL_SENDING_ENABLED === "true", smsSendingEnabled: env.MAINTENANCE_SMS_SENDING_ENABLED === "true",
     twilioEnabled: env.MAINTENANCE_TWILIO_ENABLED === "true", twilioAccountSid: env.TWILIO_ACCOUNT_SID || "",
     twilioAuthToken: env.TWILIO_AUTH_TOKEN || "", twilioNumber: env.TWILIO_MAINTENANCE_NUMBER || "",
     twilioMessagingServiceSid: env.TWILIO_MAINTENANCE_MESSAGING_SERVICE_SID || "",
@@ -28,7 +30,7 @@ function configFromEnv(env = process.env) {
 function createApp({ config, domain, poll, verifyToken }) {
   const app = express();
   app.disable("x-powered-by");
-  app.get("/health", (req, res) => res.json({ ok: true, component: "fbc-maintenance-messaging-worker", sendingEnabled: config.sendingEnabled }));
+  app.get("/health", (req, res) => res.json({ ok: true, component: "fbc-maintenance-messaging-worker", sendingEnabled: config.sendingEnabled, emailSendingEnabled: isSendingAllowed(config, "email"), smsSendingEnabled: isSendingAllowed(config, "sms") }));
   app.post("/twilio/inbound", express.urlencoded({ extended: false, limit: "256kb" }), async (req, res, next) => {
     try {
       if (!config.twilioEnabled || !config.twilioAuthToken || !config.url || !config.twilioNumber) return res.sendStatus(503);
@@ -107,7 +109,7 @@ function runtime(config) {
       await client.request({ url: `https://cloudtasks.googleapis.com/v2/${parent}/tasks`, method: "POST", data: { task: { name: `${parent}/tasks/${taskId}`, httpRequest: { httpMethod: "POST", url: `${config.url}/internal/work`, headers: { "Content-Type": "application/json" }, body: Buffer.from(JSON.stringify({ kind, id: recordId })).toString("base64"), oidcToken: { serviceAccountEmail: config.queueServiceAccount, audience: config.url } } } } });
     } catch (error) { if (error.response?.status !== 409) throw error; }
   }
-  const domain = createDomain({ communicationsDb, taskDb, bucket, enqueue, send: providers.send, mediaLoader: providers.mediaLoader });
+  const domain = createDomain({ communicationsDb, taskDb, bucket, enqueue, send: providers.send, mediaLoader: providers.mediaLoader, isSendingAllowed: channel => isSendingAllowed(config, channel) });
   return createApp({ config, domain, poll: () => pollMailbox({ db: communicationsDb, providers, domain, config }), verifyToken: async (token, audience) => (await verifier.verifyIdToken({ idToken: token, audience })).getPayload() });
 }
 if (require.main === module) runtime(configFromEnv()).listen(Number(process.env.PORT || 8080));

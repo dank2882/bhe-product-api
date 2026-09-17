@@ -2,11 +2,13 @@
 
 const sharp = require("sharp");
 const { fail } = require("../../lib/maintenance-fields");
+const { isSendingAllowed } = require("./sending-policy");
 const MAX_MEDIA = 20 * 1024 * 1024;
 
 async function boundedBody(response, maxBytes) {
   if (!response.ok) throw Object.assign(new Error("Provider request failed"), { code: "provider_http_error", statusCode: response.status });
   if (Number(response.headers.get("content-length")) > maxBytes) fail("Provider response exceeds size limit", 413);
+  if (!response.body) return Buffer.alloc(0);
   const chunks = []; let size = 0;
   for await (const chunk of response.body) { size += chunk.length; if (size > maxBytes) { await response.body.cancel?.().catch(() => {}); fail("Provider response exceeds size limit", 413); } chunks.push(Buffer.from(chunk)); }
   return Buffer.concat(chunks);
@@ -65,7 +67,7 @@ function createProviders({ config, bucket, twilioClient, fetchImpl = fetch }) {
     } catch { throw Object.assign(new Error("Unsupported or invalid image"), { code: "unsupported_media" }); }
   }
   async function send(draft, photos) {
-    if (config.sendingEnabled !== true) fail("Outbound messaging is disabled", 503);
+    if (!isSendingAllowed(config, draft.channel)) fail("Outbound channel is disabled", 503);
     if (draft.channel === "sms") {
       if (!config.twilioNumber || !config.twilioMessagingServiceSid || !twilioClient) fail("Twilio sending is not configured", 503);
       const mediaUrl = [];

@@ -16,7 +16,7 @@ async function fixture(subject = "shawna") {
   for (const name of ["projects", "tasks", "routines", "taskAttachments", "taskNotes", "taskNotifications", "taskManagementAuditEvents"]) deps[`${name}Collection`] = db.collection(name);
   const calls = [], sent = [], objects = new Map();
   const bucket = { file: path => ({ save: async buffer => { if (objects.has(path)) throw Object.assign(new Error("exists"), { code: 412 }); objects.set(path, buffer); }, getSignedUrl: async () => [`https://storage.test/${path}`] }) };
-  const domain = createDomain({ taskDb: db, communicationsDb, bucket, enqueue: async (...args) => calls.push(args), send: async draft => { sent.push(draft); return { providerId: "SM1" }; }, mediaLoader: async () => ({ buffer: Buffer.from("image") }) });
+  const domain = createDomain({ isSendingAllowed: () => true, taskDb: db, communicationsDb, bucket, enqueue: async (...args) => calls.push(args), send: async draft => { sent.push(draft); return { providerId: "SM1" }; }, mediaLoader: async () => ({ buffer: Buffer.from("image") }) });
   return { db, communicationsDb, deps, calls, sent, objects, domain, root };
 }
 test("maintenance fields survive normal CRUD and the exact table projection; unknown cost stays null", async () => {
@@ -57,6 +57,23 @@ const inbound = { provider: "twilio", providerId: "SMexample", channel: "sms", s
 async function approvedReporter(f) {
   return f.domain.invoke({ action: "setReporter", actor, expectedVersion: 0, changes: { channel: "sms", address: inbound.sender, name: "Worker", approved: true, consentNote: "Requested maintenance texts in writing" } });
 }
+test("channel gate blocks approval and queued sends before any send attempt", async () => {
+  const f = await fixture(); await approvedReporter(f);
+  let allowed = false, attempts = 0;
+  const domain = createDomain({ taskDb: f.db, communicationsDb: f.communicationsDb, enqueue: async () => {}, send: async () => { attempts++; return {}; }, isSendingAllowed: () => allowed });
+  const draft = await domain.invoke({ action: "draftMessage", actor, channel: "sms", recipient: inbound.sender, body: "Channel test", requestKey: "channel-test" });
+  const approval = { action: "approveMessage", actor, draftId: draft.draftId, expectedVersion: 1, contentDigest: draft.contentDigest };
+  await assert.rejects(domain.invoke(approval), { statusCode: 503 });
+  assert.equal((await domain.invoke({ action: "getOutbox", actor, draftId: draft.draftId })).status, "draft");
+  const unconfigured = createDomain({ taskDb: f.db, communicationsDb: f.communicationsDb });
+  await assert.rejects(unconfigured.invoke(approval), { statusCode: 503 });
+  allowed = true; await domain.invoke(approval); allowed = false;
+  await assert.rejects(domain.dispatch(draft.draftId), { statusCode: 503 });
+  const blocked = await domain.invoke({ action: "getOutbox", actor, draftId: draft.draftId });
+  assert.equal(blocked.status, "approved"); assert.equal(blocked.attemptedAt, undefined); assert.equal(attempts, 0);
+  allowed = true; await domain.dispatch(draft.draftId); await domain.dispatch(draft.draftId);
+  assert.equal(attempts, 1);
+});
 test("duplicate inbound deliveries preserve one original; unknown senders quarantine and never complete work", async () => {
   const f = await fixture();
   const results = await Promise.all([f.domain.ingest(inbound), f.domain.ingest(inbound)]);
@@ -83,7 +100,7 @@ test("outbox approval binds immutable content; concurrency sends once; revoked c
 });
 test("ambiguous provider send is never retried, even during queue recovery", async () => {
   const f = await fixture(); await approvedReporter(f); let attempts = 0;
-  const domain = createDomain({ taskDb: f.db, communicationsDb: f.communicationsDb, enqueue: async () => {}, send: async () => { attempts++; throw new Error("timeout after acceptance"); } });
+  const domain = createDomain({ isSendingAllowed: () => true, taskDb: f.db, communicationsDb: f.communicationsDb, enqueue: async () => {}, send: async () => { attempts++; throw new Error("timeout after acceptance"); } });
   const draft = await domain.invoke({ action: "draftMessage", actor, channel: "sms", recipient: inbound.sender, body: "Test", requestKey: "request1" });
   await domain.invoke({ action: "approveMessage", actor, draftId: draft.draftId, expectedVersion: 1, contentDigest: draft.contentDigest });
   await domain.dispatch(draft.draftId); await domain.recover(); await domain.dispatch(draft.draftId);

@@ -28,6 +28,12 @@ verifies OIDC issuer/audience/email. Do not rely on the caller-supplied actor al
 ## Configuration
 
 Copy nonsecret settings from `services/maintenance-worker/env.example.yaml`.
+Outbound requires the master `MAINTENANCE_SENDING_ENABLED` switch and the
+applicable `MAINTENANCE_EMAIL_SENDING_ENABLED` or `MAINTENANCE_SMS_SENDING_ENABLED`
+switch. Missing channel switches deny sending. Check both approval and dispatch
+so queued work cannot bypass a disabled channel. Email acceptance can proceed
+while SMS remains disabled pending A2P registration. These switches never replace
+recipient opt-in or explicit approval of each immutable draft.
 Secret Manager references must supply `TWILIO_AUTH_TOKEN` and
 `MICROSOFT_CLIENT_SECRET`; never put values in Git, commands captured in chat,
 registry records or logs. Inspect/reuse the appropriate Microsoft application;
