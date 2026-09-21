@@ -1,0 +1,50 @@
+{
+  "runId": "notebooks-acceptance-48f1aed7-0bde-402b-8e82-5dd2f2d9730b",
+  "base": "https://bhe-product-api-mwhc25pkra-uw.a.run.app",
+  "startedAt": "2026-09-21T14:42:00.506Z",
+  "checks": [
+    "saved and independently retrieved exact source text",
+    "idempotent capture replay",
+    "Firestore lexical search in nested branch",
+    "indexed browsing and note listing",
+    "Cloud Tasks delivered real Vertex embedding job",
+    "Firestore vector search with real Vertex query embedding",
+    "revision history preserves original wording",
+    "restoration creates new revision",
+    "configured delegate edits preserve owner and attribute actor",
+    "unlisted administrator denied across reads, history, jobs and search",
+    "stale writes rejected",
+    "verification branch archived and excluded from normal search"
+  ],
+  "recordIds": {
+    "notebookId": "book-126cce8b7c6b50fe5445a6f977e0d79a",
+    "noteId": "note-2a92bafc4263d2649b9bedfb01cdbd0a"
+  },
+  "status": "passed",
+  "finishedAt": "2026-09-21T14:42:16.992Z",
+  "revisions": {
+    "backend": "bhe-product-api-00284-mon",
+    "gateway": "dan-life-os-mcp-00019-hay"
+  },
+  "trafficPercent": 100,
+  "automatedTests": {
+    "backend": 634,
+    "platform": 172
+  },
+  "mcpFreshClient": {
+    "status": "passed",
+    "checks": [
+      "discovery",
+      "capture",
+      "new-client search",
+      "edit",
+      "readback",
+      "archive"
+    ],
+    "boundary": "Fresh MCP SDK instances against live authenticated backend; not ChatGPT OAuth/client acceptance"
+  },
+  "chatgptAcceptance": {
+    "status": "pending",
+    "reason": "No browser provider available; native Chrome could not open a window."
+  }
+}

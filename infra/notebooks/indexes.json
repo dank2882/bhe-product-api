@@ -1,0 +1,103 @@
+[
+  {
+    "collectionGroup": "danNotebookBooks",
+    "fields": [
+      {
+        "field-path": "ownerSubject",
+        "order": "ascending"
+      },
+      {
+        "field-path": "notebookId",
+        "order": "ascending"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "danNotebookNotes",
+    "fields": [
+      {
+        "field-path": "ownerSubject",
+        "order": "ascending"
+      },
+      {
+        "field-path": "notebookId",
+        "order": "ascending"
+      },
+      {
+        "field-path": "noteId",
+        "order": "ascending"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "danNotebookRevisions",
+    "fields": [
+      {
+        "field-path": "ownerSubject",
+        "order": "ascending"
+      },
+      {
+        "field-path": "noteId",
+        "order": "ascending"
+      },
+      {
+        "field-path": "revisionId",
+        "order": "ascending"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "danNotebookChunks",
+    "fields": [
+      {
+        "field-path": "ownerSubject",
+        "order": "ascending"
+      },
+      {
+        "field-path": "tokens",
+        "array-config": "contains"
+      },
+      {
+        "field-path": "chunkId",
+        "order": "ascending"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "danNotebookNotes",
+    "fields": [
+      {
+        "field-path": "ownerSubject",
+        "order": "ascending"
+      },
+      {
+        "field-path": "indexingStatus",
+        "order": "ascending"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "danNotebookChunks",
+    "fields": [
+      {
+        "field-path": "ownerSubject",
+        "order": "ascending"
+      },
+      {
+        "field-path": "notebookId",
+        "order": "ascending"
+      },
+      {
+        "field-path": "embeddingModel",
+        "order": "ascending"
+      },
+      {
+        "field-path": "embeddingVector",
+        "vector-config": {
+          "dimension": 768,
+          "flat": {}
+        }
+      }
+    ]
+  }
+]
