@@ -12447,6 +12447,24 @@ app.post("/products/:slug/assets/attach", async (req, res) => {
   }
 });
 
+// Image and information library uses the existing repository storage and staff identity.
+const repositoryLibrary = require("./lib/repository-library-service");
+for (const mode of ["save", "query"]) {
+  app.post(`/repository/library/${mode}`, async (req, res) => {
+    try {
+      const result = await repositoryLibrary[mode](req.body || {}, req.header("x-bhe-actor-sub"), {
+        db, entries: db.collection("repositoryLibraryEntries"),
+        audit: db.collection("repositoryLibraryAudit"),
+        profiles: staffAuthorizationProfilesCollection,
+        bucket: storage.bucket(BUCKET_NAME)
+      });
+      res.json({ ok: true, ...result });
+    } catch (error) {
+      res.status(Number(error.statusCode) || 500).json({ ok: false, error: error.statusCode ? error.message : "Repository library operation failed" });
+    }
+  });
+}
+
 app.post("/repository/documents/upload-openai-files", async (req, res) => {
   try {
     const result = await uploadRepositoryDocumentsToStorage(
