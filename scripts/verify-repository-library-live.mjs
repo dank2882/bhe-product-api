@@ -2,6 +2,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {Firestore} from '@google-cloud/firestore';
 import {Storage} from '@google-cloud/storage';
+import sharp from 'sharp';
 const project='location-map-985',db=new Firestore({projectId:project,databaseId:'chatgptstorage'});
 const service=JSON.parse(execFileSync('gcloud',['run','services','describe','bhe-product-api','--project='+project,'--region=us-west1','--format=json'],{encoding:'utf8'}));
 const base=process.argv[2]||service.status.url;
@@ -34,11 +35,17 @@ try{
  const retry=await request('save',upload);check(retry.body.action==='existing'&&retry.body.entry.entryId===ids[2],'Retry duplicated');
  const conflict=await request('save',{...upload,title:'Different'});check(conflict.status===409,'Changed idempotency intent not rejected');
  const found=await request('query',{operation:'search',query:prefix,folderId:ids[0]});check(found.body.count===2,'Search failed');
+ const gallery=await request('query',{operation:'gallery',folderId:ids[0]});check(gallery.body.ok&&gallery.body.images.length===1,'Gallery folder listing failed');
+ const thumbnail=gallery.body.images[0].thumbnail;check(thumbnail?.url,'Gallery thumbnail unavailable');
+ const thumbResponse=await fetch(thumbnail.url);check(thumbResponse.ok,'Thumbnail download failed');
+ const thumbMetadata=await sharp(Buffer.from(await thumbResponse.arrayBuffer())).metadata();check(thumbMetadata.format==='webp'&&thumbMetadata.width<=480&&thumbMetadata.height<=360,'Thumbnail dimensions or format failed');
+ const roots=await request('query',{operation:'gallery'});check(roots.body.folders.some(f=>f.entryId===ids[0]&&f.imageCount===1),'Gallery folder count failed');
+ const deniedGallery=await request('query',{operation:'gallery'},'repository-verification-unregistered');check(deniedGallery.status===403,'Gallery permission denial failed');
  const link=await request('query',{operation:'download',entryId:ids[2]});check(link.body.ok&&link.body.download?.url,'Signed download failed: '+JSON.stringify(link.body));
  const downloaded=await fetch(link.body.download.url);check(downloaded.ok,'Download unavailable');check(createHash('sha256').update(Buffer.from(await downloaded.arrayBuffer())).digest('hex')===checksum,'Downloaded bytes differ');
- console.log(JSON.stringify({ok:true,base,actorEmail:mark.email,verification:'trusted backend identity test, not Pastor client OAuth',checks:['missing API key denied','unknown actor denied','Mark folder create','exact information save/read','host-reference image upload','stored checksum','actor attribution','duplicate-safe retry','changed intent denied','keyword search','signed download byte equality'],entryIds:ids},null,2));
+ console.log(JSON.stringify({ok:true,base,actorEmail:mark.email,verification:'trusted backend identity test, not Pastor client OAuth',checks:['missing API key denied','unknown actor denied','Mark folder create','exact information save/read','host-reference image upload','stored checksum','actor attribution','duplicate-safe retry','changed intent denied','keyword search','signed download byte equality','gallery folder listing and counts','private WebP thumbnail download','thumbnail maximum dimensions','gallery permission denial'],entryIds:ids},null,2));
 }finally{
  // Remove only this run's explicitly named test fixtures. Preserve append-only audit records.
  for(const entryId of ids){const ref=db.collection('repositoryLibraryEntries').doc(entryId);const s=await ref.get();if(s.exists&&s.data().title.startsWith(prefix)){await db.collection('repositoryLibraryAudit').doc(entryId+'-test-cleanup').create({entryId,action:'verification_fixture_cleanup',createdAt:new Date().toISOString()});await ref.delete();}}
- await bucket.file(sourcePath).delete({ignoreNotFound:true});if(savedPath)await bucket.file(savedPath).delete({ignoreNotFound:true});
+ await bucket.file(sourcePath).delete({ignoreNotFound:true});if(savedPath){await bucket.file(savedPath).delete({ignoreNotFound:true});const [previews]=await bucket.getFiles({prefix:`repository/library/${ids[2]}/thumbnails/`});for(const preview of previews)await preview.delete({ignoreNotFound:true});}
 }
