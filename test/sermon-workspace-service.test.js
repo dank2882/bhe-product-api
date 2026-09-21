@@ -176,7 +176,16 @@ function createDeps({
   randomId = "12345678-aaaa-bbbb-cccc-123456789012",
   now = "2026-07-01T17:00:00.000Z"
 } = {}) {
+  let transactionTail = Promise.resolve();
+  const firestoreDb = {
+    runTransaction(action) {
+      const result = transactionTail.then(() => action({ get: ref => ref.get(), set: (ref, data) => ref.set(data) }));
+      transactionTail = result.catch(() => {});
+      return result;
+    }
+  };
   const deps = {
+    firestoreDb,
     sermonFoldersCollection: new FakeCollection(folders),
     sermonsCollection: new FakeCollection(sermons),
     sermonSnapshotsCollection: new FakeCollection(sermonSnapshots),
@@ -4806,4 +4815,26 @@ test("saves preaching analysis and can apply profile candidates", async () => {
   const listed = await listPreachingAnalyses({ sermonId: "sermon-james-1-2" }, deps);
   assert.equal(listed.count, 1);
   assert.match(listed.analyses[0].summary, /text-driven/);
+});
+
+
+test("concurrent Series Hub edits cannot overwrite an accepted turn", async () => {
+  const deps = createDeps();
+  const { series } = await createSermonSeries({ seriesTitle: "Concurrent series" }, deps);
+  const results = await Promise.allSettled([
+    appendSermonSeriesDevelopmentTurn({ seriesId: series.seriesId, expectedVersion: 1, transcript: "Exact words to preserve" }, deps),
+    updateSermonSeries({ seriesId: series.seriesId, expectedVersion: 1, changes: { pastoralBurden: "Updated burden" } }, deps)
+  ]);
+  assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+  assert.equal(results.find(result => result.status === "rejected").reason.code, "stale_sermon_series_version");
+  const saved = await getSermonSeries({ seriesId: series.seriesId }, deps);
+  assert.equal(saved.series.version, 2);
+  if (results[0].status === "fulfilled") assert.equal(saved.series.developmentTurns[0].transcript, "Exact words to preserve");
+  else assert.equal(saved.series.pastoralBurden, "Updated burden");
+});
+
+test("series creation rejects fractional message numbers and missing sermon links", async () => {
+  const deps = createDeps();
+  await assert.rejects(createSermonSeries({ seriesTitle: "Invalid number", messageMap: [{ seriesNumber: "1.5", title: "Invalid" }] }, deps), { code: "invalid_sermon_series_message_number" });
+  await assert.rejects(createSermonSeries({ seriesTitle: "Invalid link", messageMap: [{ seriesNumber: 1, sermonId: "missing-sermon" }] }, deps), { code: "sermon_series_message_sermon_not_found" });
 });
