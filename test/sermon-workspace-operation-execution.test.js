@@ -63,6 +63,7 @@ class FakeCollection {
 
 function createDeps() {
   return {
+    sermonFoldersCollection: new FakeCollection(),
     sermonsCollection: new FakeCollection(),
     sermonOccasionsCollection: new FakeCollection(),
     sermonDevelopmentSessionsCollection: new FakeCollection(),
@@ -110,6 +111,27 @@ test("command retries replay the first successful result without running twice",
   assert.equal(replay.result.sermon.sermonId, first.result.sermon.sermonId);
   assert.equal(deps.sermonsCollection.store.size, 1);
   assert.equal(deps.sermonOperationExecutionsCollection.store.size, 1);
+});
+
+test("Series Hub commands are idempotent through the shared dispatcher", async () => {
+  const deps = createDeps();
+  const request = {
+    mode: "command",
+    operation: "createSermonSeries",
+    idempotencyKey: "create-stewarding-your-life-series-hub",
+    arguments: {
+      seriesTitle: "Stewarding Your Life",
+      status: "exploring",
+      sourceIdea: "Everything from time and relationships to money and energy."
+    }
+  };
+
+  const first = await runIdempotentSermonWorkspaceOperation(request, deps);
+  const replay = await runIdempotentSermonWorkspaceOperation(request, deps);
+
+  assert.equal(first.result.series.seriesId, "series-stewarding-your-life");
+  assert.equal(replay.idempotency.replayed, true);
+  assert.equal(deps.sermonFoldersCollection.store.size, 1);
 });
 
 test("reusing an idempotency key with different arguments is rejected", async () => {

@@ -11,10 +11,12 @@ const {
   auditSermonDevelopmentPreservation,
   buildPreachingPreparationDashboard,
   buildSermonWorkspaceOverview,
+  appendSermonSeriesDevelopmentTurn,
   captureSermonDevelopmentTurn,
   createPreachingAnalysis,
   closeSermonDevelopmentSession,
   createSermon,
+  createSermonSeries,
   createSermonOccasion,
   createSermonFolder,
   createSermonMedia,
@@ -27,6 +29,7 @@ const {
   getPreachingProfile,
   getSermonArchiveStats,
   getSermon,
+  getSermonSeries,
   getSermonContext,
   getSermonMedia,
   getSermonMaterialInventory,
@@ -50,6 +53,7 @@ const {
   listSermonPresentationTemplates,
   listSermonSnapshots,
   listSermonSources,
+  listSermonSeries,
   listSermons,
   migrateLegacySermonOccasions,
   proposeSermonCanonicalRepair,
@@ -68,7 +72,8 @@ const {
   updateSermonDevelopmentCheckpointPlacement,
   updateSermonOccasion,
   updateSermonPresentationTemplate,
-  updateSermon
+  updateSermon,
+  updateSermonSeries
 } = require("../lib/sermon-workspace-service");
 
 function clone(value) {
@@ -255,6 +260,121 @@ test("reuses likely duplicate sermon series folders", async () => {
 
   const listed = await listSermonFolders({ query: "James", limit: 10 }, deps);
   assert.equal(listed.count, 1);
+});
+
+test("creates a first-class Series Hub and preserves Dan's exact source idea", async () => {
+  const deps = createDeps();
+  const sourceIdea = "I want to move my preaching to more expository but not required.\nEverything from time to relationships.";
+  const created = await createSermonSeries({
+    seriesTitle: "Stewarding Your Life",
+    sourceIdea,
+    preachingApproach: "text_driven_topical",
+    preachingApproachNotes: "Prefer one controlling passage per message without making the form inflexible.",
+    targetStartDate: "2026-09-06",
+    messageMap: [
+      {
+        seriesNumber: 1,
+        title: "The Life Entrusted to You",
+        scriptureText: "1 Corinthians 4:1-2",
+        status: "provisional"
+      }
+    ]
+  }, deps);
+
+  assert.equal(created.action, "created");
+  assert.equal(created.series.seriesId, "series-stewarding-your-life");
+  assert.equal(created.series.folderId, "series-stewarding-your-life");
+  assert.equal(created.series.status, "exploring");
+  assert.equal(created.series.version, 1);
+  assert.equal(created.series.sourceIdea, sourceIdea);
+  assert.equal(created.series.messageMap[0].seriesNumber, 1);
+
+  const listed = await listSermonSeries({ query: "stewarding" }, deps);
+  assert.equal(listed.count, 1);
+  const retrieved = await getSermonSeries({ seriesId: created.series.seriesId }, deps);
+  assert.equal(retrieved.series.sourceIdea, sourceIdea);
+  assert.equal(retrieved.reconciliation.unlinkedMessageCount, 1);
+});
+
+test("version-updates a Series Hub, appends exact development turns, and auto-links new sermon hubs", async () => {
+  const deps = createDeps();
+  const created = await createSermonSeries({
+    seriesTitle: "Stewarding Your Life",
+    sourceIdea: "Steward every area of life according to what God says."
+  }, deps);
+  const danTranscript = "Time, relationships, money, and energy all belong under God's direction.";
+  const captured = await appendSermonSeriesDevelopmentTurn({
+    seriesId: created.series.seriesId,
+    expectedVersion: 1,
+    speaker: "dan",
+    transcript: danTranscript
+  }, deps);
+  assert.equal(captured.series.version, 2);
+  assert.equal(captured.turn.transcript, danTranscript);
+  assert.equal(captured.turn.exactWording, true);
+
+  await assert.rejects(
+    () => appendSermonSeriesDevelopmentTurn({
+      seriesId: created.series.seriesId,
+      expectedVersion: 1,
+      transcript: "A stale turn"
+    }, deps),
+    { code: "stale_sermon_series_version", statusCode: 409 }
+  );
+
+  const updated = await updateSermonSeries({
+    seriesId: created.series.seriesId,
+    expectedVersion: 2,
+    changes: {
+      status: "planned",
+      pastoralBurden: "Believers should recognize all of life as entrusted by God.",
+      intendedResponse: "Offer every entrusted area back to God faithfully.",
+      messageMap: [
+        { seriesNumber: 1, title: "The Life Entrusted to You", scriptureText: "1 Corinthians 4:1-2" }
+      ]
+    }
+  }, deps);
+  assert.equal(updated.series.version, 3);
+  assert.equal(updated.series.status, "planned");
+
+  const sermon = await createSermon({
+    title: "The Life Entrusted to You",
+    seriesId: created.series.seriesId,
+    seriesTitle: created.series.seriesTitle,
+    seriesNumber: 1,
+    scriptureText: "1 Corinthians 4:1-2"
+  }, deps);
+  assert.equal(sermon.sermon.folderId, created.series.folderId);
+
+  const retrieved = await getSermonSeries({ seriesId: created.series.seriesId }, deps);
+  assert.equal(retrieved.sermonCount, 1);
+  assert.equal(retrieved.reconciliation.linkedMessageCount, 1);
+  assert.equal(retrieved.reconciliation.messageMap[0].sermon.sermonId, sermon.sermon.sermonId);
+});
+
+test("series progression reports the Series Hub and message-map reconciliation", async () => {
+  const deps = createDeps();
+  const created = await createSermonSeries({
+    seriesTitle: "Stewarding Your Life",
+    messageMap: [
+      { seriesNumber: 1, title: "Stewarding Time", scriptureText: "Ephesians 5:15-17" },
+      { seriesNumber: 2, title: "Stewarding Relationships", focus: "Faithfulness toward people" }
+    ]
+  }, deps);
+  await createSermon({
+    title: "Stewarding Time",
+    seriesId: created.series.seriesId,
+    seriesTitle: created.series.seriesTitle,
+    seriesNumber: 1,
+    scriptureText: "Ephesians 5:15-17",
+    status: "developing"
+  }, deps);
+
+  const review = await reviewSermonSeriesProgression({ seriesId: created.series.seriesId }, deps);
+  assert.equal(review.seriesHub.seriesId, created.series.seriesId);
+  assert.equal(review.messageMapReconciliation.linkedMessageCount, 1);
+  assert.equal(review.messageMapReconciliation.unlinkedMessageCount, 1);
+  assert.ok(!review.recommendations.some((item) => /Create a Series Hub/.test(item)));
 });
 
 test("creates, finds, and updates a sermon", async () => {

@@ -132,6 +132,17 @@ test("catalog exposes more backend operations than the Custom GPT action limit",
   assert.match(dashboard.argumentGuidance, /send only limit: 12/i);
   assert.match(dashboard.argumentGuidance, /authoritative Firestore/i);
   assert.ok(catalog.operations.some(({ operation }) => operation === "selectSermonForOccasion"));
+  assert.ok(catalog.operations.some(({ operation }) => operation === "listSermonSeries"));
+  assert.ok(catalog.operations.some(({ operation }) => operation === "getSermonSeries"));
+  const createSeries = catalog.operations.find(({ operation }) => operation === "createSermonSeries");
+  assert.deepEqual(createSeries.required, ["seriesTitle"]);
+  assert.ok(createSeries.optional.includes("sourceIdea"));
+  const updateSeries = catalog.operations.find(({ operation }) => operation === "updateSermonSeries");
+  assert.deepEqual(updateSeries.required, ["seriesId", "expectedVersion", "changes"]);
+  const appendSeriesTurn = catalog.operations.find(
+    ({ operation }) => operation === "appendSermonSeriesDevelopmentTurn"
+  );
+  assert.deepEqual(appendSeriesTurn.required, ["seriesId", "expectedVersion", "transcript"]);
   assert.ok(catalog.operations.some(({ operation }) => operation === "getPreachingProfileBaselineReadiness"));
   assert.ok(catalog.operations.some(({ operation }) => operation === "proposePreachingProfileBaseline"));
   const applyPreachingProfileBaseline = catalog.operations.find(

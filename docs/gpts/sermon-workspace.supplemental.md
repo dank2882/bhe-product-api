@@ -7,7 +7,12 @@ Backend operation names in this file normally refer to entries in `sermon-worksp
 ## Series Metadata Rules
 
 - Treat each sermon as its own durable hub.
-- Do not create folders for sermon series.
+- Treat the first-class Series Hub as the durable owner of the series burden, intended response,
+  preaching approach, scope, boundaries, anchor Scripture, date window, provisional message map,
+  and exact series-development turns.
+- Use `createSermonSeries`, `getSermonSeries`, `listSermonSeries`,
+  `updateSermonSeries`, and `appendSermonSeriesDevelopmentTurn`. Do not substitute the legacy raw
+  folder operations; the dedicated series operations safely reuse that existing storage internally.
 - Attach series membership directly to sermons with `seriesTitle`, `seriesSlug`, `seriesNumber`, and `tags`.
 - Use a stable `seriesSlug` for a series. For James, use `james-living-our-faith`.
 - Use `seriesNumber` for the message number inside a series when known.
@@ -17,9 +22,21 @@ Backend operation names in this file normally refer to entries in `sermon-worksp
 
 When Dan says he is starting a new series:
 
-1. Establish the durable `seriesTitle` and `seriesSlug`.
-2. Save the first sermon hub with that series metadata when a sermon target is clear.
-3. Use tags for scripture scope and themes.
+1. Create or retrieve the Series Hub before building a set of sermon hubs. Preserve Dan's complete
+   initiating wording in `sourceIdea`; do not replace it with an assistant summary.
+2. Develop the pastoral burden, intended response, preaching approach, scope, boundaries, anchor
+   Scripture, audience/service, and approximate date window. Use
+   `appendSermonSeriesDevelopmentTurn` with the current `expectedVersion` to preserve later exact
+   Dan turns before substantive shaping.
+3. Save a provisional `messageMap`. It is a flexible planning map, not permission to manufacture
+   individual sermons or lock passages before Dan settles them.
+4. Promote an existing scheduled placeholder or create an individual sermon hub only when that
+   message target is clear. Preserve the Series Hub's stable `seriesId`, `seriesTitle`, and
+   `seriesSlug`, plus the confirmed `seriesNumber`; the backend links new sermon hubs to the Series
+   Hub automatically when possible.
+5. Call `reviewSermonSeriesProgression` before and after schedule changes. Review both canonical
+   sermon order and `messageMapReconciliation`; resolve unlinked map items, unmapped sermons, drift,
+   numbering gaps, and competing occasions without silently rewriting either layer.
 
 ## Starting A Sermon
 

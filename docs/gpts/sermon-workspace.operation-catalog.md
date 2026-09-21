@@ -24,15 +24,52 @@ Dispatcher request shape:
 }
 ```
 
-Catalog version: `1-a0d2c7b53137`
+Catalog version: `1-36045c7ceddc`
 
-Catalog hash: `a0d2c7b53137f035e4ddd025cba87673e966f6e18d0afe74c4a44a11a9b8c9fa`
+Catalog hash: `36045c7ceddc1c5a02a60b1be6bc1676c6c2c8ea314588b49fd5dec86015da0b`
 
-The registry currently exposes 92 operations. Adding registry operations does not add OpenAPI operations.
+The registry currently exposes 97 operations. Adding registry operations does not add OpenAPI operations.
 
 ## Query Operations
 
 Use `runSermonWorkspaceQuery` for every operation in this section.
+
+### listSermonSeries
+
+List first-class Series Hubs with their durable burden, approach, date window, and planning status.
+
+Required: none
+
+Optional: `query`, `status`, `limit`
+
+```json
+{
+  "operation": "listSermonSeries",
+  "arguments": {
+    "status": "active",
+    "limit": 20
+  }
+}
+```
+
+### getSermonSeries
+
+Retrieve one complete Series Hub, its provisional message map, linked sermon hubs, exact development turns, and reconciliation gaps.
+
+Required: none
+
+Optional: `seriesId`, `seriesSlug`, `seriesTitle`, `folderId`
+
+Argument guidance: Send one stable series identity. Use the returned version for any update or development-turn append.
+
+```json
+{
+  "operation": "getSermonSeries",
+  "arguments": {
+    "seriesId": "series-stewarding-your-life"
+  }
+}
+```
 
 ### listSermons
 
@@ -986,6 +1023,28 @@ Argument guidance: Requires an accepted primary manuscript. Call the specialized
 
 Use `runSermonWorkspaceCommand` for every operation in this section.
 
+### createSermonSeries
+
+Create or adopt a first-class Series Hub inside the existing Sermon Workspace.
+
+Required: `seriesTitle`
+
+Optional: `seriesId`, `seriesSlug`, `folderId`, `status`, `description`, `pastoralBurden`, `intendedResponse`, `preachingApproach`, `preachingApproachNotes`, `scope`, `boundaries`, `anchorScripture`, `audience`, `service`, `targetStartDate`, `targetEndDate`, `messageMap`, `tags`, `sourceIdea`, `sourceRefs`, `notes`
+
+Argument guidance: Preserve Dan's complete initiating wording in sourceIdea. This creates the series-level plan; individual passages, big ideas, manuscripts, and occasions remain on sermon hubs.
+
+```json
+{
+  "operation": "createSermonSeries",
+  "arguments": {
+    "seriesTitle": "Stewarding Your Life",
+    "status": "exploring",
+    "preachingApproach": "text_driven_topical",
+    "sourceIdea": "Dan's exact original series idea"
+  }
+}
+```
+
 ### createSermon
 
 Create a durable sermon hub.
@@ -1097,6 +1156,52 @@ Optional: `sessionId`, `checkpointType`, `heading`, `content`, `context`, `exact
         "content": "Mercy gets the final word."
       }
     ]
+  }
+}
+```
+
+### updateSermonSeries
+
+Version-update canonical Series Hub fields or replace its provisional message map without rewriting linked sermons.
+
+Required: `seriesId`, `expectedVersion`, `changes`
+
+Optional: none
+
+Argument guidance: Read getSermonSeries first and pass its exact version. seriesId, seriesSlug, and an existing exact sourceIdea are immutable. Changing the series plan never silently rewrites child sermon hubs.
+
+```json
+{
+  "operation": "updateSermonSeries",
+  "arguments": {
+    "seriesId": "series-stewarding-your-life",
+    "expectedVersion": 1,
+    "changes": {
+      "pastoralBurden": "Everything entrusted by God should be offered back to Him faithfully."
+    }
+  }
+}
+```
+
+### appendSermonSeriesDevelopmentTurn
+
+Append one exact Dan or assistant turn to a Series Hub before shaping the durable series plan.
+
+Required: `seriesId`, `expectedVersion`, `transcript`
+
+Optional: `turnId`, `speaker`, `sourceMode`, `exactWording`
+
+Argument guidance: Capture Dan's complete words before retrieval or substantive shaping. Read back the returned version before appending another turn.
+
+```json
+{
+  "operation": "appendSermonSeriesDevelopmentTurn",
+  "arguments": {
+    "seriesId": "series-stewarding-your-life",
+    "expectedVersion": 1,
+    "speaker": "dan",
+    "sourceMode": "chat",
+    "transcript": "Dan's complete current turn"
   }
 }
 ```
