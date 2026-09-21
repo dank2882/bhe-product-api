@@ -1,6 +1,6 @@
 # ADR 0032: Dan Notebooks
 
-Status: Accepted; implementation in progress
+Status: Implemented and deployed; backend and fresh MCP SDK verification passed; ChatGPT client acceptance pending
 Accepted by: Dan Kirchner, 2026-09-21, explicit instruction to implement the reviewed Notebooks plan.
 Owner: dan
 Serves: dan (and authorized delegates)
