@@ -157,6 +157,9 @@ const {
   saveTripMemory,
   searchTripMemories
 } = require("./lib/trip-service");
+const { listNotebookOperations, runNotebookOperation } = require("./lib/notebooks-operation-registry");
+const { processNotebookIndexingJob } = require("./lib/notebooks-service");
+const { requireDanPrivateAccess } = require("./lib/dan-private-access");
 const {
   buildDanTravelOperationError,
   listDanTravelOperations
@@ -2655,6 +2658,36 @@ function getTripDependencies(overrides = {}) {
     danOwnerSubjects: DAN_TRAVEL_OWNER_SUBJECTS,
     ...overrides
   };
+}
+
+function getNotebookDependencies(overrides = {}) {
+  return {
+    firestoreDb: db,
+    danOwnerSubjects: DAN_TRAVEL_OWNER_SUBJECTS,
+    embeddingModel: VERTEX_TEXT_EMBEDDING_MODEL,
+    embedText: embedTextWithVertexAi,
+    toVectorValue: (values) => FieldValue.vector(values),
+    enqueueNotebookIndexingJob,
+    ...overrides
+  };
+}
+
+async function enqueueNotebookIndexingJob({ jobId, retryGeneration = 0 }) {
+  const queueName = process.env.NOTEBOOK_INDEXING_QUEUE_NAME || "dan-notebook-indexing";
+  const parent = `projects/${GCP_PROJECT_ID}/locations/${SERMON_TRANSCRIPTION_QUEUE_LOCATION}/queues/${queueName}`;
+  const client = await vertexAuth.getClient();
+  try {
+    await client.request({
+      url: `https://cloudtasks.googleapis.com/v2/${parent}/tasks`, method: "POST",
+      data: { task: {
+        name: `${parent}/tasks/${jobId}-r${retryGeneration}`,
+        dispatchDeadline: "900s",
+        httpRequest: { httpMethod: "POST", url: `${GPT_ACTION_BASE_URL}/internal/notebook-indexing-jobs/${encodeURIComponent(jobId)}/run`,
+          headers: { "Content-Type": "application/json", "x-api-key": BHE_API_KEY },
+          body: Buffer.from(JSON.stringify({ jobId })).toString("base64") }
+      } }
+    });
+  } catch (error) { if (Number(error?.response?.status) !== 409) throw error; }
 }
 
 function getDanTravelDependencies(overrides = {}) {
@@ -11737,6 +11770,34 @@ app.get("/trip/memories/:memoryId", async (req, res) => {
 
 app.post("/trip/memories/search", async (req, res) => {
   return handleTripRequest(req, res, "searchTripMemories", req.body, searchTripMemories);
+});
+
+app.get("/notebooks/operations", (req, res) => {
+  try {
+    requireDanPrivateAccess(getNotebookDependencies({ taskAccess: buildTaskAccessFromRequest(req) }));
+    return res.json({ ok: true, ...listNotebookOperations(req.query) });
+  } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "notebooks_failed", message: error.message } }); }
+});
+for (const mode of ["query", "command"]) {
+  app.post(`/notebooks/${mode}`, async (req, res) => {
+    const requestId = randomUUID();
+    try {
+      const response = await runNotebookOperation({ ...req.body, mode }, getNotebookDependencies({ taskAccess: buildTaskAccessFromRequest(req) }));
+      return res.json({ ok: true, requestId, ...response });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "notebooks_operation_failed", requestId, operation: req.body?.operation, code: error.code || "notebooks_failed" }));
+      return res.json({ ok: false, requestId, error: { code: error.code || "notebooks_failed", message: error.statusCode ? error.message : "Notebook operation failed", status: error.statusCode || 500 } });
+    }
+  });
+}
+app.post("/internal/notebook-indexing-jobs/:jobId/run", async (req, res) => {
+  try {
+    const result = await processNotebookIndexingJob({ jobId: req.params.jobId }, getNotebookDependencies());
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "notebooks_indexing_failed", jobId: req.params.jobId, code: error.code || "notebooks_indexing_failed" }));
+    return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "notebooks_indexing_failed" } });
+  }
 });
 
 app.get("/dan-travel/operations", (req, res) => {
