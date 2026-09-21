@@ -175,3 +175,22 @@ test("pagination retains all lexical matches and rejects reused or stale cursors
   await call("createNote", { title: "New", text: "Common new note" });
   await assert.rejects(call("searchNotes", { query: "Common", mode: "words", cursor: page.nextCursor }), { code: "notebooks_stale_cursor" });
 });
+
+test("lexical pagination crosses candidate pages without losing matching notes", async () => {
+  const { call } = setup();
+  for (let i = 0; i < 108; i++) await call("createNote", { title: `Common ${i}`, text: "Common searchable phrase" });
+  let cursor = "", pages = 0; const seen = new Set();
+  do {
+    const page = await call("searchNotes", { query: "Common", mode: "words", limit: 25, ...(cursor ? { cursor } : {}) });
+    page.results.forEach((r) => seen.add(r.noteId)); cursor = page.nextCursor;
+    assert(++pages < 20);
+  } while (cursor);
+  assert.equal(seen.size, 108);
+});
+
+test("assistant interpretations retain provenance even in later chunks", async () => {
+  const { call } = setup();
+  await call("createNote", { title: "Source", text: "Dan's exact words", assistantSummary: `${"Interpretation. ".repeat(200)} assistant-only-finding` });
+  const result = await call("searchNotes", { query: "assistant-only-finding", mode: "words" });
+  assert.equal(result.results[0].excerptSource, "assistant_summary");
+});
