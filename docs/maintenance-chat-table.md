@@ -56,3 +56,25 @@ references and stale cursors, Markdown escaping, unassigned/proposed assignments
 unknown versus zero costs, unchanged source notes, versioned task completion and
 append-only recurring completion. Live deployment and client acceptance are
 recorded separately in Dan's Developer Tools.
+
+## Photo indicators and previews
+
+The Images column must remain visible even when summarizing the table. It shows
+`No photos` or a prominent camera icon and exact attachment count. For up to 20
+photo-bearing rows on the current page, the first photo has Open photo and
+Download links and an inline Markdown preview below the table, labeled by task
+reference and title. Additional photos are retrieved conversationally with
+`listAttachments` and `getAttachmentDownload`. That query now returns `preview`
+for JPEG, PNG, GIF and WebP alongside the unchanged `download` response.
+
+Preview URLs use inline content disposition and the existing 15-minute private
+signed-link mechanism. These are previews of existing stored images, not new
+thumbnail files. Client rendering determines their displayed size. No public
+bucket, new endpoint or copied media is introduced. Render the returned Markdown
+including its Photo previews section; do not replace it with a download-only
+answer. Refresh the query when links expire.
+
+Only the authorized, filtered page is signed, after computing the stable cursor
+snapshot. Each attachment's parent authorization is checked again before URL
+creation. A storage/signing failure preserves the count with Preview unavailable;
+authorization failure fails closed. Non-raster attachments are never embedded.

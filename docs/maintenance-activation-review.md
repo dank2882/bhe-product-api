@@ -230,3 +230,22 @@ presentation if desired; unresolved source locations/assignments; SMS outbound
 consent and A2P gates. Existing Developer Tools workstream
 `fbc-maintenance-module` is the durable engineering handoff. Retrieve it directly:
 `searchRegistry` searches systems/components/decisions, not workstreams.
+
+## Shawna acceptance and photo presentation — September 23, 2026
+
+Dan reports all four Shawna-account checks passed: archived task retrieval,
+photo download/viewing, restore plus note, and archive. Independent backend
+read-back confirms task `task-maintenance-photo-test-20260923` version 5,
+Shawna's restore at 16:17:13 UTC, note `Shawna account test successful` at
+16:17:19 UTC, and Shawna's archive at 16:19:30 UTC. Her photo viewing is
+user-reported; this session did not operate her client. Inbox-to-task linking
+and reporter administration in her account remain separate untested workflows.
+
+Dan reported no visible photo indicator in her table and a download-only image
+experience. The live backend still returned one photo and `1 photo(s)` for the
+fixture, so the missing indicator's exact client cause was not established.
+The presentation fix adds a prominent Images count, short-lived inline preview
+and separate open/download links, with an instruction to preserve the Images
+column and Photo previews section. Automated checks cover parent authorization,
+page-only URL signing, stable pagination and failure fallback. Deployment and
+fresh-chat image rendering must be verified separately from these code changes.

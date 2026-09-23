@@ -166,3 +166,18 @@ test("private task attachments remain unreadable to unrelated staff", async () =
     { code: "task_access_denied", statusCode: 403 }
   );
 });
+
+test("raster attachments have inline previews but authorization still runs before any URL signing", async () => {
+  const deps = createDeps();
+  deps.taskAttachmentsCollection.store.set("photo", { recordType: "task", recordId: "task-1", fileName: "photo.jpg", contentType: "image/jpeg", storagePath: "private/photo.jpg" });
+  const result = await getTaskAttachmentDownload({ attachmentId: "photo" }, deps);
+  assert.ok(result.download.url); assert.ok(result.preview.url);
+  assert.equal(result.preview.expiresAt, result.download.expiresAt);
+  const calls = deps.taskAttachmentBucket.calls;
+  assert.equal(calls[0][2].responseDisposition, 'attachment; filename="photo.jpg"');
+  assert.equal(calls[1][2].responseDisposition, "inline");
+  deps.tasksCollection.store.get("task-1").visibility = "private";
+  deps.taskAccess = { role: "member", subject: "outsider" };
+  await assert.rejects(getTaskAttachmentDownload({ attachmentId: "photo" }, deps));
+  assert.equal(calls.length, 2);
+});

@@ -189,3 +189,42 @@ test("staff offboarding blocks already approved sends; delivery callbacks never 
   await f.domain.delivery("delivery", "SMreceipt", "delivered"); await f.domain.delivery("delivery", "SMreceipt", "sent");
   assert.equal((await f.communicationsDb.collection("maintenanceOutbox").doc("delivery").get()).data().deliveryStatus, "delivered");
 });
+
+test("board renders private photo indicators and inline previews only for the authorized page; links do not break pagination", async () => {
+  const f = await fixture();
+  for (const id of ["a", "b", "private"]) {
+    await createTask({ taskId: id, projectId: ROOT_ID, title: id, ...(id === "private" ? { visibility: "private" } : {}) }, id === "private" ? { ...f.deps, taskAccess: { subject: "dan", role: "member" } } : f.deps);
+    await f.db.collection("taskAttachments").doc(`photo-${id}`).set({ recordType: "task", recordId: id, contentType: "image/jpeg", storagePath: `photos/${id}`, fileName: "<bad>|[link].jpg" });
+  }
+  let tick = 0; const signed = [];
+  f.deps.taskAttachmentBucket = { file: path => ({ getSignedUrl: async options => {
+    signed.push({ path, options }); return [`https://storage.test/${path}?token=${++tick}`];
+  } }) };
+  const first = await maintenance.listMaintenanceBoard({ limit: 1 }, f.deps);
+  assert.equal(first.totalCount, 2);
+  assert.match(first.markdown, /📷 \*\*1 photo\*\*/);
+  assert.match(first.markdown, /\[Open photo\]\(https:\/\/storage.test\/photos\/a/);
+  assert.match(first.markdown, /!\[Photo for M-[a-f0-9]+\]\(https:\/\/storage.test/);
+  assert.ok(!first.markdown.includes("<bad>"));
+  assert.deepEqual([...new Set(signed.map(x => x.path))], ["photos/a"]);
+  assert.equal(signed[1].options.responseDisposition, "inline");
+  assert.equal(signed[1].options.responseType, "image/jpeg");
+  const second = await maintenance.listMaintenanceBoard({ limit: 1, cursor: first.nextCursor }, f.deps);
+  assert.equal(second.rows[0].taskId, "b");
+  assert.equal(second.hasMore, false);
+  assert.ok(!signed.some(x => x.path === "photos/private"));
+  await f.db.collection("taskAttachments").doc("second-photo").set({ recordType: "task", recordId: "a", contentType: "image/jpeg", storagePath: "photos/new", fileName: "new.jpg" });
+  await assert.rejects(maintenance.listMaintenanceBoard({ limit: 1, cursor: first.nextCursor }, f.deps), { statusCode: 409 });
+});
+
+test("photo signing failure retains the attachment count and a clear preview fallback", async () => {
+  const f = await fixture();
+  await createTask({ taskId: "repair", projectId: ROOT_ID, title: "Repair" }, f.deps);
+  await f.db.collection("taskAttachments").doc("photo").set({ recordType: "task", recordId: "repair", contentType: "image/jpeg", storagePath: "photo", fileName: "photo.jpg" });
+  f.deps.taskAttachmentBucket = { file: () => ({ getSignedUrl: async () => { throw new Error("signing unavailable"); } }) };
+  const board = await maintenance.listMaintenanceBoard({}, f.deps);
+  assert.equal(board.rows[0].columns.Images.length, 1);
+  assert.match(board.markdown, /1 photo/);
+  assert.match(board.markdown, /Preview unavailable/);
+  assert.ok(!board.markdown.includes("!["));
+});
