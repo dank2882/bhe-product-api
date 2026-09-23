@@ -193,3 +193,40 @@ The Entra creation dialog used its default recommended 180-day expiration;
 credential rotation must be completed before expiry. Actual phone text/photo,
 mail attachment, worker approval/opt-in, Shawna session and outgoing-delivery
 acceptance remain pending, together with A2P registration and full-list import.
+
+## Email photo-to-task acceptance — September 23, 2026
+
+This receipt supersedes earlier pending statements only for the checks below.
+Dan authorized a clearly labeled test task, photo linking, verification and archive.
+
+- Email subject `Test task to be done` arrived at 16:04:32 UTC; the Maintenance
+  worker ingested it at 16:04:43 UTC and normalized its one photo successfully.
+- Message: `3d3f81d9507b58020bbb4490e5b907857b85f22316084510bb3b8629637d864f`.
+- Created `task-maintenance-photo-test-20260923`, titled
+  `TEST — Maintenance photo intake`, under `proj-fbc-maintenance`. This is a
+  test fixture, not a real repair request.
+- Versioned `reviewMaintenanceMessage` linked the message to the task;
+  independent retrieval confirmed message version 2 and `reviewStatus: linked`.
+- `listAttachments` confirmed exactly one JPEG attachment:
+  `maintenance-48ba59e4cf59128a5cbe66139ecb2c6b` (861353 bytes).
+- Board reference `M-dcb96955` displayed `1 photo(s)`. The task-authorized
+  `getAttachmentDownload` URL returned the image, which was visually inspected.
+  No expiring signed URL or photo bytes are stored in this report.
+- Archived the task using `updateTask` with expected version 1. Independent
+  retrieval confirmed version 2, `dropped`, and Dan's archive attribution.
+  The normal board query excluded it; `includeArchived:true` retained the row
+  and its one attachment. No operational repair was marked complete.
+
+Verified: email intake, private cloud photo storage, reviewed Firestore task
+attachment, board photo count, task-authorized image retrieval, and recoverable
+archive. Intake was expedited using the existing Scheduler job; this does not
+measure ordinary unattended polling latency. Dan previously confirmed table
+rendering in his chat. Today's write/retrieval verification used Dan's Codex
+connection, not Shawna's client. The table still renders counts rather than
+clickable photo links or thumbnails; photo retrieval is conversational.
+
+Remaining: Shawna's own write/link/photo/archive acceptance; direct photo-link
+presentation if desired; unresolved source locations/assignments; SMS outbound
+consent and A2P gates. Existing Developer Tools workstream
+`fbc-maintenance-module` is the durable engineering handoff. Retrieve it directly:
+`searchRegistry` searches systems/components/decisions, not workstreams.
