@@ -29,7 +29,9 @@ People email **maintenance@foundedonfaith.com** with the building, exact locatio
 
 “Open the request titled [subject] from [sender]. Show the original message, check its photos, and suggest an existing task match or a new task. Do not save changes yet.”
 
-Check the location, work description and proposed match. Unknown senders may be quarantined for manager review. Do not guess an unclear building or task match.
+Anyone with an **@foundedonfaith.com** email address can submit a request without individual sender setup. New requests go to **pending review**; you still decide whether to create or update a task. This does not give senders access to the Maintenance list. Other unapproved senders are quarantined for manager review, and an individually revoked sender remains quarantined. Existing inbox history is not automatically reclassified.
+
+Check the location, work description and proposed match. Do not guess an unclear building or task match.
 
 ## 2. Add or link an approved request
 For a new task:
@@ -58,7 +60,13 @@ If photos are still processing, wait and check again. For failed photos, ask cha
 - “Assign [M-reference] to [name].”
 - “Mark [M-reference] complete. Completion note: [what was done].”
 
-Use the task name or M-reference, not its row number. Ask for clarification if a match is uncertain. Staff assignments may require the assignee’s acceptance; proposed does not mean accepted. Ask to see the saved task after changes.
+Each displayed item has a short number. You can say:
+- “Delete 1, 3, 5.” This archives those items so they can be restored.
+- “Mark 2 and 4 complete.”
+- “Add this note to 6: [exact update].”
+- “Show the photos for 3.”
+
+Numbers refer to the latest table you were shown and may change after refreshing or filtering. Chat selects all requested items before making changes. If the table is no longer available or the selection is unclear, it must show a fresh table and clarify the selection. Task names and permanent M-references still work across lists. Ask for clarification if a match is uncertain. Staff assignments may require the assignee’s acceptance; proposed does not mean accepted. Ask to see the saved task after changes.
 
 ## 4. View photos
 “Open the Maintenance photo viewer for [M-reference].”

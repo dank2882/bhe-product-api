@@ -39,11 +39,18 @@ test("chat board groups and filters the complete authorized set before paging, w
   assert.ok(first.rows.every(row => row.building === "B Building"));
   const second = await maintenance.listMaintenanceBoard({ cursor: first.nextCursor }, f.deps);
   assert.equal(second.count, 7); assert.equal(second.hasMore, false); assert.equal(second.complete, false);
+  assert.deepEqual(first.rows.map(r => r.number), Array.from({ length: 20 }, (_, i) => i + 1));
+  assert.deepEqual(second.rows.map(r => r.number), [21, 22, 23, 24, 25, 26, 27]);
+  assert.equal(first.selection.snapshot, second.selection.snapshot);
+  assert.deepEqual(first.selection.items[0], { number: 1, taskId: first.rows[0].taskId, version: 1, reference: first.rows[0].reference });
+  assert.match(first.markdown, /1\. Repair 00/);
   assert.equal(new Set([...first.rows, ...second.rows].map(row => row.taskId)).size, 27);
   const selected = await maintenance.listMaintenanceBoard({ building: "a", unassigned: true }, f.deps);
   assert.equal(selected.count, 2); assert.equal(selected.authorizedTotalCount, 27); assert.equal(selected.complete, true);
   const found = await maintenance.listMaintenanceBoard({ reference: second.rows.at(-1).reference }, f.deps);
   assert.equal(found.rows[0].taskId, second.rows.at(-1).taskId);
+  assert.equal(found.rows[0].number, 1);
+  assert.notEqual(found.selection.snapshot, first.selection.snapshot);
   await assert.rejects(maintenance.listMaintenanceBoard({ building: "A", cursor: first.nextCursor }, f.deps), { statusCode: 409 });
   await updateTask({ taskId: "job-0", expectedVersion: 1, changes: { title: "Changed" } }, f.deps);
   await assert.rejects(maintenance.listMaintenanceBoard({ cursor: first.nextCursor }, f.deps), { statusCode: 409 });
@@ -79,6 +86,9 @@ test("recurring duty table preserves cadence and source details and remains acti
   const f = await fixture();
   await createRoutine({ routineId: "doors", projectId: ROOT_ID, title: "Check doors", recurrence: "daily", recurrenceNotes: "Each school day", notes: "Long source ".repeat(100), maintenance: { building: "B Building" } }, f.deps);
   const board = await maintenance.listMaintenanceRoutines({}, f.deps);
+  assert.equal(board.selection.recordType, "routine");
+  assert.equal(board.selection.items[0].routineId, "doors");
+  assert.equal(board.rows[0].number, 1);
   assert.equal(board.rows[0].recurrence, "daily"); assert.ok(board.rows[0].notesTruncated);
   const full = await maintenance.listMaintenanceRoutines({ reference: board.rows[0].reference, detailLevel: "full" }, f.deps);
   assert.equal(full.routines[0].notes, "Long source ".repeat(100).trimEnd());
@@ -228,4 +238,49 @@ test("photo signing failure retains the attachment count and a clear preview fal
   assert.match(board.markdown, /1 photo/);
   assert.match(board.markdown, /Preview unavailable/);
   assert.ok(!board.markdown.includes("!["));
+});
+
+
+test("numbered archive batch keeps original selected IDs despite rows shifting and preserves recoverable history", async () => {
+  const f = await fixture();
+  for (let i = 1; i <= 6; i++) await createTask({ taskId: `numbered-${i}`, projectId: ROOT_ID, title: `Numbered ${i}`, notes: "Keep this history" }, f.deps);
+  const displayed = await maintenance.listMaintenanceBoard({}, f.deps);
+  const selected = [1, 3, 5].map(n => displayed.selection.items.find(item => item.number === n));
+  const { getTask, restoreTaskRecord } = require("../lib/project-task-service");
+  for (const item of selected) {
+    const current = (await getTask({ taskId: item.taskId }, f.deps)).task;
+    await updateTask({ taskId: item.taskId, expectedVersion: current.version, changes: { status: "dropped" } }, f.deps);
+  }
+  const active = await maintenance.listMaintenanceBoard({}, f.deps);
+  assert.deepEqual(active.rows.map(r => r.taskId), ["numbered-2", "numbered-4", "numbered-6"]);
+  assert.deepEqual(active.rows.map(r => r.number), [1, 2, 3]);
+  assert.notEqual(active.selection.snapshot, displayed.selection.snapshot);
+  for (const item of selected) {
+    const saved = (await getTask({ taskId: item.taskId }, f.deps)).task;
+    assert.equal(saved.status, "dropped"); assert.equal(saved.notes, "Keep this history"); assert.equal(saved.archivedBySub, "shawna");
+  }
+  await restoreTaskRecord({ recordType: "task", recordId: selected[0].taskId, expectedVersion: 2 }, f.deps);
+  assert.equal((await getTask({ taskId: selected[0].taskId }, f.deps)).task.status, "next");
+});
+
+test("church email domain admits requests for review without granting outbound consent or staff access", async () => {
+  const f = await fixture();
+  const email = { provider: "graph", providerId: "church-email", channel: "email", sender: "New.Person@FoundedOnFaith.COM", recipient: "maintenance@foundedonfaith.com", body: "Please repair a door", media: [] };
+  const result = await f.domain.ingest(email);
+  assert.equal(result.reviewStatus, "pending");
+  assert.equal((await f.communicationsDb.collection("maintenanceMessages").doc(result.messageId).get()).data().admissionReason, "foundedonfaith_email");
+  assert.equal((await f.domain.ingest(email)).messageId, result.messageId);
+  assert.equal((await f.communicationsDb.collection("maintenanceReporters").get()).docs.length, 0);
+  assert.equal((await f.db.collection("tasks").get()).docs.length, 0);
+  assert.equal((await f.db.collection("projects").doc(ROOT_ID).get()).data().version, f.root.version);
+  await assert.rejects(f.domain.invoke({ action: "draftMessage", actor, channel: "email", recipient: email.sender, body: "No inferred consent", requestKey: "no-consent" }), { statusCode: 403 });
+  for (const sender of ["someone@example.com", "person@sub.foundedonfaith.com", "person@notfoundedonfaith.com", "person@foundedonfaith.com.evil.test"]) {
+    assert.equal((await f.domain.ingest({ ...email, providerId: sender, sender })).reviewStatus, "quarantined");
+  }
+  assert.equal((await f.domain.ingest({ ...email, provider: "twilio", providerId: "not-graph" })).reviewStatus, "quarantined");
+  await f.domain.invoke({ action: "setReporter", actor, expectedVersion: 0, changes: { channel: "email", address: email.sender, name: "Revoked", approved: false, consentNote: "" } });
+  assert.equal((await f.domain.ingest({ ...email, providerId: "after-revocation" })).reviewStatus, "quarantined");
+  assert.equal((await f.domain.ingest(email)).reviewStatus, "pending", "replays preserve original review history");
+  await f.domain.invoke({ action: "setReporter", actor, expectedVersion: 0, changes: { channel: "email", address: "worker@example.com", name: "Approved external", approved: true, consentNote: "" } });
+  assert.equal((await f.domain.ingest({ ...email, providerId: "approved-external", sender: "worker@example.com" })).reviewStatus, "pending");
 });

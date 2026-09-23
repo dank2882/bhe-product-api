@@ -119,3 +119,19 @@ Subsequent activation work resolved funding; Dan purchased +1 253 319 3260.
 See [maintenance-activation-review.md](maintenance-activation-review.md) for the
 current service, cloud deployment and mailbox-scope receipts. The suspension
 observation above is historical.
+
+## September 23 domain submission policy
+
+Dan authorized anyone with a `foundedonfaith.com` email address to submit a
+Maintenance request. The existing Graph mailbox poller admits exact-domain
+From addresses to `pending` review without creating individual reporter records.
+Case is normalized; subdomains and suffix/lookalike domains do not match.
+An explicit individual `approved:false` revocation takes precedence. Unknown
+external senders remain quarantined; individually approved external senders
+continue to work. Replayed/existing messages preserve their review history.
+
+This policy is inbox admission based on the received From address, not an
+assertion of authenticated individual identity. Message contents remain untrusted
+and require manager review before any task change. It grants no staff access,
+outbound consent, automatic task creation, or automatic reply. Sender approval
+and actual recipient consent remain required for outbound drafts and dispatch.

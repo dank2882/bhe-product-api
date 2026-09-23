@@ -34,10 +34,18 @@ routine fields must request `detailLevel: full`. The original ten columns remain
 available in both views. Actual costs and estimates stay distinct; source photo
 placeholders never count as attachments. Proposed assignments are labeled.
 
-When a user requests a change by task title or reference:
+## Numbered selections
+
+Each displayed row has a `number`, continuous across groups and pages of the same filtered snapshot. Numbers appear in the Task cell to retain the ten-column layout. `selection` includes the snapshot, record type, and each displayed number’s immutable record ID, reference and version. Numbers are view-local, not new stored task identities.
+
+Resolve every number from the latest working table actually shown to the user before the first write; freeze that set of IDs throughout the batch. A hidden detail query must not replace the displayed mapping. Never refresh and recalculate positions between archives. If the mapping is unavailable, the requested number was not displayed, snapshots differ, or tasks/routines are ambiguous, show a fresh table and clarify before mutations. Existing current-version commands still enforce access and concurrency; report partial outcomes individually and refresh after the batch.
+
+“Delete 1, 3, 5” means recoverable archive (`updateTask` status `dropped`, or `updateRoutine` status `archived`). It never invokes permanent deletion. No new command, service, or persistent numbering schema is introduced.
+
+When a user requests a change by number, task title or reference:
 
 1. Resolve the exact record from the displayed row or a `reference` query. Ask
-   only when the target/change is ambiguous; row position is not an identity.
+   only when the target/change is ambiguous; use the displayed selection mapping for numbers, never newly computed positions.
 2. Read current task details/version (`getTask`), or retrieve the full referenced
    routine through `listMaintenanceRoutines`.
 3. Use existing commands, expected versions and an idempotency key. Preserve
