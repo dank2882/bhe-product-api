@@ -294,6 +294,7 @@ async function requestFixture(body = "Building: B Building\nLocation: Hallway\nP
 }
 test("one approval creates and links one task, keeps original source and never sends mail", async () => {
   const f = await requestFixture();
+  f.deps.taskAccess.email = "shawna@foundedonfaith.com";
   const view = await inboxService.listMaintenanceInbox({ view: true }, f.deps);
   assert.equal(view.items[0].fields.area, "Hallway");
   const input = { messageId: f.messageId, expectedVersion: 1, decision: "approve", fields: view.items[0].fields };
@@ -301,6 +302,7 @@ test("one approval creates and links one task, keeps original source and never s
   assert.equal(a.status, "linked");
   const saved = (await require("../lib/project-task-service").getTask({ taskId: a.taskId }, f.deps)).task;
   assert.equal(saved.sourceMessageId, f.messageId); assert.equal(saved.priority, "medium"); assert.equal(saved.assignedTo, "");
+  assert.equal(saved.assignedToSub, ""); assert.equal(saved.assignedToEmail, ""); assert.equal(saved.assignmentStatus, "unassigned");
   assert.match(saved.notes, /Problem: Repair door/); assert.equal(f.sent.length, 0);
   const again = await inboxService.reviewMaintenanceMessage({ ...input, expectedVersion: a.version, decision: "details" }, f.deps);
   assert.equal(again.taskId, a.taskId); assert.equal(again.version, a.version);
