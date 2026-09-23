@@ -165,6 +165,37 @@ test("outbox approval binds immutable content; concurrency sends once; revoked c
   assert.equal(f.sent.length, 1);
   assert.equal((await f.domain.invoke({ action: "getOutbox", actor, draftId: second.draftId })).status, "blocked");
 });
+test("email needs no recipient setup, but still needs manager and exact draft approval before one send", async () => {
+  for (const existingReporter of [false, true]) {
+    const f = await fixture(), recipient = "contractor@example.com";
+    if (existingReporter) {
+      await f.domain.invoke({ action: "setReporter", actor, expectedVersion: 0, changes: { channel: "email", address: recipient, name: "Inbound blocked", approved: false, consentNote: "" } });
+      await f.domain.optOut("email", recipient, "STOP"); // Legacy email flag must not gate manager-selected email.
+    }
+    await assert.rejects(f.domain.invoke({ action: "draftMessage", actor: { subject: "worker" }, channel: "email", recipient, body: "Work", requestKey: "no-access" }), { statusCode: 403 });
+    await assert.rejects(f.domain.invoke({ action: "draftMessage", actor, channel: "email", recipient: "invalid", body: "Work", requestKey: "invalid" }), { statusCode: 400 });
+    const draft = await f.domain.invoke({ action: "draftMessage", actor, channel: "email", recipient, body: "Work", requestKey: "external-email" });
+    await f.domain.dispatch(draft.draftId); assert.equal(f.sent.length, 0);
+    const approval = { action: "approveMessage", actor, draftId: draft.draftId, expectedVersion: 1, contentDigest: draft.contentDigest };
+    await assert.rejects(f.domain.invoke({ ...approval, contentDigest: "wrong" }), { statusCode: 409 });
+    await assert.rejects(f.domain.invoke({ ...approval, expectedVersion: 0 }), { statusCode: 409 });
+    await f.domain.invoke(approval);
+    await Promise.all([f.domain.dispatch(draft.draftId), f.domain.dispatch(draft.draftId)]);
+    assert.equal(f.sent.length, 1); assert.equal(f.sent[0].recipient, recipient);
+  }
+});
+test("email dispatch still rechecks manager authority and channel switches; SMS still requires opt-in", async () => {
+  const f = await fixture();
+  await assert.rejects(f.domain.invoke({ action: "draftMessage", actor, channel: "sms", recipient: inbound.sender, body: "Work", requestKey: "sms-without-optin" }), { statusCode: 403 });
+  const draft = await f.domain.invoke({ action: "draftMessage", actor, channel: "email", recipient: "external@example.com", body: "Work", requestKey: "revoked-manager-email" });
+  await f.domain.invoke({ action: "approveMessage", actor, draftId: draft.draftId, expectedVersion: 1, contentDigest: draft.contentDigest });
+  const disabled = createDomain({ taskDb: f.db, communicationsDb: f.communicationsDb, isSendingAllowed: () => false });
+  await assert.rejects(disabled.dispatch(draft.draftId), { statusCode: 503 });
+  await f.db.collection("projects").doc(ROOT_ID).update({ maintenanceManagers: [] });
+  await f.domain.dispatch(draft.draftId);
+  assert.equal(f.sent.length, 0);
+  assert.equal((await f.communicationsDb.collection("maintenanceOutbox").doc(draft.draftId).get()).data().status, "blocked");
+});
 test("ambiguous provider send is never retried, even during queue recovery", async () => {
   const f = await fixture(); await approvedReporter(f); let attempts = 0;
   const domain = createDomain({ isSendingAllowed: () => true, taskDb: f.db, communicationsDb: f.communicationsDb, enqueue: async () => {}, send: async () => { attempts++; throw new Error("timeout after acceptance"); } });
@@ -263,7 +294,7 @@ test("numbered archive batch keeps original selected IDs despite rows shifting a
   assert.equal((await getTask({ taskId: selected[0].taskId }, f.deps)).task.status, "next");
 });
 
-test("church email domain admits requests for review without granting outbound consent or staff access", async () => {
+test("church email domain admits requests for review without reporter records or staff access", async () => {
   const f = await fixture();
   const email = { provider: "graph", providerId: "church-email", channel: "email", sender: "New.Person@FoundedOnFaith.COM", recipient: "maintenance@foundedonfaith.com", body: "Please repair a door", media: [] };
   const result = await f.domain.ingest(email);
@@ -273,7 +304,8 @@ test("church email domain admits requests for review without granting outbound c
   assert.equal((await f.communicationsDb.collection("maintenanceReporters").get()).docs.length, 0);
   assert.equal((await f.db.collection("tasks").get()).docs.length, 0);
   assert.equal((await f.db.collection("projects").doc(ROOT_ID).get()).data().version, f.root.version);
-  await assert.rejects(f.domain.invoke({ action: "draftMessage", actor, channel: "email", recipient: email.sender, body: "No inferred consent", requestKey: "no-consent" }), { statusCode: 403 });
+  const draft = await f.domain.invoke({ action: "draftMessage", actor, channel: "email", recipient: email.sender, body: "Manager-reviewed email", requestKey: "no-reporter-required" });
+  assert.equal(draft.status, "draft"); assert.equal(f.sent.length, 0);
   for (const sender of ["someone@example.com", "person@sub.foundedonfaith.com", "person@notfoundedonfaith.com", "person@foundedonfaith.com.evil.test"]) {
     assert.equal((await f.domain.ingest({ ...email, providerId: sender, sender })).reviewStatus, "quarantined");
   }
@@ -353,16 +385,15 @@ test("approval fails closed for stale cards, nonmanagers, unapproved detail upda
   await assert.rejects(inboxService.reviewMaintenanceMessage({ ...input, taskId: "other" }, f.deps));
   assert.equal((await f.domain.invoke({ action: "getMessage", actor, messageId: f.messageId })).version, 1);
 });
-test("Work Order template uses explicit scope, omits internal notes, requires consent and stays a draft", async () => {
+test("Work Order to an unregistered external email uses explicit scope, omits internal notes and stays a draft", async () => {
   const f = await requestFixture();
   await createTask({ taskId: "work-order", projectId: ROOT_ID, title: "Repair door", notes: "PRIVATE INTERNAL HISTORY", maintenance: { building: "B Building", area: "Hallway" } }, f.deps);
-  const input = { template: "work_order", taskId: "work-order", recipient: "worker@foundedonfaith.com", recipientName: "Pat", instructions: "Repair the hinge.", requestKey: "work-order-test" };
-  await assert.rejects(inboxService.draftMaintenanceMessage(input, f.deps), { statusCode: 403 });
-  await f.domain.invoke({ action: "setReporter", actor, expectedVersion: 0, changes: { channel: "email", address: input.recipient, name: "Pat", approved: true, consentNote: "Test opt-in" } });
+  const input = { template: "work_order", taskId: "work-order", recipient: "worker@example.com", recipientName: "Pat", instructions: "Repair the hinge.", requestKey: "work-order-test" };
   const draft = await inboxService.draftMaintenanceMessage(input, f.deps);
   assert.equal(draft.status, "draft"); assert.match(draft.subject, /^FBC Work Order M-/); assert.match(draft.body, /B Building \/ Hallway/);
   assert.match(draft.body, /Repair the hinge/); assert.match(draft.body, /To be agreed/); assert.ok(!draft.body.includes("PRIVATE INTERNAL")); assert.equal(f.sent.length, 0);
   assert.equal((await inboxService.draftMaintenanceMessage(input, f.deps)).draftId, draft.draftId);
+  assert.equal((await f.communicationsDb.collection("maintenanceReporters").get()).docs.length, 0);
 });
 test("pending photos resume on the saved task and cannot be redirected or dismissed mid-link", async () => {
   const f = await requestFixture();

@@ -45,9 +45,9 @@ and actual ChatGPT acceptance are separate from deployment.
 `draftMaintenanceMessage` accepts `template:work_order`, `taskId`, `recipient`,
 `requestKey`, optional `recipientName`, `instructions`, `accessNotes`, `mediaIds`.
 It uses the current task reference/location/priority/date and explicit work scope.
-Internal notes are not copied. The result is an immutable draft, using existing
-recipient approval and actual consent requirements. Exact send approval remains
-a separate action. Archived/completed tasks must be reopened before a new order.
+Internal notes are not copied. The result is an immutable draft. As approved by
+Dan on September 23, email can go to any valid address without recipient setup
+or consent. Exact send approval remains a separate action. SMS opt-in is unchanged. Archived/completed tasks must be reopened before a new order.
 
 Human instructions: maintenance-shawna-guide.md and maintenance-work-order-template.md.
 Companion ADR: bhe-agent-platform/docs/adr/0035-maintenance-inbox-approval.md.

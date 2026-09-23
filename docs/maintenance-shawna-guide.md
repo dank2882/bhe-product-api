@@ -17,7 +17,7 @@ A task you explicitly create in chat goes onto the Maintenance list without a se
 
 These are separate decisions:
 - Approve adding or updating the maintenance work.
-- Approve a sender/recipient and record their actual permission to receive messages.
+- Review incoming senders when needed. Outgoing email does not require recipient registration or consent.
 - Approve the exact outgoing email before sending.
 
 Assigning a task does not automatically email the worker. A contractor saying “done” does not automatically complete the task.
@@ -95,11 +95,7 @@ An older cached viewer may show an unnecessary Next button for a one-photo task.
 ## 5. Email a worker or contractor
 Maintenance emails send from **maintenance@foundedonfaith.com** through FBC Staff Tools. You do not need another person’s Outlook account for this workflow.
 
-Confirm the recipient’s exact address. They must be approved and have actual permission to receive Maintenance messages documented. Approval to submit requests is separate from permission to receive outgoing messages.
-
-“Show the Maintenance reporter record for [email]. Is this person approved, and is permission to receive Maintenance emails documented?”
-
-If setup is needed, supply the person’s name, exact address and real consent details. Never invent consent.
+You can email anyone you choose at a valid email address, including outside contractors. No recipient registration, approved-reporter record, or consent note is required. Confirm the exact address and review the complete draft before approving it to send. Incoming-sender review remains a separate process.
 
 Use the standard **FBC Maintenance Work Order** template:
 “Draft a Work Order email to [exact email] for [M-reference], addressed to [name]. Work instructions: [specific scope]. Access instructions: [details]. Include [selected photos, if wanted]. Show me the complete draft before sending.”

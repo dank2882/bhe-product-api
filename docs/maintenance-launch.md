@@ -33,7 +33,8 @@ applicable `MAINTENANCE_EMAIL_SENDING_ENABLED` or `MAINTENANCE_SMS_SENDING_ENABL
 switch. Missing channel switches deny sending. Check both approval and dispatch
 so queued work cannot bypass a disabled channel. Email acceptance can proceed
 while SMS remains disabled pending A2P registration. These switches never replace
-recipient opt-in or explicit approval of each immutable draft.
+SMS recipient opt-in or explicit approval of each immutable draft. Email has no
+recipient registration or consent prerequisite.
 Secret Manager references must supply `TWILIO_AUTH_TOKEN` and
 `MICROSOFT_CLIENT_SECRET`; never put values in Git, commands captured in chat,
 registry records or logs. Inspect/reuse the appropriate Microsoft application;
@@ -55,8 +56,8 @@ decoder support and must be tested with actual worker phones; unsupported photos
 remain visible as failed media. Originals remain in the provider system. Stored
 photos are normalized JPEGs with metadata removed.
 
-Shawna must approve actual workers and document actual opt-in before outbound
-messages. Twilio STOP keywords are honored, but reporter approval alone never
+For outbound SMS, Shawna must approve actual workers and document actual opt-in.
+Outgoing email can go to any valid address without recipient setup or consent. Twilio STOP keywords are honored, but reporter approval alone never
 restores consent. Enable advanced opt-out on the dedicated Messaging Service so
 Twilio provides `OptOutType` for START/STOP; test before activating outbound.
 
@@ -80,7 +81,7 @@ Twilio provides `OptOutType` for START/STOP; test before activating outbound.
    routine completion, review, and membership management. Deny permanent delete,
    unrelated branch/private-task access and nonmanager inbox access.
 9. Enable outbound only after these gates; send one explicitly approved email
-   and SMS/photo test to approved recipients. Never resend on ambiguity. Check
+   and SMS/photo test (SMS recipients must be approved and opted in). Never resend on ambiguity. Check
    Sent Items/Twilio logs and outbox receipts. Then enable the recurring poll.
 
 There is no automatic bulk import. Use `scripts/preview-maintenance-import.cjs`
@@ -133,5 +134,7 @@ continue to work. Replayed/existing messages preserve their review history.
 This policy is inbox admission based on the received From address, not an
 assertion of authenticated individual identity. Message contents remain untrusted
 and require manager review before any task change. It grants no staff access,
-outbound consent, automatic task creation, or automatic reply. Sender approval
-and actual recipient consent remain required for outbound drafts and dispatch.
+automatic task creation or automatic reply. SMS sender approval and actual
+recipient consent remain required for SMS drafts and dispatch. Outgoing email
+can go to any valid address chosen by a Maintenance manager, independent of
+incoming-sender approval. Every outgoing email still needs exact draft approval.

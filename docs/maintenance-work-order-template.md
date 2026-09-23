@@ -33,6 +33,6 @@ maintenance@foundedonfaith.com
 
 ---
 
-Draft only. Populate from the current task and Shawna's instructions; never include internal task notes automatically or invent scope, costs, deadlines or commitments. Recipient approval/actual consent and exact outgoing draft approval remain required.
+Draft only. Populate from the current task and Shawna's instructions; never include internal task notes automatically or invent scope, costs, deadlines or commitments. Email may be addressed to any valid email address without recipient registration or consent. Exact outgoing draft approval remains required before sending.
 
 Use draftMaintenanceMessage with template:work_order, taskId, recipient and a stable requestKey. Optional recipientName, instructions, accessNotes and selected mediaIds customize the draft. The backend uses the current task; no message sends until the exact draft is approved.
