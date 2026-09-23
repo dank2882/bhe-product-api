@@ -249,3 +249,19 @@ and separate open/download links, with an instruction to preserve the Images
 column and Photo previews section. Automated checks cover parent authorization,
 page-only URL signing, stable pagination and failure fallback. Deployment and
 fresh-chat image rendering must be verified separately from these code changes.
+
+### Photo presentation release receipt
+
+- Implementation commit: `9bc334f`; release checks and all 651 tests passed.
+- Cloud Run `bhe-product-api-00288-bqf` serves 100% of production traffic.
+  The existing release helper recorded deployment evidence in Developer Tools.
+- Fresh authenticated FBC query for archived `M-dcb96955` returned task version 5,
+  one photo, `previewStatus: ready`, separate preview/download URLs, the camera
+  count in Images and an inline Markdown image below the table.
+- The signed preview returned HTTP 200, `image/jpeg` and
+  `Content-Disposition: inline`; downloaded bytes matched the stored attachment
+  SHA-256 `cff8702ab37717b435a705b7bfb68a5884405dc5e7e36274da0fddc6e681a11e`.
+- No operational task or attachment was changed by this release. The fixture
+  remains archived with Shawna's successful test note. Fresh ChatGPT rendering
+  of the new inline preview remains a client acceptance check; backend signing
+  and delivery do not establish that the client will display Markdown images.
