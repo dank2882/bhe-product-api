@@ -280,3 +280,27 @@ existing MCP Apps pattern in FBC Staff Tools with private task-authorized image
 URLs, thumbnails, enlargement, refresh and downloads. See platform ADR
 `docs/adr/0034-maintenance-photo-viewer.md`. Deployment, workspace action
 publication and actual photo rendering are separate verification gates.
+
+
+### Embedded photo viewer release and actual ChatGPT acceptance
+
+Product commit `2aa434f` is live on `bhe-product-api-00289-24r` at 100% traffic.
+Platform implementation `018308a` (including earlier `2a2fd70` and `00f2d6b`) is
+live on `fbc-staff-tools-mcp-entra-prod-00051-x4m` at 100%. All 651 product and
+190 platform tests/checks passed. Workspace publication was independently read
+back: both new photo tools enabled, 101/103 total tools enabled.
+
+Actual Dan-account ChatGPT displayed the real M-dcb96955 photo as a thumbnail
+and enlarged image; authenticated Refresh also worked. The download control
+reached the host's external-link confirmation; no new browser download is
+claimed. Test fixture remains version 5 and archived, unchanged.
+
+Receipt: https://chatgpt.com/c/6ab403f7-5520-83e8-9838-af91afb4d951
+Post-compatibility retry: https://chatgpt.com/c/6ab404f2-6f04-83e8-8f00-246f76db972b
+
+The host retained a cached v1 template after the v2 deployment. Both template
+addresses remain available and return corrected source; photo rendering works.
+The cached UI can still show a redundant Next button for a one-photo task.
+Fresh v2 UI uptake and Shawna's individual preview acceptance remain explicit
+gates. Full release report is in bhe-agent-platform:
+`docs/releases/maintenance-photo-viewer-2026-09-23.md`.
