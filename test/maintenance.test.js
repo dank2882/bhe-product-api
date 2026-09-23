@@ -204,7 +204,8 @@ test("board renders private photo indicators and inline previews only for the au
   assert.equal(first.totalCount, 2);
   assert.match(first.markdown, /📷 \*\*1 photo\*\*/);
   assert.match(first.markdown, /\[Open photo\]\(https:\/\/storage.test\/photos\/a/);
-  assert.match(first.markdown, /!\[Photo for M-[a-f0-9]+\]\(https:\/\/storage.test/);
+  assert.doesNotMatch(first.markdown, /!\[Photo/);
+  assert.match(first.markdown, /photo viewer/);
   assert.ok(!first.markdown.includes("<bad>"));
   assert.deepEqual([...new Set(signed.map(x => x.path))], ["photos/a"]);
   assert.equal(signed[1].options.responseDisposition, "inline");

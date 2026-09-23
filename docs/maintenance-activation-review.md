@@ -265,3 +265,18 @@ fresh-chat image rendering must be verified separately from these code changes.
   remains archived with Shawna's successful test note. Fresh ChatGPT rendering
   of the new inline preview remains a client acceptance check; backend signing
   and delivery do not establish that the client will display Markdown images.
+
+
+### Markdown preview failed client acceptance
+
+Dan's September 23 screenshot (`IMG_7086.jpeg`) shows `M-dcb96955` with an image
+placeholder under Photo preview, while the Open photo link remains available.
+This supersedes the earlier pending client-rendering status: Markdown embedding
+failed in his tested client. Backend delivery success remains valid; the exact
+host rejection cause is not established by the screenshot.
+
+Dan explicitly accepted: “Yes, add the photo viewer.” The replacement uses the
+existing MCP Apps pattern in FBC Staff Tools with private task-authorized image
+URLs, thumbnails, enlargement, refresh and downloads. See platform ADR
+`docs/adr/0034-maintenance-photo-viewer.md`. Deployment, workspace action
+publication and actual photo rendering are separate verification gates.

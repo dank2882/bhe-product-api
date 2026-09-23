@@ -59,22 +59,23 @@ recorded separately in Dan's Developer Tools.
 
 ## Photo indicators and previews
 
-The Images column must remain visible even when summarizing the table. It shows
-`No photos` or a prominent camera icon and exact attachment count. For up to 20
-photo-bearing rows on the current page, the first photo has Open photo and
-Download links and an inline Markdown preview below the table, labeled by task
-reference and title. Additional photos are retrieved conversationally with
-`listAttachments` and `getAttachmentDownload`. That query now returns `preview`
-for JPEG, PNG, GIF and WebP alongside the unchanged `download` response.
+The Images column shows a camera icon and exact photo count or `No photos`.
+The first photo has private Open photo and Download links. Keep this column
+visible when presenting the table.
 
-Preview URLs use inline content disposition and the existing 15-minute private
-signed-link mechanism. These are previews of existing stored images, not new
-thumbnail files. Client rendering determines their displayed size. No public
-bucket, new endpoint or copied media is introduced. Render the returned Markdown
-including its Photo previews section; do not replace it with a download-only
-answer. Refresh the query when links expire.
+For requested previews, use `tasks_open_maintenance_photos` in FBC Staff Tools
+with the exact `M-xxxxxxxx` reference from the board. Pass `includeArchived:true`
+only when archived tasks were requested. The embedded MCP Apps component shows
+12 photos per page, enlargement, original download and Refresh to renew links.
+It uses the existing authorized Maintenance board and task attachment queries;
+no new storage, public bucket, login, or operational database is introduced.
 
-Only the authorized, filtered page is signed, after computing the stable cursor
-snapshot. Each attachment's parent authorization is checked again before URL
-creation. A storage/signing failure preserves the count with Preview unavailable;
-authorization failure fails closed. Non-raster attachments are never embedded.
+Markdown image previews failed actual ChatGPT acceptance on September 23 despite
+valid HTTP 200 inline JPEG URLs. They are no longer the display contract. The
+signed `preview` field remains available for the embedded viewer and direct
+opening. Text-only clients retain photo counts and open/download links.
+
+The component follows the existing BHE gallery bridge pattern but reads only
+Maintenance-owned task attachments. Its two read-only actions must be refreshed,
+enabled and saved in the workspace app before fresh-client acceptance. Tests
+and a valid signed link do not establish actual ChatGPT rendering.
