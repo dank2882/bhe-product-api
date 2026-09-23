@@ -284,3 +284,106 @@ test("church email domain admits requests for review without granting outbound c
   await f.domain.invoke({ action: "setReporter", actor, expectedVersion: 0, changes: { channel: "email", address: "worker@example.com", name: "Approved external", approved: true, consentNote: "" } });
   assert.equal((await f.domain.ingest({ ...email, providerId: "approved-external", sender: "worker@example.com" })).reviewStatus, "pending");
 });
+
+const inboxService = require("../lib/maintenance-inbox-service");
+async function requestFixture(body = "Building: B Building\nLocation: Hallway\nProblem: Repair door") {
+  const f = await fixture();
+  f.deps.maintenanceMessagingRequest = input => f.domain.invoke(input);
+  const m = await f.domain.ingest({ provider: "graph", providerId: "approval-test", channel: "email", sender: "requester@foundedonfaith.com", recipient: "maintenance@foundedonfaith.com", subject: "Repair door", body, media: [] });
+  return { ...f, messageId: m.messageId };
+}
+test("one approval creates and links one task, keeps original source and never sends mail", async () => {
+  const f = await requestFixture();
+  const view = await inboxService.listMaintenanceInbox({ view: true }, f.deps);
+  assert.equal(view.items[0].fields.area, "Hallway");
+  const input = { messageId: f.messageId, expectedVersion: 1, decision: "approve", fields: view.items[0].fields };
+  const a = await inboxService.reviewMaintenanceMessage(input, f.deps);
+  assert.equal(a.status, "linked");
+  const saved = (await require("../lib/project-task-service").getTask({ taskId: a.taskId }, f.deps)).task;
+  assert.equal(saved.sourceMessageId, f.messageId); assert.equal(saved.priority, "medium"); assert.equal(saved.assignedTo, "");
+  assert.match(saved.notes, /Problem: Repair door/); assert.equal(f.sent.length, 0);
+  const again = await inboxService.reviewMaintenanceMessage({ ...input, expectedVersion: a.version, decision: "details" }, f.deps);
+  assert.equal(again.taskId, a.taskId); assert.equal(again.version, a.version);
+  assert.equal((await f.db.collection("tasks").get()).docs.length, 1);
+});
+test("missing essentials save approval without creating work; fresh-session details finish once", async () => {
+  const f = await requestFixture("Door broken, not sure which room");
+  const a = await inboxService.reviewMaintenanceMessage({ messageId: f.messageId, expectedVersion: 1, decision: "approve", fields: { title: "Repair door" } }, f.deps);
+  assert.equal(a.status, "needs_details"); assert.deepEqual(a.missingFields, ["building", "area"]);
+  assert.equal((await f.db.collection("tasks").get()).docs.length, 0);
+  const view = await inboxService.listMaintenanceInbox({ view: true }, f.deps);
+  assert.equal(view.items[0].approved, true);
+  const final = await inboxService.reviewMaintenanceMessage({ messageId: f.messageId, expectedVersion: view.items[0].version, decision: "details", fields: { title: "Repair door", building: "B Building", area: "Room 12" } }, f.deps);
+  assert.equal(final.status, "linked");
+  assert.equal((await f.domain.invoke({ action: "getMessage", messageId: f.messageId, actor })).approval.approvedBySub, "shawna");
+});
+test("duplicate suggestion waits for an explicit existing-task choice and links photos without editing its scope", async () => {
+  const f = await requestFixture();
+  await createTask({ taskId: "existing-repair", projectId: ROOT_ID, title: "Repair door", notes: "Existing scope" }, f.deps);
+  const a = await inboxService.reviewMaintenanceMessage({ messageId: f.messageId, expectedVersion: 1, decision: "approve" }, f.deps);
+  assert.equal(a.status, "needs_match"); assert.equal(a.candidates[0].taskId, "existing-repair");
+  const done = await inboxService.reviewMaintenanceMessage({ messageId: f.messageId, expectedVersion: a.version, decision: "details", taskId: "existing-repair" }, f.deps);
+  assert.equal(done.taskId, "existing-repair"); assert.equal(done.status, "linked");
+  assert.equal((await f.db.collection("tasks").get()).docs.length, 1);
+  assert.equal((await f.db.collection("tasks").doc(done.taskId).get()).data().notes, "Existing scope");
+});
+test("concurrent approvals and recovery after task creation never duplicate a request", async () => {
+  const f = await requestFixture();
+  const base = { messageId: f.messageId, expectedVersion: 1, decision: "approve" };
+  const responses = await Promise.allSettled([inboxService.reviewMaintenanceMessage(base, f.deps), inboxService.reviewMaintenanceMessage(base, f.deps)]);
+  assert.equal(responses.filter(x => x.status === "fulfilled").length, 1);
+  assert.equal((await f.db.collection("tasks").get()).docs.length, 1);
+  const g = await requestFixture(); let failLink = true;
+  g.deps.maintenanceMessagingRequest = input => { if (input.action === "reviewMessage" && failLink) throw Error("Connection lost after create"); return g.domain.invoke(input); };
+  await assert.rejects(inboxService.reviewMaintenanceMessage({ messageId: g.messageId, expectedVersion: 1, decision: "approve" }, g.deps), /Connection lost/);
+  const stored = await g.domain.invoke({ action: "getMessage", actor, messageId: g.messageId });
+  assert.equal(stored.reviewStatus, "adding"); failLink = false;
+  const recovered = await inboxService.reviewMaintenanceMessage({ messageId: g.messageId, expectedVersion: stored.version, decision: "details" }, g.deps);
+  assert.equal(recovered.status, "linked"); assert.equal((await g.db.collection("tasks").get()).docs.length, 1);
+});
+test("approval fails closed for stale cards, nonmanagers, unapproved detail updates and unavailable targets", async () => {
+  const f = await requestFixture();
+  const input = { messageId: f.messageId, expectedVersion: 1, decision: "approve" };
+  await assert.rejects(inboxService.reviewMaintenanceMessage({ ...input, decision: "details" }, f.deps), { statusCode: 409 });
+  await assert.rejects(inboxService.reviewMaintenanceMessage(input, { ...f.deps, taskAccess: { subject: "worker", role: "member" } }), { statusCode: 403 });
+  await assert.rejects(inboxService.reviewMaintenanceMessage({ ...input, expectedVersion: 0 }, f.deps), { statusCode: 409 });
+  await createTask({ taskId: "other", title: "Private", visibility: "private" }, { ...f.deps, taskAccess: { subject: "dan", role: "member" } });
+  await assert.rejects(inboxService.reviewMaintenanceMessage({ ...input, taskId: "other" }, f.deps));
+  assert.equal((await f.domain.invoke({ action: "getMessage", actor, messageId: f.messageId })).version, 1);
+});
+test("Work Order template uses explicit scope, omits internal notes, requires consent and stays a draft", async () => {
+  const f = await requestFixture();
+  await createTask({ taskId: "work-order", projectId: ROOT_ID, title: "Repair door", notes: "PRIVATE INTERNAL HISTORY", maintenance: { building: "B Building", area: "Hallway" } }, f.deps);
+  const input = { template: "work_order", taskId: "work-order", recipient: "worker@foundedonfaith.com", recipientName: "Pat", instructions: "Repair the hinge.", requestKey: "work-order-test" };
+  await assert.rejects(inboxService.draftMaintenanceMessage(input, f.deps), { statusCode: 403 });
+  await f.domain.invoke({ action: "setReporter", actor, expectedVersion: 0, changes: { channel: "email", address: input.recipient, name: "Pat", approved: true, consentNote: "Test opt-in" } });
+  const draft = await inboxService.draftMaintenanceMessage(input, f.deps);
+  assert.equal(draft.status, "draft"); assert.match(draft.subject, /^FBC Work Order M-/); assert.match(draft.body, /B Building \/ Hallway/);
+  assert.match(draft.body, /Repair the hinge/); assert.match(draft.body, /To be agreed/); assert.ok(!draft.body.includes("PRIVATE INTERNAL")); assert.equal(f.sent.length, 0);
+  assert.equal((await inboxService.draftMaintenanceMessage(input, f.deps)).draftId, draft.draftId);
+});
+test("pending photos resume on the saved task and cannot be redirected or dismissed mid-link", async () => {
+  const f = await requestFixture();
+  const ref = f.communicationsDb.collection("maintenanceMessages").doc(f.messageId);
+  await ref.update({ media: [{ url: "provider media" }], mediaStatus: "pending" });
+  const a = await inboxService.reviewMaintenanceMessage({ messageId: f.messageId, expectedVersion: 1, decision: "approve" }, f.deps);
+  assert.equal(a.status, "adding"); assert.equal(a.photosPending, true);
+  await assert.rejects(inboxService.reviewMaintenanceMessage({ messageId: f.messageId, expectedVersion: a.version, decision: "dismiss" }, f.deps), { statusCode: 409 });
+  await createTask({ taskId: "different", title: "Other work", projectId: ROOT_ID }, f.deps);
+  await assert.rejects(inboxService.reviewMaintenanceMessage({ messageId: f.messageId, expectedVersion: a.version, decision: "details", taskId: "different" }, f.deps), { statusCode: 409 });
+  await f.domain.processMedia(f.messageId);
+  const done = await inboxService.reviewMaintenanceMessage({ messageId: f.messageId, expectedVersion: a.version, decision: "details" }, f.deps);
+  assert.equal(done.taskId, a.taskId); assert.equal(done.status, "linked");
+  const attachments = (await f.db.collection("taskAttachments").get()).docs;
+  assert.equal(attachments.length, 1); assert.equal(attachments[0].data().recordId, a.taskId);
+});
+test("only an explicit separate-work choice bypasses a possible match; inbox query itself never saves proposals", async () => {
+  const f = await requestFixture();
+  await createTask({ taskId: "known", projectId: ROOT_ID, title: "Repair door" }, f.deps);
+  const view = await inboxService.listMaintenanceInbox({ view: true, proposals: [{ messageId: f.messageId, version: 1, fields: { title: "Repair door", building: "A Building", area: "Lobby" } }] }, f.deps);
+  assert.equal(view.items[0].fields.building, "A Building");
+  assert.equal((await f.domain.invoke({ action: "getMessage", actor, messageId: f.messageId })).approval, undefined);
+  const approved = await inboxService.reviewMaintenanceMessage({ messageId: f.messageId, expectedVersion: 1, decision: "approve", fields: view.items[0].fields, confirmNew: true }, f.deps);
+  assert.equal(approved.status, "linked"); assert.notEqual(approved.taskId, "known");
+  const saved = (await f.db.collection("tasks").doc(approved.taskId).get()).data();assert.equal(saved.maintenance.building, "A Building");
+});

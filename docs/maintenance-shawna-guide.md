@@ -11,7 +11,7 @@ To retrieve this sheet:
 Tell chat what to change. The table is a retrieved view; refresh it after a saved change.
 
 ## What needs approval?
-Incoming emails and texts enter the Maintenance inbox. They do not automatically create tasks, change work, or mark repairs complete. Review the request, check for an existing task, then approve the appropriate task change and linking of its original message/photos.
+Incoming emails and texts enter the Maintenance inbox. They do not automatically create tasks, change work, or mark repairs complete. Open the interactive inbox and review the proposed work, building, area and photos. Click **Approve & Add** to approve the work and link its original message/photos.
 
 A task you explicitly create in chat goes onto the Maintenance list without a second approval step. Existing tasks do not need approval again simply to remain on the list.
 
@@ -33,12 +33,29 @@ Anyone with an **@foundedonfaith.com** email address can submit a request withou
 
 Check the location, work description and proposed match. Do not guess an unclear building or task match.
 
-## 2. Add or link an approved request
+## 2. Approve a request with one click
+“Open the Maintenance inbox.”
+
+Each card shows the sender, original request, proposed work/location, photo status and previews. Check or correct those fields before clicking **Approve & Add**. Priority starts at medium; assignee, deadline and cost can be set later.
+
+- **Complete request:** Adds one task and links its original message and ready photos. Use **View saved task** to verify it.
+- **Missing work/building/area:** Saves your approval as **Needs details**. Chat asks for the missing information. Answer it, or fill in the card and click **Save details & add**. You do not need to approve again, even in a new chat.
+- **Possible existing work:** Choose **Add to existing task**, or **This is separate work — add new task**. Linking preserves the existing task’s scope; ask separately for changes to that task. You can enter an M-reference to select another task.
+- **Photos still processing:** The task is saved once. Later click **Finish linking** to attach the ready photos; do not create another task. Failed photos remain visible for follow-up.
+- **Unwanted request:** **Dismiss** removes it from unresolved work on that page; **Show reviewed history** brings it back into view.
+
+Use Next page to check every inbox page, including pages containing only reviewed history. A timeout does not mean nothing was saved: Refresh first and check the request status. Repeated approval cannot create a second task for that request.
+
+For conversational follow-up, say:
+“Finish the details for my approved Maintenance inbox request [subject].”
+
+### Conversational alternative
 For a new task:
-“Create a Maintenance task from this request in [building / location], titled [repair name], with priority [priority]. Link the original request and its photos.”
+“Approve this Maintenance inbox request. The work is [repair name], in [building / location]. Add it to the list and link its photos.”
+Use the approval workflow; do not separately create another task for the same inbox request.
 
 For an existing task:
-“Link this request and its photos to [M-reference]. Add this note: [your update].”
+“Approve this request and add its message and photos to existing task [M-reference]. Then add this note: [your update].”
 
 Supply a deadline only when there is a real one. Keep estimated and actual costs separate.
 
@@ -84,7 +101,12 @@ Confirm the recipient’s exact address. They must be approved and have actual p
 
 If setup is needed, supply the person’s name, exact address and real consent details. Never invent consent.
 
-Draft:
+Use the standard **FBC Maintenance Work Order** template:
+“Draft a Work Order email to [exact email] for [M-reference], addressed to [name]. Work instructions: [specific scope]. Access instructions: [details]. Include [selected photos, if wanted]. Show me the complete draft before sending.”
+
+The template includes the permanent work order reference, location, priority, requested completion date (or ‘To be agreed’), work/access instructions, a request to confirm availability, and a request for completion details/photos. It does not automatically include internal task notes or authorize extra purchases.
+
+For other wording:
 “Draft a Maintenance email to [exact email address] about task [M-reference]. Include the building, location, requested work and [agreed deadline, if any]. Include [specific intake photos, if wanted]. Show the recipient, subject, full wording and selected photos before sending.”
 
 Review everything and request corrections if needed. A changed draft needs fresh approval.
