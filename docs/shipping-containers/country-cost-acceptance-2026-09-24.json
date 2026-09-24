@@ -1,0 +1,65 @@
+{
+  "verifiedAt": "2026-09-24T17:19:04.883Z",
+  "owner": "fbc",
+  "workstream": {
+    "id": "fbc-shipping-country-cost-planning",
+    "version": 2,
+    "status": "completed"
+  },
+  "implementationCommit": "8328a34",
+  "coreRevision": "bhe-product-api-00295-n5m",
+  "coreTrafficPercent": 100,
+  "previousCoreRevision": "bhe-product-api-00294-67g",
+  "gatewayRevision": "fbc-staff-tools-mcp-entra-prod-00054-7qk",
+  "catalogVersion": "1.2.0",
+  "checks": {
+    "backendCheck": "passed",
+    "tests": 680,
+    "failures": 0
+  },
+  "acceptance": {
+    "surface": "Codex installed FBC Staff Tools Production v2",
+    "createCount": 9,
+    "independentReadCount": 9,
+    "updateVersion": 2,
+    "replayPreservedVersion": 1,
+    "completeListing": true,
+    "createRequestIds": [
+      "e52d72a2-7ce0-4174-98dd-158d3bc5ebbd",
+      "29e72b0b-7e24-4ee7-946f-5bce1af819f9",
+      "defa8734-b5f2-4f34-b569-63849bd4e341",
+      "60ddc235-d751-4e27-b437-c9bb234df8b6",
+      "cccc7e9c-793a-4a6a-9127-9340ae0aa384",
+      "a3563307-dddf-4e02-873d-74ad4e5b5d1f",
+      "81743253-428a-4029-896f-d220a7a9e8cc",
+      "0b2cbd4f-56f8-4169-9b64-f8ea233534db",
+      "08025649-0785-4e97-b0c7-6dd5270de346"
+    ],
+    "readRequestIds": [
+      "8050b5a0-163a-4536-a112-b07731d30d31",
+      "05d44926-346d-45fa-9e8e-df1249e1903b",
+      "6dac07cd-beee-4f65-b58f-775d7327ebf3",
+      "25871bf3-cc09-49f9-985d-321ab108256e",
+      "23134bd6-89cd-48bc-bb86-85ae09298a1c",
+      "91a7bdf0-27db-4b1a-b8df-673e84cddbaf",
+      "6d96f89f-18f2-462b-9425-65855159c8f4",
+      "a3b8b82b-0a7a-4462-a2cc-cdd734ee1ce7",
+      "942e0259-d420-468a-9ea4-cdbb8959e805"
+    ],
+    "updateRequestId": "11694230-45ef-4db9-b8ba-04865e646342",
+    "updateReadRequestId": "a02e1426-d4fd-4feb-919a-37a625c0552b",
+    "replayRequestId": "8fb5c19c-95b3-48d7-af5b-390da1f5cd34",
+    "listRequestId": "5645c8a1-f556-4357-8a3a-a166a102c913"
+  },
+  "registryEvidenceIds": [
+    "shipping-country-cost-tests-20260924",
+    "shipping-country-cost-deployment-20260924",
+    "shipping-country-cost-acceptance-20260924"
+  ],
+  "limitations": [
+    "All nine budgets are drafts with partial coverage and current pricing needed.",
+    "Historical sources are not current market rates; reimbursement references are not invoices.",
+    "No new ChatGPT UI, phone or separate user live-deny acceptance claimed. Automated owner/scope denial tests pass.",
+    "No booking, carrier communication, payment, FX conversion or signature performed."
+  ]
+}
