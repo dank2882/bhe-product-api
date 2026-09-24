@@ -135,3 +135,57 @@ test("replacement paperwork requires renewed acceptance of the current version",
   r.documents[1].status = "accepted";
   assert.equal(M.readiness(M.newShipment(r), "2026-09-23").ready, true);
 });
+
+function stagingBucket(deps) {
+  const files = new Map(), signatures = [], pinnedReads = [];
+  deps.bucket = { file: (path, options) => ({
+    getSignedUrl: async opts => { signatures.push({ path, ...opts }); return ['https://storage.example/signed-put']; },
+    getMetadata: async () => { const f = files.get(path); if (!f) throw Object.assign(Error('missing'), { code: 404 }); return [{ size: String(f.bytes.length), contentType: f.mimeType, generation: '1' }]; },
+    download: async () => { pinnedReads.push(options); return [files.get(path).bytes]; },
+    save: async (bytes, opts) => { if (files.has(path)) throw Object.assign(Error('exists'), { code: 412 }); files.set(path, { bytes, mimeType: opts.contentType }); }
+  }) };
+  return { files, signatures, pinnedReads };
+}
+const fileDigest = bytes => require('node:crypto').createHash('sha256').update(bytes).digest('hex');
+function stagedArgs(shipment, bytes) {
+  return { shipmentId: shipment.shipmentId, expectedVersion: shipment.version, document: { id: 'large-original', title: 'Original broker statement', type: 'statement', sensitivity: 'restricted', status: 'received', sources: ['source-1'] }, filename: 'statement.pdf', mimeType: 'application/pdf', bytes: bytes.length, sha256: fileDigest(bytes) };
+}
+test('direct upload attaches a large immutable original once after hash verification, without base64 in tool input', async () => {
+  const { call, deps } = setup(), bucket = stagingBucket(deps);
+  const s = await call('createShipment', { shipment: basic() });
+  const bytes = Buffer.alloc(14 * 1024 * 1024, 32); bytes.write('%PDF-1.7\n');
+  const input = stagedArgs(s, bytes);
+  const ticket = await call('createDocumentUpload', input, 'large-file-intent');
+  const replay = await call('createDocumentUpload', input, 'large-file-intent'); assert.equal(replay.uploadId, ticket.uploadId);
+  assert.equal(ticket.upload.headers['x-goog-if-generation-match'], '0');
+  assert.equal((await call('getShipment', { shipmentId: s.shipmentId })).shipment.version, 1);
+  bucket.files.set(bucket.signatures[0].path, { bytes, mimeType: 'application/pdf' });
+  const args = { shipmentId: s.shipmentId, expectedVersion: 1, uploadId: ticket.uploadId };
+  const saved = await call('finalizeDocumentUpload', args, 'large-file-finalize');
+  assert.equal(saved.version, 2); assert.equal(saved.shipment.documents[0].sha256, fileDigest(bytes));
+  assert.equal(saved.shipment.documents[0].bytes, bytes.length); assert.equal(saved.shipment.documents[0].fileAvailable, true);
+  assert.equal(saved.shipment.documents[0].storagePath, undefined); assert.equal(bucket.pinnedReads[0].generation, '1');
+  const again = await call('finalizeDocumentUpload', args, 'large-file-finalize'); assert.equal(again.replayed, true); assert.equal(again.version, 2);
+  assert.equal((await call('getShipmentHistory', { shipmentId: s.shipmentId, version: 1 })).shipment.documents.length, 0);
+});
+test('direct uploads enforce identity, restricted permission, exact bytes, expiry and current version', async () => {
+  const { call, deps } = setup(), bucket = stagingBucket(deps);
+  const s = await call('createShipment', { shipment: basic() }), bytes = Buffer.from('%PDF-1.7\nOriginal');
+  const input = stagedArgs(s, bytes);
+  const denied = { taskAccess: { subject: 'dan', scopes: ['shipping.read', 'shipping.write'] } };
+  await assert.rejects(call('createDocumentUpload', input, undefined, denied), { code: 'shipping_access_denied' });
+  await assert.rejects(call('createDocumentUpload', { ...input, bytes: 25 * 1024 * 1024 + 1 }), /25 MiB/);
+  const ticket = await call('createDocumentUpload', input, 'security-file-intent');
+  await assert.rejects(call('createDocumentUpload', { ...input, filename: 'changed.pdf' }, 'security-file-intent'), { code: 'shipping_idempotency_conflict' });
+  const args = { shipmentId: s.shipmentId, expectedVersion: 1, uploadId: ticket.uploadId };
+  await assert.rejects(call('finalizeDocumentUpload', args, undefined, { shippingOwnerSubjects: ['dan','other'], taskAccess: { subject: 'other', scopes } }), { code: 'shipping_access_denied' });
+  await assert.rejects(call('finalizeDocumentUpload', args, undefined, denied), { code: 'shipping_access_denied' });
+  await assert.rejects(call('finalizeDocumentUpload', args), { code: 'shipping_upload_missing' });
+  bucket.files.set(bucket.signatures[0].path, { bytes: Buffer.from('%PDF-1.7\nTampered'), mimeType: 'application/pdf' });
+  await assert.rejects(call('finalizeDocumentUpload', args), /SHA-256/);
+  bucket.files.set(bucket.signatures[0].path, { bytes, mimeType: 'application/pdf' });
+  await assert.rejects(call('finalizeDocumentUpload', args, undefined, { now: () => Date.parse('2026-09-23T14:00:00Z') }), { code: 'shipping_upload_expired' });
+  await call('updateShipment', { shipmentId: s.shipmentId, expectedVersion: 1, changes: { title: 'Changed while uploading' } });
+  await assert.rejects(call('finalizeDocumentUpload', args), { code: 'shipping_version_conflict' });
+  assert.equal([...bucket.files.keys()].filter(k => k.startsWith('fbc-shipping/')).length, 0);
+});
