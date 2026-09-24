@@ -158,6 +158,7 @@ const {
   searchTripMemories
 } = require("./lib/trip-service");
 const { listNotebookOperations, runNotebookOperation } = require("./lib/notebooks-operation-registry");
+const { listShippingOperations, runShippingOperation } = require("./lib/shipping-operation-registry");
 const { processNotebookIndexingJob } = require("./lib/notebooks-service");
 const { requireDanPrivateAccess } = require("./lib/dan-private-access");
 const {
@@ -11771,6 +11772,24 @@ app.get("/trip/memories/:memoryId", async (req, res) => {
 app.post("/trip/memories/search", async (req, res) => {
   return handleTripRequest(req, res, "searchTripMemories", req.body, searchTripMemories);
 });
+
+function getShippingDependencies(req) {
+  return { firestoreDb: db, bucket: storage.bucket(BUCKET_NAME), shippingOwnerSubjects: (process.env.SHIPPING_OWNER_SUBJECTS || "").split(",").map(s => s.trim()).filter(Boolean), taskAccess: buildTaskAccessFromRequest(req) };
+}
+app.get("/shipping/operations", (req, res) => {
+  try { return res.json({ ok: true, ...listShippingOperations(req.query, getShippingDependencies(req)) }); }
+  catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "shipping_failed", message: error.statusCode ? error.message : "Shipping catalog unavailable" } }); }
+});
+for (const mode of ["query", "command"]) {
+  app.post(`/shipping/${mode}`, async (req, res) => {
+    const requestId = randomUUID();
+    try { const response = await runShippingOperation({ ...req.body, mode }, getShippingDependencies(req)); return res.json({ ok: true, requestId, ...response }); }
+    catch (error) {
+      console.error(JSON.stringify({ event: "shipping_operation_failed", requestId, operation: req.body?.operation, code: error.code || "shipping_failed" }));
+      return res.status(error.statusCode || 500).json({ ok: false, requestId, error: { code: error.code || "shipping_failed", message: error.statusCode ? error.message : "Shipping operation failed", status: error.statusCode || 500 } });
+    }
+  });
+}
 
 app.get("/notebooks/operations", (req, res) => {
   try {
