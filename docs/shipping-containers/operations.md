@@ -62,3 +62,13 @@ FBC Staff Tools create/read/update flow, and independent read-back after import.
 Fresh client/phone acceptance must remain pending until tested on that surface.
 Use the existing deployment path and preserve OAuth configuration and traffic tags.
 Rollback to the recorded previous revision; preserve domain records and audit.
+
+The initial research backfill can use `scripts/import-shipping-history.mjs`
+under an explicitly selected Google Cloud administrator account. This is an
+offline IAM-controlled migration, not an end-user authentication test. Its audit
+actor is the real Cloud account. It validates the normal schema, previews an
+exact hash, requires that hash for commit, and creates each record/revision,
+source-key marker, audit and receipt atomically. Originals are hash-checked and
+read back from the existing private bucket. Private batch files and receipts
+must stay outside Git. Replaying the same batch preserves existing records;
+a changed source key fingerprint fails instead of overwriting history.
