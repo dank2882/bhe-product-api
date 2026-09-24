@@ -4,6 +4,18 @@ Run from a freshly refreshed FBC Staff Tools connection under Dan's individual
 identity. Do not substitute a service API key, Cloud IAM administrator migration,
 public tool discovery, or an invented actor header for this test.
 
+## September 24 final desktop acceptance
+
+The signed-in Codex check is recorded in `client-acceptance-2026-09-24.json`
+and commit `2788529`. An additional actual ChatGPT Work check passed create,
+edit, replay, signed original upload, finalize, byte/hash download, restricted
+Baguio original retrieval and final cancellation/read-back. Its separate test
+record and receipts are in `chatgpt-acceptance-2026-09-24.json`. Both test records
+are canceled; real shipping plans were not changed. Phone and real other-user
+denial remain untested; they are not claimed by these desktop receipts.
+
+The older browser and discovery attempts below are retained as history.
+
 ## September 24 Chrome verification update
 
 Dan provided the actual workspace plugin URL. Its refreshed catalog contained
@@ -14,7 +26,7 @@ the saved download matched every submitted file byte. No second app was created.
 
 A fresh signed-in ChatGPT Work conversation returned both proposal records and
 their schedule/readiness gaps using the selected FBC plugin:
-https://chatgpt.com/c/WEB:a69faf7f-c468-49c6-a26a-b4edf16ec20f
+https://chatgpt.com/c/6ab54bfe-bde4-83e8-9141-3e2a94e485e5
 
 Isabela returned `ship-93dada3e66634e0fcb1b25df4394`, need-by January 25, 2027;
 Bicol returned `ship-e0c120b99a73672e5c3320d9fc48`, January 22–25 conference and

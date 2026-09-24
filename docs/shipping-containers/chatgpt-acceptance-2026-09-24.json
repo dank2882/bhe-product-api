@@ -1,0 +1,67 @@
+{
+  "checkedAt": "2026-09-24",
+  "client": "ChatGPT Work in Chrome / FBC Staff Tools 1.0.1",
+  "catalogVersion": "1.1.0",
+  "conversation": "https://chatgpt.com/c/6ab54bfe-bde4-83e8-9141-3e2a94e485e5",
+  "actorSub": "entra|8645ddd9-9cc8-4b1b-9d95-1eddf5df7492|1bfc55ff-1f97-4263-beb1-609e7a3c963e",
+  "actorSource": "Saved shipment updatedBy",
+  "shipmentId": "ship-6d8e24650e884fac7eac460537a2",
+  "finalStatus": "canceled",
+  "finalVersion": 5,
+  "containers": 2,
+  "documents": 1,
+  "commands": [
+    {
+      "operation": "createShipment",
+      "version": 1,
+      "receiptId": "6d8e24650e884fac7eac460537a282937e15ca6c0319218d391ffa7616281600"
+    },
+    {
+      "operation": "updateShipment",
+      "version": 2,
+      "receiptId": "0f3299239c20d7857a0f2e6e5663d0ec14164082324713e7ef2ab1708adcdcbd",
+      "identicalReplay": true,
+      "noExtraRevision": true
+    },
+    {
+      "operation": "finalizeDocumentUpload",
+      "version": 3,
+      "receiptId": "616ca0b6cec00ddfd907af3a2bc962e61384c7366282ae79d6fe7fffdce21049"
+    },
+    {
+      "operation": "addSource",
+      "version": 4,
+      "receiptId": "381a8951925de2bb48f5caace3d9f7054be04bd392927246ed3ea508e2598387"
+    },
+    {
+      "operation": "setShipmentStatus",
+      "version": 5,
+      "receiptId": "2ccd68c919c75117f59f742b4982c564b204038a085eafcb047cabfdbd2d6ca5"
+    }
+  ],
+  "upload": {
+    "uploadId": "shipping-upload-78ab4bf18f89435f79cc8c78997bdeb413ff179b8a844e60f863a44c1d0d4b3e",
+    "documentId": "acceptance-ex-works-rate",
+    "filename": "Ex-works-rate-1x20-and-1x40-Bible.pdf",
+    "bytes": 227529,
+    "sha256": "e0c8ac14fa17773e94764439e504b728845271f67608e1a8dcad602497c30188",
+    "signedPutHttpStatus": 200,
+    "downloadHashMatched": true,
+    "localSourceHashIndependentlyMatched": true
+  },
+  "baguio": {
+    "shipmentId": "ship-820b6d13a8fe38e1814fb29d4e3d",
+    "documentId": "broker-file-original-56c63210",
+    "bytes": 14112694,
+    "sha256": "56c63210160f9c93cb3a44cd6c71fbf1dcd0a3a2be25d4cdfc560e132ce26b77",
+    "downloadHashMatched": true,
+    "recordUnchanged": true
+  },
+  "independentFinalRead": true,
+  "exactTitleMatchCount": 1,
+  "limits": [
+    "Evidence observed through actual signed-in ChatGPT Work output; no separate audit-query operation in catalog.",
+    "Phone and real other-user denial not tested.",
+    "Rejected invalid cancellation status and missing-source attempts created no revisions."
+  ]
+}
