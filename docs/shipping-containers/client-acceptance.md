@@ -13,12 +13,15 @@ all three Shipping tools, and four Developer Tools actions, each advertising its
 existing external access_as_user scope. This establishes a server/client catalog
 mismatch; the workspace's saved Actions panel still requires direct inspection.
 
-For the workspace-managed FBC connection, open Workspace apps
-(https://chatgpt.com/admin/ca), select FBC Staff Tools Production v2, and inspect
-Actions / Action control. Refresh the catalog where offered, enable only
-shipping_list_operations, shipping_run_query and shipping_run_command, and save.
-Reload the panel and independently confirm those three remain enabled, preserving
-unrelated action settings and existing role access. Do not broaden staff access.
+For the workspace-managed FBC connection, Dan confirmed the current path on
+September 24: **Apps → FBC Staff Tools Production v2 → Tools → See details →
+Refresh**. His screenshot showed 106 saved tools; direct discovery returned 109.
+He reports completing Refresh. No top-level Actions button was visible, so do
+not keep prescribing the older Actions / Action control path. Inspect the tool
+details and confirm shipping_list_operations, shipping_run_query and
+shipping_run_command are present, preserving unrelated settings and role access.
+Do not broaden staff access. Refresh is user-reported; this conversation still
+does not expose those actions, so signed-in acceptance remains unverified.
 
 For Dan's Developer Tools, inspect its intended Codex connection separately. It
 must expose developer_get_context, developer_list_operations,
