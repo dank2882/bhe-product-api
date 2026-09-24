@@ -1,0 +1,121 @@
+{
+  "checkedAt": "2026-09-24",
+  "client": "Codex desktop / FBC Staff Tools",
+  "catalogVersion": "1.1.0",
+  "actorSub": "entra|8645ddd9-9cc8-4b1b-9d95-1eddf5df7492|1bfc55ff-1f97-4263-beb1-609e7a3c963e",
+  "shipmentId": "ship-8d7a7d8ac6ade0e6cd62da4323a0",
+  "original": {
+    "shipmentId": "ship-820b6d13a8fe38e1814fb29d4e3d",
+    "documentId": "broker-file-original-56c63210",
+    "bytes": 14112694,
+    "sha256": "56c63210160f9c93cb3a44cd6c71fbf1dcd0a3a2be25d4cdfc560e132ce26b77",
+    "downloadHashMatched": true,
+    "uploadedReadbackByteIdentical": true
+  },
+  "commands": [
+    {
+      "operation": "createShipment",
+      "requestId": "5001e16f-b174-4ace-bcf7-d1aed69d2ceb",
+      "shipmentId": "ship-8d7a7d8ac6ade0e6cd62da4323a0",
+      "version": 1,
+      "revisionId": "ship-8d7a7d8ac6ade0e6cd62da4323a0-v1",
+      "receiptId": "8d7a7d8ac6ade0e6cd62da4323a0d79523ebe37330a1bc1176bce5a7e5f105fd",
+      "readBackVerified": true
+    },
+    {
+      "operation": "updateShipment",
+      "requestId": "bc01086e-1f0d-4f84-b981-e48486cf14cd",
+      "shipmentId": "ship-8d7a7d8ac6ade0e6cd62da4323a0",
+      "version": 2,
+      "revisionId": "ship-8d7a7d8ac6ade0e6cd62da4323a0-v2",
+      "receiptId": "feec1795d4fac8151eb92a90136c6438d8a84ecc710fce09a5037ca664b139d8",
+      "readBackVerified": true
+    },
+    {
+      "operation": "updateShipment",
+      "requestId": "8ec80af3-bcb6-4551-99a6-6b5f8e810814",
+      "shipmentId": "ship-8d7a7d8ac6ade0e6cd62da4323a0",
+      "version": 2,
+      "revisionId": "ship-8d7a7d8ac6ade0e6cd62da4323a0-v2",
+      "receiptId": "feec1795d4fac8151eb92a90136c6438d8a84ecc710fce09a5037ca664b139d8",
+      "replayed": true,
+      "readBackVerified": true
+    },
+    {
+      "operation": "addSource",
+      "requestId": "1d9a2bac-e791-444a-a290-4fa5264dfdb4",
+      "shipmentId": "ship-8d7a7d8ac6ade0e6cd62da4323a0",
+      "version": 3,
+      "revisionId": "ship-8d7a7d8ac6ade0e6cd62da4323a0-v3",
+      "receiptId": "1a31eb61e8e6a4a87a5f3a3692a13bab2bddf311ab3e07574a9369ef63b50f7f",
+      "readBackVerified": true
+    },
+    {
+      "operation": "finalizeDocumentUpload",
+      "requestId": "cdb47072-f5cf-4447-83ba-cdfb7f3db5d9",
+      "shipmentId": "ship-8d7a7d8ac6ade0e6cd62da4323a0",
+      "version": 4,
+      "revisionId": "ship-8d7a7d8ac6ade0e6cd62da4323a0-v4",
+      "receiptId": "cb9965f2ba9392a0311185eac80d568036226489feeeefe5c682d174dc0be7ec",
+      "readBackVerified": true
+    },
+    {
+      "operation": "setShipmentStatus",
+      "requestId": "ee544b7c-cb44-4df1-9ffc-c99ae43ade23",
+      "shipmentId": "ship-8d7a7d8ac6ade0e6cd62da4323a0",
+      "version": 5,
+      "revisionId": "ship-8d7a7d8ac6ade0e6cd62da4323a0-v5",
+      "receiptId": "be48a1860714babaec6b628631058bca66eccd8d1213d9e793ae5092441690fe",
+      "readBackVerified": true
+    }
+  ],
+  "uploadIntent": {
+    "requestId": "d3a7e763-42d2-4357-8f2b-7348d76a5ccf",
+    "uploadId": "shipping-upload-cc031b9e79facfffeeffd76a0955ed5c66f8e3cd4dd626be73ec1364493fd82a",
+    "readBackVerified": true,
+    "putHttpStatus": 200
+  },
+  "reads": [
+    {
+      "operation": "getShipment",
+      "requestId": "65066a21-e845-42da-bae7-3abc363ea7ae"
+    },
+    {
+      "operation": "getShipmentHistory",
+      "requestId": "e0e62cc9-82d4-4931-ac6a-35022f11091b"
+    },
+    {
+      "operation": "getDocument",
+      "requestId": "fdf20b71-e29d-4ff5-b2c5-51abb4cc95f5"
+    },
+    {
+      "operation": "getDocument",
+      "requestId": "28aff8cf-85d0-40b7-a128-5b9668c9e493"
+    },
+    {
+      "operation": "getShipment",
+      "requestId": "b4250924-7fc2-41e5-adee-01e66c57990b"
+    }
+  ],
+  "inventory": {
+    "shipmentsBeforeTest": 43,
+    "proposalsBeforeTest": 8,
+    "listPages": [
+      "8a1f3d5b-cf67-4306-b349-7fea9133c4c9",
+      "b333fd29-2e8c-44d1-9bcf-aaa5b09aad52"
+    ],
+    "schedulePages": [
+      "6ac14c5c-118f-42cc-861c-01b00099ecbf",
+      "b06f34a7-5a0a-412a-ab18-daaa325f1a1a"
+    ],
+    "allCursorsFollowed": true
+  },
+  "finalStatus": "canceled",
+  "finalVersion": 5,
+  "limitations": [
+    "Developer Tools controlled registry actions unavailable; reconciliation not performed.",
+    "Phone acceptance not performed.",
+    "Real other-user denial not performed; no fabricated identity used.",
+    "Live deployment was not reverified during this client acceptance attempt."
+  ]
+}

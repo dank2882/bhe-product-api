@@ -97,3 +97,19 @@ Developer Tools registry reconciliation is also pending. Use its authenticated
 controlled operations to record linked deployment/test evidence and the Shipping
 workstream. Preserve other FBC modules' release history and pending gates. Do not
 claim the global registry is current merely because a Git release note exists.
+
+
+## Execution result — September 24, 2026
+
+Codex desktop acceptance through the refreshed FBC Staff Tools connection passed
+steps 1–6 and recorded the evidence required by step 8. See
+[the release record](release-2026-09-24.md) and
+[compact receipts](client-acceptance-2026-09-24.json).
+Dan's actual Entra actor was recorded by the backend. The two-container synthetic
+record was canceled and independently read back at version 5. The restricted
+14,112,694-byte broker original passed authorized download and signed upload,
+finalization and byte-for-byte download comparison. No real proposal was changed.
+
+Step 7's real other-user check and phone acceptance remain unperformed. Developer
+Tools controlled actions are unavailable; registry reconciliation remains open.
+A successful Codex acceptance does not close those separate gates.
