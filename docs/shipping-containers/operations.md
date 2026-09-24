@@ -42,6 +42,43 @@ Included sublines do not add to a parent total. A repeated/rebilled invoice is n
 a second invoice. Reported payment is not settled-payment proof. Actual interval
 samples need compatible sourced dates; no route average is asserted automatically.
 
+## Country shipping estimates
+
+Catalog 1.2.0 adds `listCountryCostEstimates`, `getCountryCostEstimate` and
+`saveCountryCostEstimate` through the same three Shipping tools. No connection
+refresh is needed for these operations. A country can have separate sheets for
+each route, container size and count. These are planning records in existing FBC
+Shipping collections, never synthetic shipments, invoices or current quotes.
+
+Search existing sheets before creating one. Use a stable `estimateId` and
+`expectedVersion: 0` for creation; read the current version before replacement.
+The live field guide defines the full editable schema. Omit server-generated
+fields and expand references back to `{shipmentId,costId}` when editing. Preserve
+all unchanged editable fields/lines. Optional `version` retrieves an immutable
+revision. Writes have owner authorization, audit, idempotency and read-back.
+
+Low/expected/high amounts use integer minor units and represent the entire stated
+container count. Unknown is null; zero means a known zero charge. Each currency
+has its own totals. Unknown lines prevent a full numeric total. Partial scope,
+unknown container size or expired quotes prevent `budgetComplete`. This flag
+means coverage of the entered budget, not validated market pricing. Always show
+`needsCurrentPricing`, historical source dates, coverage and missing costs.
+
+Historical budget amounts must exactly match an active verified invoice line
+for the same country, container size and count. Included sublines cannot be
+counted twice. Reimbursements are source references only, never invoice amounts.
+Quoted lines require a current quote with expiry. Documented planning allowances
+are separate from historical and quoted values. Preserve the scope of each source;
+never average different routes/scopes or assume a 40-foot price is twice a 20-foot
+price. Do not invent low/high ranges from unrelated historical invoices.
+
+Expense, delay-risk and refundable-deposit subtotals are separate. Cash required
+includes them, but is null if any line is unknown. No FX conversion is implicit.
+Source snapshots retain the shipment revision, cost type, date, currency and
+scope used for a budget. A later source correction requires reviewing the budget;
+snapshots do not auto-update. Estimates never satisfy shipment quote readiness,
+grant booking approval, imply a paid invoice or send requests to carriers.
+
 Files are private PDF/PNG/JPEG originals, hashed and accessed
 through 15-minute signed downloads. Restricted documents require an extra scope.
 For originals up to 25 MiB, use createDocumentUpload with the exact byte count
