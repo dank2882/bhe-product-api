@@ -4,6 +4,31 @@ Run from a freshly refreshed FBC Staff Tools connection under Dan's individual
 identity. Do not substitute a service API key, Cloud IAM administrator migration,
 public tool discovery, or an invented actor header for this test.
 
+## September 24 Chrome verification update
+
+Dan provided the actual workspace plugin URL. Its refreshed catalog contained
+Shipping, but the three individual switches were off. Enabled only those three,
+saved, reloaded and independently verified them on. The existing listing was
+also updated in place to package version 1.0.1 with all eleven maintained skills;
+the saved download matched every submitted file byte. No second app was created.
+
+A fresh signed-in ChatGPT Work conversation returned both proposal records and
+their schedule/readiness gaps using the selected FBC plugin:
+https://chatgpt.com/c/WEB:a69faf7f-c468-49c6-a26a-b4edf16ec20f
+
+Isabela returned `ship-93dada3e66634e0fcb1b25df4394`, need-by January 25, 2027;
+Bicol returned `ship-e0c120b99a73672e5c3320d9fc48`, January 22–25 conference and
+no confirmed need-by. Both remained unbooked proposals with missing parties,
+route, quote/funding confirmations and the four Philippines documents.
+
+This passes the fresh ChatGPT read experience; it does not establish a raw OAuth
+subject, mutation/idempotency, original-file upload/download, denial or phone
+acceptance. Those tests below remain open. Developer Tools registry actions remain
+unavailable in this Codex session. The full packaging/evidence receipt is in the
+platform repository, `docs/fbc-chatgpt-in-place-update-2026-09-24.md`.
+
+The prerequisite narrative below records the earlier state before this update.
+
 ## Connection publication prerequisite
 
 A fresh Codex task on September 24 still lacked the Shipping and Developer Tools
