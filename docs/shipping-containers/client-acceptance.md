@@ -4,6 +4,15 @@ Run from a freshly refreshed FBC Staff Tools connection under Dan's individual
 identity. Do not substitute a service API key, Cloud IAM administrator migration,
 public tool discovery, or an invented actor header for this test.
 
+## Final state
+
+Desktop acceptance and Developer Tools reconciliation are complete. The Shipping
+workstream was independently read back **completed at version 2**. The release
+projection now reports gateway 00054-7qk and client acceptance verified. See the
+final section of `release-2026-09-24.md` for evidence IDs and scope limits.
+Earlier pending statements below are historical attempts, superseded by this
+final result. Maintenance remains a separate unchanged workstream.
+
 ## September 24 final desktop acceptance
 
 The signed-in Codex check is recorded in `client-acceptance-2026-09-24.json`
