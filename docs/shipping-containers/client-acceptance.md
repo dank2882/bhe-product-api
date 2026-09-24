@@ -4,6 +4,40 @@ Run from a freshly refreshed FBC Staff Tools connection under Dan's individual
 identity. Do not substitute a service API key, Cloud IAM administrator migration,
 public tool discovery, or an invented actor header for this test.
 
+## Connection publication prerequisite
+
+A fresh Codex task on September 24 still lacked the Shipping and Developer Tools
+actions. Starting another task without correcting the exposed actions is not a
+remediation. A subsequent direct server discovery returned 109 FBC tools including
+all three Shipping tools, and four Developer Tools actions, each advertising its
+existing external access_as_user scope. This establishes a server/client catalog
+mismatch; the workspace's saved Actions panel still requires direct inspection.
+
+For the workspace-managed FBC connection, open Workspace apps
+(https://chatgpt.com/admin/ca), select FBC Staff Tools Production v2, and inspect
+Actions / Action control. Refresh the catalog where offered, enable only
+shipping_list_operations, shipping_run_query and shipping_run_command, and save.
+Reload the panel and independently confirm those three remain enabled, preserving
+unrelated action settings and existing role access. Do not broaden staff access.
+
+For Dan's Developer Tools, inspect its intended Codex connection separately. It
+must expose developer_get_context, developer_list_operations,
+developer_run_query and developer_run_command. Do not add it to general FBC staff
+access. Developer-mode connections support metadata Refresh; published plugins
+have a separate review/publication flow. If the connection type or controls are
+unclear, inspect the actual panel before prescribing reconnect or reinstall.
+
+Only after the saved exposure is confirmed should a new intended-client session
+run the acceptance steps below. Do not treat directory search, generic plugin
+permissions, successful release-status reads, or public server discovery as proof
+that these actions are callable under Dan's identity.
+
+Official guidance:
+- https://learn.chatgpt.com/docs/enterprise/apps-and-connectors#step-2-manage-capabilities
+- https://developers.openai.com/plugins/deploy/connect-chatgpt#refresh-metadata
+
+## Signed-in checks
+
 1. Confirm shipping_list_operations, shipping_run_query and shipping_run_command
    are callable. Read catalog 1.1.0 (or newer); it must include createDocumentUpload
    and finalizeDocumentUpload.
