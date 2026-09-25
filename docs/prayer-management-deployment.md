@@ -51,6 +51,29 @@ He can then choose a different rotation if it appears too often.
 - Imported prayers without a schedule default to daily; unknown explicit
   source schedules retain their manual-review warning.
 
+### Release verification — September 25, 2026
+
+- Implementation: `2519e00e387e7a1fab196a22cf0f3585e68bc51c`.
+- Validation: all 684 backend tests passed, including 23 prayer tests;
+  `npm run check` and `git diff --check` passed. Coverage includes daily
+  defaults, legacy input/read compatibility, local midnight and daylight-saving
+  boundaries, imports, and preservation of archived state and prayer history.
+- Migration: the complete 355-record owner inventory contained four unscheduled
+  records (three active, one archived). All four were updated through versioned,
+  idempotent Prayer Management commands and independently read back. Content,
+  history, counts, and lifecycle states were preserved; the other 351 records
+  were unchanged. A fresh inventory contained zero unscheduled records.
+- Production: Cloud Build `7ddbc70e-ff93-43c4-a394-d667f138f6a0` succeeded;
+  Cloud Run revision `bhe-product-api-00296-6jg` was Ready at 100% traffic.
+  Previous revision: `bhe-product-api-00295-n5m` (rollback target).
+- Connected-tool verification: the live create-prayer catalog reports version
+  `2026-09-25` and the daily default. At `2026-09-25T14:17:10.119Z`, today's
+  query was complete with zero due prayers. A schedule query at Pacific midnight
+  September 26 returned the three converted active requests and excluded the
+  archived request. No additional prayed events were created.
+- Developer Tools registry was unavailable in this session; evidence is retained
+  here in Git. Fresh phone-session acceptance was not exercised for this change.
+
 ## Acceptance gates
 
 - Automated backend and MCP suites pass.
