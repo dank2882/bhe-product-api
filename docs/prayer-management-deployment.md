@@ -23,14 +23,33 @@ Prayer Management reuses `bhe-product-api`, Firestore database `chatgptstorage`,
 1. In Logos, Print/Export the prayer list to Microsoft Word and save the DOCX. Do not edit or delete the Logos list.
 2. Attach the DOCX to `prayer_import_logos_docx` with one stable import ID.
 3. Review list and prayer counts, recovered titles/notes/tags/schedules/answers, duplicates, uncertain mappings, and every manual-review item.
-   Prayer schedules may be unscheduled, daily, weekly, monthly by day of month,
+   Prayer schedules may be daily, weekly, monthly by day of month,
    fixed-day intervals, or one-date reminders. Preserve the explicit Logos rule;
    do not infer recurrence from the next due date alone.
+   Missing or explicitly unscheduled prayers default to daily, including in the
+   preview. Unrecognized explicit schedule text still requires manual review.
    An occurrence before the prayer was created or imported does not count as
    missed. After activation, a missed scheduled occurrence remains due until
    it is recorded as prayed, matching Logos's carry-forward behavior.
 4. Only after approval, call `commitLogosImport` with the same import ID and `approved: true`.
 5. Read back the complete imported inventory and reconcile it with the preview. Keep Logos frozen for at least two weeks.
+
+## Daily default decision — September 25, 2026
+
+Dan approved replacing unscheduled prayers with daily prayers so a request
+clears after being recorded as prayed and returns the next local calendar day.
+He can then choose a different rotation if it appears too often.
+
+- New prayers default to daily in their configured IANA time zone (Pacific when omitted).
+- Legacy `unscheduled` input remains accepted as an alias for `daily`; it is
+  no longer a distinct schedule choice. Reads and due calculations apply the
+  same interpretation to older records without mutating them during a query.
+- Existing unscheduled records are converted with versioned `updatePrayer`
+  commands and independent read-back, including archived records without
+  changing their archived state. Prayer content and history are preserved.
+- Explicit weekly, monthly, interval, and one-date schedules are unchanged.
+- Imported prayers without a schedule default to daily; unknown explicit
+  source schedules retain their manual-review warning.
 
 ## Acceptance gates
 

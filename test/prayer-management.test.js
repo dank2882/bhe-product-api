@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   archivePrayer, commitLogosImport, createPrayer, createPrayerList, getPrayer,
   getPrayerHistory, getPrayerImport, getTodaysPrayers, listPrayers, markPrayerAnswered,
-  previewLogosImport, recordPrayed, reopenPrayer, searchPrayers, updatePrayer
+  previewLogosImport, recordPrayed, reopenPrayer, searchPrayers, updatePrayer, isDue
 } = require("../lib/prayer-management-service");
 const { runIdempotentPrayerManagementOperation } = require("../lib/prayer-management-operation-execution");
 const { STAFF_AUTHORIZATION_ROLE_BUNDLES } = require("../lib/staff-authorization-service");
@@ -95,6 +95,58 @@ test("today view, search, schedules, and time zones work without a plaintext ind
   const found = await searchPrayers({ query: "sensitive" }, d);
   assert.equal(found.prayers[0].id, prayer.id);
   assert.equal(found.plaintextIndexCreated, false);
+});
+
+test("missing and legacy unscheduled inputs become daily and clear until local midnight", async () => {
+  for (const schedule of [undefined, null, {}, { kind: "unscheduled", timeZone: "America/Los_Angeles" }]) {
+    const d = deps();
+    const { list } = await createPrayerList({ title: "Daily defaults" }, d);
+    const { prayer } = await createPrayer({ listId: list.id, title: "Daily request", prayerText: "Preserve these words.", schedule }, d);
+    assert.deepEqual(prayer.schedule, { kind: "daily", timeZone: "America/Los_Angeles" });
+    assert.equal(d.prayersCollection.store.get(prayer.id).schedule.kind, "daily");
+    assert.equal((await getTodaysPrayers({}, d)).totalCount, 1);
+    await recordPrayed({ prayerId: prayer.id, expectedVersion: prayer.version }, d);
+    // UTC has changed date, but the owner's local prayer day has not.
+    assert.equal((await getTodaysPrayers({ at: "2026-08-22T06:59:59.000Z" }, d)).totalCount, 0);
+    assert.equal((await getTodaysPrayers({ at: "2026-08-22T07:00:00.000Z" }, d)).totalCount, 1);
+    const updated = await updatePrayer({ prayerId: prayer.id, expectedVersion: 2, changes: { schedule: { kind: "unscheduled", timeZone: "America/New_York" } } }, d);
+    assert.deepEqual(updated.prayer.schedule, { kind: "daily", timeZone: "America/New_York" });
+    assert.equal(updated.prayer.prayerText, prayer.prayerText);
+    assert.equal(updated.prayer.prayedCount, 1);
+    assert.equal((await getPrayerHistory({ prayerId: prayer.id }, d)).totalCount, 1);
+  }
+});
+
+test("legacy stored schedules read as daily without rewriting content or prayer history", async () => {
+  for (const schedule of [undefined, { kind: "unscheduled", timeZone: "America/Los_Angeles" }]) {
+    const { d, prayer } = await seed();
+    await recordPrayed({ prayerId: prayer.id, expectedVersion: 1 }, d);
+    const stored = d.prayersCollection.store.get(prayer.id);
+    if (schedule) stored.schedule = schedule; else delete stored.schedule;
+    const before = clone(stored);
+    assert.equal((await getPrayer({ prayerId: prayer.id }, d)).prayer.schedule.kind, "daily");
+    assert.equal((await listPrayers({}, d)).prayers[0].schedule.kind, "daily");
+    assert.equal((await searchPrayers({ query: "Missionary" }, d)).prayers[0].schedule.kind, "daily");
+    assert.equal((await getTodaysPrayers({}, d)).totalCount, 0);
+    assert.equal((await getTodaysPrayers({ at: "2026-08-22T17:00:00.000Z" }, d)).totalCount, 1);
+    assert.deepEqual(d.prayersCollection.store.get(prayer.id), before);
+    await archivePrayer({ prayerId: prayer.id, expectedVersion: 2 }, d);
+    const historyBefore = await getPrayerHistory({ prayerId: prayer.id }, d);
+    const updated = await updatePrayer({ prayerId: prayer.id, expectedVersion: 3, changes: { schedule: { kind: "daily", timeZone: "America/Los_Angeles" } } }, d);
+    assert.equal(updated.prayer.status, "archived");
+    assert.equal(updated.prayer.prayedCount, 1);
+    assert.equal(updated.prayer.prayerText, prayer.prayerText);
+    assert.deepEqual(await getPrayerHistory({ prayerId: prayer.id }, d), historyBefore);
+    assert.equal((await getTodaysPrayers({ at: "2026-08-22T17:00:00.000Z" }, d)).totalCount, 0);
+  }
+});
+
+test("legacy daily compatibility respects the repeated hour at daylight-saving end", () => {
+  const schedule = { kind: "unscheduled", timeZone: "America/Los_Angeles" };
+  const prayedAt = "2026-11-01T08:30:00.000Z";
+  assert.equal(isDue(schedule, "2026-11-01T09:30:00.000Z", prayedAt), false);
+  assert.equal(isDue(schedule, "2026-11-02T07:59:59.000Z", prayedAt), false);
+  assert.equal(isDue(schedule, "2026-11-02T08:00:00.000Z", prayedAt), true);
 });
 
 test("today view always returns Dan's stable upward, inward, and outward prayer format with notes", async () => {
@@ -237,6 +289,7 @@ test("Logos preview is approval-gated, encrypted, idempotent, and reconciled", a
   assert.equal(first.preview.counts.lists, 2);
   assert.equal(first.preview.counts.prayers, 2);
   assert.equal(first.preview.counts.withSchedules, 1);
+  assert.deepEqual(first.preview.prayers.find((prayer) => prayer.title === "Philippines team").schedule, { kind: "daily", timeZone: "America/Los_Angeles" });
   assert.equal(JSON.stringify(d.prayerImportsCollection.store.get("logos-2026")).includes("Pastor transition"), false);
   const replay = await previewLogosImport({ importId: "logos-2026", rawText }, d);
   assert.equal(replay.replayed, true);
@@ -252,6 +305,7 @@ test("Logos preview is approval-gated, encrypted, idempotent, and reconciled", a
   assert.equal(inventory.totalCount, 2);
   assert.equal(inventory.prayers.find((prayer) => prayer.title === "Pastor transition").status, "answered");
   assert.deepEqual(inventory.prayers.find((prayer) => prayer.title === "Pastor transition").schedule.weekdays, [5]);
+  assert.equal(inventory.prayers.find((prayer) => prayer.title === "Philippines team").schedule.kind, "daily");
   const replayedCommit = await commitLogosImport({ importId: "logos-2026", approved: true }, d);
   assert.equal(replayedCommit.replayed, true);
   assert.equal(replayedCommit.import.status, "committed");
@@ -277,6 +331,17 @@ test("Logos parser recognizes monthly day-of-month schedules", () => {
     { text: "Schedule: every month on day 16", style: "" }
   ]);
   assert.deepEqual(parsed.prayers[0].schedule, { kind: "monthly", dayOfMonth: 16, timeZone: "America/Los_Angeles" });
+  assert.equal(parsed.manualReview.length, 0);
+});
+
+test("Logos explicitly unscheduled prayers use the daily default in the preview", () => {
+  const parsed = parseParagraphs([
+    { text: "Prayer List: Daily defaults", style: "" },
+    { text: "A request", style: "" },
+    { text: "Schedule: unscheduled", style: "" }
+  ]);
+  assert.deepEqual(parsed.prayers[0].schedule, { kind: "daily", timeZone: "America/Los_Angeles" });
+  assert.equal(parsed.prayers[0].scheduleText, "unscheduled");
   assert.equal(parsed.manualReview.length, 0);
 });
 
