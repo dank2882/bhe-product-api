@@ -74,6 +74,46 @@ He can then choose a different rotation if it appears too often.
 - Developer Tools registry was unavailable in this session; evidence is retained
   here in Git. Fresh phone-session acceptance was not exercised for this change.
 
+## Whole-list prayed recording — September 27, 2026
+
+Implemented `recordPrayedBatch` within the existing Prayer Management service.
+The prior catalog exposed only single-prayer `recordPrayed`, requiring a separate
+chat tool call and read-backs for every item in a displayed list. The reported
+client interruption did not include its underlying error, so its exact limit
+remains unconfirmed.
+
+- Input: `items: [{ prayerId, expectedVersion }]`, 1–200 unique selected active
+  prayers, plus the command's existing stable idempotency key. The client
+  refreshes versions while preserving the user's displayed selection. It must
+  not expand a displayed daily list to the whole archive. Split larger lists
+  into batches and report any unfinished batches explicitly.
+- Each batch is one Firestore transaction: all versions and ownership are
+  validated before any writes. A conflict, missing prayer, or inactive prayer
+  rejects the entire batch. No partial batch is committed.
+- A prayer already recorded on its current local date (or later) is reported
+  as `already_prayed`, without another event or version change. This supports
+  recovery from an interrupted single-prayer run. Intentional repeat prayers
+  or reflections still use the existing single-prayer `recordPrayed` operation.
+- Prayer ciphertext, wording, schedules, and lifecycle state stay unchanged;
+  only prayed counts, timestamps, versions, and encrypted history events change.
+- Receipts contain IDs, counts, versions, outcomes, timestamps, and event IDs.
+  `getPrayedBatchStatus` independently reads selected metadata and checks event
+  ownership/type/linkage without returning prayer content. The shared MCP tool
+  verifies the whole receipt in one query before claiming success.
+- Successful identical requests replay the existing encrypted command receipt.
+  The existing execution wrapper can leave a failed/in-progress receipt if a
+  request is interrupted. Do not blindly replay with new arguments or a new
+  key: inspect fresh selected-record status first, then reconcile under a new
+  key if needed. Same-local-day protection prevents recounting saved prayers.
+- Local validation: 29 prayer tests pass, including 200 items, partial-run
+  recovery, idempotent replay, version conflicts/concurrent edits, local-day
+  rollover, private ownership, and preservation of unselected records/content.
+  All 690 backend tests and `npm run check` pass.
+- Release state: implemented and tested locally; not deployed. The backend and
+  both gateway profiles (Dan Life OS and FBC Staff Tools) must be released.
+  Refresh client tool discovery because the command enum gains a new operation.
+  Fresh phone-session and live write acceptance remain unverified.
+
 ## Acceptance gates
 
 - Automated backend and MCP suites pass.

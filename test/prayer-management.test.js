@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {
   archivePrayer, commitLogosImport, createPrayer, createPrayerList, getPrayer,
   getPrayerHistory, getPrayerImport, getTodaysPrayers, listPrayers, markPrayerAnswered,
-  previewLogosImport, recordPrayed, reopenPrayer, searchPrayers, updatePrayer, isDue
+  previewLogosImport, recordPrayed, recordPrayedBatch, getPrayedBatchStatus, reopenPrayer, searchPrayers, updatePrayer, isDue
 } = require("../lib/prayer-management-service");
 const { runIdempotentPrayerManagementOperation } = require("../lib/prayer-management-operation-execution");
 const { STAFF_AUTHORIZATION_ROLE_BUNDLES } = require("../lib/staff-authorization-service");
@@ -40,6 +40,117 @@ async function seed(d = deps(), schedule = { kind: "daily", timeZone: "America/L
   const { prayer } = await createPrayer({ listId: list.id, title: "Missionary family", prayerText: "Lord, strengthen them.", privateContext: "Sensitive context", tags: ["missions"], people: ["A Family"], topics: ["health"], schedule }, d);
   return { d, list, prayer };
 }
+
+function enableBatchTransactions(d, beforeRead = () => {}) {
+  d.firestoreDb = { runTransaction: async (callback) => {
+    await beforeRead();
+    const writes = [];
+    const result = await callback({
+      get: (ref) => { assert.equal(writes.length, 0, "all reads must precede writes"); return ref.get(); },
+      set: (ref, value) => writes.push(() => ref.set(value)),
+      create: (ref, value) => writes.push(() => ref.create(value))
+    });
+    for (const write of writes) await write();
+    return result;
+  } };
+}
+
+test("whole-list recording is compact, atomic, independently verifiable, and retry-safe", async () => {
+  const { d, prayer, list } = await seed();
+  const second = (await createPrayer({ listId: list.id, title: "Second", prayerText: "Exact second prayer" }, d)).prayer;
+  const unselected = (await createPrayer({ listId: list.id, title: "Unselected", prayerText: "Not part of the displayed list" }, d)).prayer;
+  enableBatchTransactions(d);
+  const before = clone(d.prayersCollection.store.get(prayer.id));
+  const input = { mode: "command", operation: "recordPrayedBatch", arguments: { items: [prayer, second].map((p) => ({ prayerId: p.id, expectedVersion: p.version })) }, idempotencyKey: "whole-list-test" };
+  const first = await runIdempotentPrayerManagementOperation(input, d);
+  assert.equal(first.result.recordedCount, 2);
+  assert.equal(first.result.complete, true);
+  assert.equal(first.result.atomic, true);
+  assert.equal(first.result.alreadyPrayedCount, 0);
+  assert.equal(JSON.stringify(first).includes("Exact second prayer"), false);
+  const readBack = await getPrayedBatchStatus({ items: first.result.prayers }, d);
+  assert.equal(readBack.totalCount, 2);
+  assert.ok(readBack.prayers.every((p) => p.eventVerified && p.version === 2 && p.prayedCount === 1));
+  assert.deepEqual(d.prayersCollection.store.get(prayer.id).encryptedContent, before.encryptedContent);
+  assert.deepEqual(d.prayersCollection.store.get(prayer.id).schedule, before.schedule);
+  assert.equal((await getPrayer({ prayerId: unselected.id }, d)).prayer.prayedCount, 0);
+  const replay = await runIdempotentPrayerManagementOperation(input, d);
+  assert.equal(replay.idempotency.replayed, true);
+  assert.equal(d.prayerEventsCollection.store.size, 2);
+  const refreshed = first.result.prayers.map((p) => ({ prayerId: p.prayerId, expectedVersion: p.version }));
+  const resumed = await recordPrayedBatch({ items: refreshed }, d);
+  assert.equal(resumed.recordedCount, 0);
+  assert.equal(resumed.alreadyPrayedCount, 2);
+  assert.equal(d.prayerEventsCollection.store.size, 2);
+  await assert.rejects(() => runIdempotentPrayerManagementOperation({ ...input, arguments: { items: refreshed } }, d), { code: "idempotency_key_reused" });
+});
+
+test("a prior partially completed list skips its recorded prayers and completes only the remainder", async () => {
+  const { d, prayer, list } = await seed();
+  const second = (await createPrayer({ listId: list.id, title: "Second", prayerText: "Second" }, d)).prayer;
+  await recordPrayed({ prayerId: prayer.id, expectedVersion: 1 }, d);
+  enableBatchTransactions(d);
+  const result = await recordPrayedBatch({ items: [{ prayerId: prayer.id, expectedVersion: 2 }, { prayerId: second.id, expectedVersion: 1 }] }, d);
+  assert.equal(result.recordedCount, 1);
+  assert.equal(result.alreadyPrayedCount, 1);
+  assert.equal(d.prayerEventsCollection.store.size, 2);
+  assert.equal((await getTodaysPrayers({}, d)).totalCount, 0);
+});
+
+test("batch conflicts, inactive records, missing records, and concurrent edits leave every prayer untouched", async () => {
+  for (const scenario of ["stale", "inactive", "missing", "concurrent"]) {
+    const { d, prayer, list } = await seed();
+    const second = (await createPrayer({ listId: list.id, title: "Second", prayerText: "Second" }, d)).prayer;
+    if (scenario === "inactive") d.prayersCollection.store.get(second.id).status = "archived";
+    if (scenario === "missing") d.prayersCollection.store.delete(second.id);
+    enableBatchTransactions(d, () => { if (scenario === "concurrent") d.prayersCollection.store.get(second.id).version += 1; });
+    const firstBefore = clone(d.prayersCollection.store.get(prayer.id));
+    await assert.rejects(() => recordPrayedBatch({ items: [{ prayerId: prayer.id, expectedVersion: 1 }, { prayerId: second.id, expectedVersion: scenario === "stale" ? 9 : 1 }] }, d), { code: { stale: "prayer_version_conflict", inactive: "prayer_not_active", missing: "prayer_not_found", concurrent: "prayer_version_conflict" }[scenario] });
+    assert.deepEqual(d.prayersCollection.store.get(prayer.id), firstBefore);
+    assert.equal(d.prayerEventsCollection.store.size, 0);
+  }
+});
+
+test("batch validation and owner boundaries fail closed", async () => {
+  const { d, prayer } = await seed();
+  enableBatchTransactions(d);
+  const item = { prayerId: prayer.id, expectedVersion: 1 };
+  for (const items of [[], [item, item], [{ prayerId: "bad/id", expectedVersion: 1 }], Array.from({ length: 201 }, (_, i) => ({ prayerId: `p-${i}`, expectedVersion: 1 }))]) {
+    await assert.rejects(() => recordPrayedBatch({ items }, d), { code: "invalid_prayed_batch" });
+  }
+  await assert.rejects(() => recordPrayedBatch({ items: [{ prayerId: prayer.id }] }, d), { code: "prayer_expected_version_required" });
+  await assert.rejects(() => recordPrayedBatch({ items: [item] }, { ...d, firestoreDb: null }), { code: "prayer_transaction_required" });
+  for (const operation of [recordPrayedBatch, getPrayedBatchStatus]) {
+    await assert.rejects(() => operation({ items: [item] }, { ...d, taskAccess: { subject: "entra|admin", scopes: ["prayer.read", "prayer.write"] } }), { code: "prayer_owner_only" });
+    const alien = clone(d.prayersCollection.store.get(prayer.id));
+    alien.ownerSub = "entra|someone-else";
+    d.prayersCollection.store.set("alien", alien);
+    await assert.rejects(() => operation({ items: [{ prayerId: "alien", expectedVersion: 1 }] }, d), { code: "prayer_not_found" });
+  }
+  assert.equal(d.prayerEventsCollection.store.size, 0);
+});
+
+test("batch same-day protection respects each prayer's timezone and resumes at local midnight", async () => {
+  const { d, prayer } = await seed();
+  enableBatchTransactions(d);
+  await recordPrayedBatch({ items: [{ prayerId: prayer.id, expectedVersion: 1 }] }, d);
+  d.now = () => "2026-08-22T06:59:59.000Z";
+  assert.equal((await recordPrayedBatch({ items: [{ prayerId: prayer.id, expectedVersion: 2 }] }, d)).alreadyPrayedCount, 1);
+  d.now = () => "2026-08-22T07:00:00.000Z";
+  assert.equal((await recordPrayedBatch({ items: [{ prayerId: prayer.id, expectedVersion: 2 }] }, d)).recordedCount, 1);
+  assert.equal(d.prayerEventsCollection.store.size, 2);
+});
+
+test("a 200-prayer batch stays within 400 record writes and clears the full selected list", async () => {
+  const { d, prayer, list } = await seed();
+  const prayers = [prayer];
+  for (let i = 1; i < 200; i += 1) prayers.push((await createPrayer({ listId: list.id, title: `Prayer ${i}`, prayerText: `Prayer ${i}` }, d)).prayer);
+  enableBatchTransactions(d);
+  const result = await recordPrayedBatch({ items: prayers.map((p) => ({ prayerId: p.id, expectedVersion: 1 })) }, d);
+  assert.equal(result.recordedCount, 200);
+  assert.equal(d.prayerEventsCollection.store.size, 200);
+  assert.equal((await getTodaysPrayers({}, d)).totalCount, 0);
+});
 
 test("content is encrypted at rest and owner-only even for an administrator", async () => {
   const { d, prayer } = await seed();
