@@ -109,10 +109,44 @@ remains unconfirmed.
   recovery, idempotent replay, version conflicts/concurrent edits, local-day
   rollover, private ownership, and preservation of unselected records/content.
   All 690 backend tests and `npm run check` pass.
-- Release state: implemented and tested locally; not deployed. The backend and
-  both gateway profiles (Dan Life OS and FBC Staff Tools) must be released.
-  Refresh client tool discovery because the command enum gains a new operation.
-  Fresh phone-session and live write acceptance remain unverified.
+- Release state: deployed and connected-tool recovery verified; see the receipt
+  below. A new prayed event was not created during live acceptance, and a fresh
+  phone conversation was not exercised.
+
+### Whole-list release verification — September 27, 2026
+
+Dan authorized deployment in this session. Implementation commits:
+backend `df432f8`, gateway `932cf4e`.
+
+- Cloud Build `dabf309f-3f8c-47b8-a71d-c8366e632222` succeeded for the backend;
+  `4f1b5776-9e55-4dbc-af3a-4725ef75d79a` succeeded for the shared gateway image.
+- Ready revisions at 100% traffic: `bhe-product-api-00297-dhh`,
+  `dan-life-os-mcp-00023-wt6`, and
+  `fbc-staff-tools-mcp-entra-prod-00055-pf6`.
+- Rollback revisions: `bhe-product-api-00296-6jg`,
+  `dan-life-os-mcp-00022-8x8`, and
+  `fbc-staff-tools-mcp-entra-prod-00054-7qk` respectively. Existing candidate
+  tags were preserved. Runtime service accounts, environment/secret references,
+  resource settings, concurrency, ports, and timeouts matched the prior revisions.
+- Connected catalog returned `2026-09-27` with `recordPrayedBatch` (request
+  `0b2e5a74-40f7-4ff2-bbd7-9dcb74226310`). Both ChatGPT app schemas initially
+  rejected the new operation enum. Refreshing each existing app's Tools catalog
+  through workspace administration resolved the rejection. Existing prayer
+  command switches remained enabled; no tool permissions were manually expanded.
+- Life OS command `d6e47b53-1c2e-44cf-b76f-7a7de037685b` selected two prayers
+  already recorded that local day: `recordedCount: 0`, `alreadyPrayedCount: 2`,
+  `complete: true`, `atomic: true`, `verification.readBack: true`.
+  Identical retry `de0e15b5-801f-4077-b15f-2a9ff683648a` returned
+  `idempotency.replayed: true`. Independent status read
+  `fe1dc6a1-480a-4d3a-81f9-28abcea4dffe` matched both pre-test versions,
+  counts, and timestamps exactly.
+- FBC Staff Tools command `8f083fd3-7d3e-4fd5-a38c-9477d91ed167` replayed the
+  same encrypted receipt and independently verified both selected records
+  (read-back `d36ee585-f2fa-4a7c-972c-76f8053f0e8a`). No new prayed events
+  were created. This verifies connected-tool routing, same-day duplicate
+  prevention, replay, and read-back, not a live fresh-event write or phone UI.
+- Developer Tools registry actions were unavailable in this session. Git holds
+  the release evidence; no registry write or fresh-phone acceptance is claimed.
 
 ## Acceptance gates
 
