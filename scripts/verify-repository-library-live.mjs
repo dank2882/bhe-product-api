@@ -7,6 +7,7 @@ const project='location-map-985',db=new Firestore({projectId:project,databaseId:
 const service=JSON.parse(execFileSync('gcloud',['run','services','describe','bhe-product-api','--project='+project,'--region=us-west1','--format=json'],{encoding:'utf8'}));
 const base=process.argv[2]||service.status.url;
 const env=service.spec.template.spec.containers[0].env;
+if(env.some(v=>v.name==='REPOSITORY_DROPBOX_REFRESH_TOKEN'))throw Error('The GCS-only fixture verifier is retired for this deployment. Use verify-repository-dropbox-live.mjs and verify-repository-dropbox-sync-live.mjs.');
 const secret=env.find(e=>e.name==='BHE_API_KEY')?.valueFrom?.secretKeyRef||env.find(e=>e.name==='API_KEY')?.valueFrom?.secretKeyRef;
 if(!secret)throw Error('Existing backend secret reference not found');
 const key=execFileSync('gcloud',['secrets','versions','access',secret.key,'--secret='+secret.name,'--project='+project],{encoding:'utf8'}).trim();

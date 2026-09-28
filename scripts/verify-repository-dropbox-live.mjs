@@ -15,6 +15,7 @@ const currentProfiles=profiles.docs.map(d=>d.data()).filter(p=>p.status==='activ
 if(currentProfiles.length!==1)throw Error('Ambiguous current Entra operator identity');const profile=currentProfiles[0];
 const subject=profile.subject||profile.actorSubject; if(!subject)throw Error('Operator subject unavailable');
 async function call(body,actor=subject){const r=await fetch(base+'/repository/library/query',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'x-bhe-actor-sub':actor},body:JSON.stringify(body)});return {status:r.status,value:await r.json()};}
+const catalog=await call({operation:'search',limit:100});if(catalog.status!==200||!catalog.value.ok||catalog.value.entries.some(e=>e.availability==='unavailable'))throw Error('Catalog filtering failed');
 const result=await call({operation:'gallery',scope:'all',limit:48});if(result.status!==200||!result.value.ok)throw Error('Gallery query failed: '+JSON.stringify(result.value));
 const records=(await db.collection('repositoryLibraryEntries').where('activeKind','==','image').get()).docs.map(d=>d.data());
 if(result.value.images.length!==records.length)throw Error('Gallery count mismatch');
