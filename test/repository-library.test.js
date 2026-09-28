@@ -72,3 +72,17 @@ test('gallery pagination, empty search and missing preview remain explicit',asyn
  deps.bucket.file=()=>({exists:async()=>{throw Error('Storage unavailable');}});
  const broken=await query({operation:'gallery'},'viewer',deps);assert.equal(broken.images.length,3);assert.equal(broken.images[0].thumbnail,null);assert(broken.images[0].thumbnailError);
 });
+
+test('Dropbox save avoids GCS and private media rechecks staff and revision',async()=>{
+ const {deps,uploads,data}=setup();let savedBytes;
+ deps.mediaKey='unit-test-key';deps.mediaOrigin='https://example.test';
+ deps.dropbox={saveImage:async prepared=>{savedBytes=prepared.bytes;return {provider:'dropbox',fileId:'id:original',rev:'r1',checksumSha256:prepared.checksumSha256,path:'/Knowledge Repository/Images/a.png',preview:{fileId:'id:preview',rev:'p1'}};},metadata:async()=>({rev:'r1'}),read:async()=>savedBytes};
+ const input={kind:'image',title:'Dropbox original',file:{id:'test',download_link:'https://files.oaiusercontent.com/image.png'},idempotencyKey:'dropbox-save-test'};
+ const r=await save(input,'editor',deps);assert.equal(uploads(),0);assert(!r.entry.storage);assert(!r.entry.dropboxFileId);
+ const result=await query({operation:'download',entryId:r.entry.entryId},'viewer',deps);
+ const token=result.download.url.split('/').at(-1),{media}=require('../lib/repository-library-service');
+ assert((await media(token,deps)).bytes.equals(savedBytes));
+ const profile=deps.profiles;deps.profiles={doc:()=>({get:async()=>({exists:true,data:()=>({status:'active',permissions:[]})})})};
+ await assert.rejects(media(token,deps),e=>e.statusCode===403);deps.profiles=profile;
+ data.get('entries/'+r.entry.entryId).version++;await assert.rejects(media(token,deps),e=>e.statusCode===409);
+});

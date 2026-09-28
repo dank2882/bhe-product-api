@@ -426,6 +426,7 @@ app.use((req, res, next) => {
   const isPublicPath =
     req.path === "/" ||
     req.path === "/health" ||
+    (req.method === "GET" && /^\/repository\/library\/media\/[A-Za-z0-9_.-]+$/.test(req.path)) ||
     req.path === "/gpt-action-diagnostics/sample.txt" ||
     req.path.startsWith("/gpt-action-files/sermon-presentations/") ||
     req.path.startsWith("/gpt-action-files/sermon-preaching-packets/") ||
@@ -12466,18 +12467,38 @@ app.post("/products/:slug/assets/attach", async (req, res) => {
   }
 });
 
-// Image and information library uses the existing repository storage and staff identity.
+// Repository files remain staff-authorized; media capabilities recheck identity.
 const repositoryLibrary = require("./lib/repository-library-service");
+const { DropboxStorage } = require("./lib/repository-dropbox-storage");
+const repositoryDropbox = process.env.REPOSITORY_DROPBOX_REFRESH_TOKEN
+  ? new DropboxStorage({ refreshToken: process.env.REPOSITORY_DROPBOX_REFRESH_TOKEN }) : null;
+function repositoryLibraryDeps() {
+  return { db, entries: db.collection("repositoryLibraryEntries"),
+    audit: db.collection("repositoryLibraryAudit"), profiles: staffAuthorizationProfilesCollection,
+    bucket: storage.bucket(BUCKET_NAME), dropbox: repositoryDropbox,
+    boundedBrowse: process.env.REPOSITORY_BOUNDED_BROWSE === "true",
+    mediaOrigin: process.env.REPOSITORY_MEDIA_ORIGIN, mediaKey: BHE_API_KEY };
+}
+app.get("/repository/library/media/:capability", async (req, res) => {
+  try {
+    const result = await repositoryLibrary.media(req.params.capability, repositoryLibraryDeps());
+    res.set({ "Content-Type": result.contentType, "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff", "Content-Disposition": "inline" });
+    res.send(result.bytes);
+  } catch (error) { res.status(Number(error.statusCode) || 502).send("Image unavailable or link expired. Refresh the gallery."); }
+});
 for (const mode of ["save", "query"]) {
   app.post(`/repository/library/${mode}`, async (req, res) => {
     try {
-      const result = await repositoryLibrary[mode](req.body || {}, req.header("x-bhe-actor-sub"), {
-        db, entries: db.collection("repositoryLibraryEntries"),
-        audit: db.collection("repositoryLibraryAudit"),
-        profiles: staffAuthorizationProfilesCollection,
-        bucket: storage.bucket(BUCKET_NAME)
-      });
-      res.json({ ok: true, ...result });
+      const deps = repositoryLibraryDeps(), subject = req.header("x-bhe-actor-sub");
+      await repositoryLibrary.authorize(subject, mode === "save", deps);
+      let syncState;
+      if (mode === "query" && repositoryDropbox && process.env.REPOSITORY_DROPBOX_SYNC === "true" && ["search", "gallery"].includes(req.body?.operation)) {
+        try { syncState = await require("./lib/repository-dropbox-sync").sync(deps); }
+        catch { syncState = { status: "temporarily_unavailable", more: true }; }
+      }
+      const result = await repositoryLibrary[mode](req.body || {}, subject, deps);
+      res.json({ ok: true, ...result, ...(syncState ? { sync: syncState } : {}) });
     } catch (error) {
       res.status(Number(error.statusCode) || 500).json({ ok: false, error: error.statusCode ? error.message : "Repository library operation failed" });
     }
