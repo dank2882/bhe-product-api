@@ -87,6 +87,8 @@ components:
         operation:
           type: string
           enum:
+            - listSpecialMusicProfiles
+            - getSpecialMusicProfile
             - listDataCollections
             - getMinistryPlanningConfig
             - queryData
@@ -120,6 +122,8 @@ components:
         operation:
           type: string
           enum:
+            - saveSpecialMusicProfile
+            - archiveSpecialMusicProfile
             - syncMusicPlanningSpreadsheet
             - recordServiceSongFeedback
             - updateSongIdentity
@@ -143,6 +147,11 @@ components:
       additionalProperties: false
       description: Arguments for the selected query operation. Send an empty object only for listDataCollections.
       properties:
+        format: {"type": "string", "enum": ["records", "table"]}
+        specialMusicProfileId: {"type": "string"}
+        profileType: {"type": "string"}
+        tier: {"type": "integer", "minimum": 1, "maximum": 3}
+        afterId: {"type": "string"}
         configId:
           type: string
         section:
@@ -252,6 +261,14 @@ components:
       additionalProperties: false
       description: Arguments for the selected command operation.
       properties:
+        accompanists: {"type": "array", "description": "Standing pianist assignments; empty means unassigned. Use IDs from listPianists.", "items": {"type": "object", "required": ["pianistId"], "properties": {"pianistId": {"type": "string"}, "displayName": {"type": "string"}}}}
+        groupName: {"type": "string", "description": "Optional formal group name; empty string clears it."}
+        specialMusicProfileId: {"type": "string"}
+        profileType: {"type": "string"}
+        tier: {"type": "integer", "minimum": 1, "maximum": 3}
+        expectedVersion: {"type": "integer", "minimum": 0}
+        members: {"type": "array", "items": {"type": "object", "required": ["displayName"], "properties": {"displayName": {"type": "string"}, "personId": {"type": "string"}, "breezePersonId": {"type": "string"}}}}
+        aliases: {"type": "array", "items": {"type": "string"}}
         googleSheetId:
           type: string
         googleSheetUrl:

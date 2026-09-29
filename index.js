@@ -492,6 +492,7 @@ const sourceImportsCollection = db.collection("sourceImports");
 const pianistsCollection = db.collection("pianists");
 const servicePianoPlansCollection = db.collection("servicePianoPlans");
 const serviceMinistryAssignmentsCollection = db.collection("serviceMinistryAssignments");
+const specialMusicProfilesCollection = db.collection("specialMusicProfiles");
 const projectsCollection = db.collection("projects");
 const tasksCollection = db.collection("tasks");
 const taskNotesCollection = db.collection("taskNotes");
@@ -2598,6 +2599,8 @@ function getOperatorDataDependencies(overrides = {}) {
 
 function getMinistryPlanningDependencies(overrides = {}) {
   return {
+    db,
+    specialMusicProfilesCollection,
     ...getOperatorDataDependencies(),
     ...getSongCatalogDependencies(),
     ...getServiceHistoryDependencies(),
@@ -11656,7 +11659,7 @@ async function handleMinistryPlanningOperation(req, res, mode) {
   try {
     const result = await runIdempotentMinistryPlanningOperation(
       { mode, operation, arguments: operationArguments, idempotencyKey },
-      getMinistryPlanningDependencies()
+      getMinistryPlanningDependencies({ actorSubject: req.header("x-bhe-actor-sub") || "" })
     );
     const responseBody = { ok: true, requestId, ...result };
     console.log(JSON.stringify({

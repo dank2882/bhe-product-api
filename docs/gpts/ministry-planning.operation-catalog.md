@@ -12,15 +12,54 @@ This generated file is a local review artifact. The Custom GPT reads the live ca
 6. Send one stable `idempotencyKey` per command intent and reuse it only to retry that intent.
 7. Never ask Dan to read back a generated `sourceImportId`; `syncMusicPlanningSpreadsheet` resolves it internally.
 
-Catalog version: `1-8799584ded41`
+Catalog version: `1-b1c329044e37`
 
-Catalog hash: `8799584ded41d277e5e33ac548111fb7caf9823052db11bdb7e2666abb5d3f10`
+Catalog hash: `b1c329044e37a9b6060ffdb934ce64008bd5dfc91c08e9a8ead718898846dc7a`
 
-The registry currently exposes 26 operations.
+The registry currently exposes 30 operations.
 
 ## Query Operations
 
 Use `runMinistryPlanningQuery` for every operation in this section.
+
+### listSpecialMusicProfiles
+
+List canonical special-music individuals and groups by tier, type, status, or service eligibility.
+
+Required: none
+
+Optional: `tier`, `profileType`, `status`, `serviceType`, `limit`, `afterId`, `format`
+
+Confirmation policy: `none`
+
+Argument guidance: Defaults to active. Use format table to display profile, optional group name, type, tier, eligible services, members, pianists and status as a table. Types: individual, group, duo, small_group, family, ensemble, choir, school_group. Tier 1: Wednesday night; 2: Sunday night and Wednesday night; 3: any service. Follow nextCursor as afterId until null, including empty filtered pages. Use status all for a complete import read-back.
+
+```json
+{
+  "operation": "listSpecialMusicProfiles",
+  "arguments": {
+    "serviceType": "sunday_morning",
+    "status": "active"
+  }
+}
+```
+
+### getSpecialMusicProfile
+
+Retrieve one canonical special-music profile with members and version.
+
+Required: `specialMusicProfileId`
+
+Optional: none
+
+Confirmation policy: `none`
+
+```json
+{
+  "operation": "getSpecialMusicProfile",
+  "arguments": {}
+}
+```
 
 ### listDataCollections
 
@@ -339,6 +378,55 @@ Argument guidance: The response includes stable serviceSongEventId values for ea
 ## Command Operations
 
 Use `runMinistryPlanningCommand` for every operation in this section.
+
+### saveSpecialMusicProfile
+
+Create or update one versioned special-music roster profile without changing the schedule Sheet.
+
+Required: `specialMusicProfileId`, `expectedVersion`
+
+Optional: `displayName`, `groupName`, `profileType`, `tier`, `members`, `accompanists`, `aliases`, `notes`, `status`
+
+Confirmation policy: `none`
+
+Argument guidance: Use a stable top-level idempotencyKey. Creation requires displayName, profileType, tier and expectedVersion 0. Individuals require one named member. Groups may have unknown membership (empty members). groupName is optional for groups; empty string clears it. displayName is the scheduling label even without a formal group name. Updates preserve omitted fields and require the current version. Status is active or inactive; explicitly set active to restore an archived profile. Tier availability is backend-derived and stored. Names are preserved exactly; person IDs are optional. Read back after saving.
+
+```json
+{
+  "operation": "saveSpecialMusicProfile",
+  "arguments": {
+    "specialMusicProfileId": "individual-example",
+    "expectedVersion": 0,
+    "displayName": "Example Singer",
+    "profileType": "individual",
+    "tier": 3,
+    "members": [
+      {
+        "displayName": "Example Singer"
+      }
+    ]
+  }
+}
+```
+
+### archiveSpecialMusicProfile
+
+Archive one profile while preserving membership and schedule references.
+
+Required: `specialMusicProfileId`, `expectedVersion`
+
+Optional: none
+
+Confirmation policy: `none`
+
+Argument guidance: Requires a stable top-level idempotencyKey and current version. No permanent deletion. Read back after archiving.
+
+```json
+{
+  "operation": "archiveSpecialMusicProfile",
+  "arguments": {}
+}
+```
 
 ### syncMusicPlanningSpreadsheet
 
