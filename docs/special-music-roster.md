@@ -30,6 +30,35 @@ Use `listSpecialMusicProfiles` with `format: table` for a table containing the
 scheduling label, optional group name, type, tier, service eligibility, members,
 pianists, and status. Filters and pagination apply to both records and table rows.
 
+## Date availability
+
+Every profile supports `defaultAvailability` (`available` or `unavailable`) and
+`availabilityWindows`: `{ startDate, endDate, available, reason? }` records.
+Dates are valid `YYYY-MM-DD` calendar dates, inclusive at both ends, with no
+time-of-day conversion. Open availability defaults to `available` and `[]`.
+Missing fields on older records read with those defaults without a write.
+
+For an absence, keep the default available and add an `available: false` range.
+For someone who is only available when in town, set the default unavailable and
+add `available: true` ranges. Multiple ranges are allowed. An unavailable range
+wins any overlap, regardless of array order. With default unavailable and no
+available windows, the profile is unavailable on every date. Date windows cannot
+override an inactive profile or a service-type tier restriction.
+
+Save through `saveSpecialMusicProfile` with the current version. Omitted fields
+are preserved; supplying the window array replaces it, and `[]` clears it.
+Do not invent dates or personal reasons. Availability is for this scheduling
+profile; partial member names do not establish links to other profiles. These
+rules do not cancel existing service bookings or change Google Sheet cells.
+
+Pass `serviceDate` and `serviceType` to the list query for scheduling options.
+Date-unavailable profiles are excluded by default. `includeUnavailable: true`
+keeps them for review, still subject to the other requested filters. It requires
+a service date. A get query can also evaluate a supplied date/service type.
+Without a date, the roster includes all profiles matching the other filters;
+it makes no date-specific availability claim. Table output includes availability
+and date windows. An open date means no recorded restriction, not a booking.
+
 Tier rules are backend-owned: 1 permits Wednesday night, 2 permits Sunday night
 and Wednesday night, and 3 permits any service, including special services. Each
 save regenerates the stored availability rule from the tier. Callers cannot

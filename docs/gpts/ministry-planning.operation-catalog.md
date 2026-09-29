@@ -12,9 +12,9 @@ This generated file is a local review artifact. The Custom GPT reads the live ca
 6. Send one stable `idempotencyKey` per command intent and reuse it only to retry that intent.
 7. Never ask Dan to read back a generated `sourceImportId`; `syncMusicPlanningSpreadsheet` resolves it internally.
 
-Catalog version: `1-b1c329044e37`
+Catalog version: `1-02cc46e39827`
 
-Catalog hash: `b1c329044e37a9b6060ffdb934ce64008bd5dfc91c08e9a8ead718898846dc7a`
+Catalog hash: `02cc46e3982741e261d5e599bf0bac05a4c5915295793e9eb0fff468ff3b1ff9`
 
 The registry currently exposes 30 operations.
 
@@ -28,11 +28,11 @@ List canonical special-music individuals and groups by tier, type, status, or se
 
 Required: none
 
-Optional: `tier`, `profileType`, `status`, `serviceType`, `limit`, `afterId`, `format`
+Optional: `tier`, `profileType`, `status`, `serviceType`, `serviceDate`, `includeUnavailable`, `limit`, `afterId`, `format`
 
 Confirmation policy: `none`
 
-Argument guidance: Defaults to active. Use format table to display profile, optional group name, type, tier, eligible services, members, pianists and status as a table. Types: individual, group, duo, small_group, family, ensemble, choir, school_group. Tier 1: Wednesday night; 2: Sunday night and Wednesday night; 3: any service. Follow nextCursor as afterId until null, including empty filtered pages. Use status all for a complete import read-back.
+Argument guidance: Defaults to active. Supply serviceDate YYYY-MM-DD to exclude unavailable profiles; includeUnavailable true keeps date-unavailable profiles for review and requires serviceDate. serviceType still filters by tier. Without a date, availability is not evaluated. Use format table for names, tiers, members, pianists, status, availability and date windows. Types: individual, group, duo, small_group, family, ensemble, choir, school_group. Tier 1: Wednesday night; 2: Sunday night and Wednesday night; 3: any service. Follow nextCursor as afterId until null, including empty filtered pages. Use status all for a complete import read-back.
 
 ```json
 {
@@ -50,7 +50,7 @@ Retrieve one canonical special-music profile with members and version.
 
 Required: `specialMusicProfileId`
 
-Optional: none
+Optional: `serviceDate`, `serviceType`
 
 Confirmation policy: `none`
 
@@ -385,11 +385,11 @@ Create or update one versioned special-music roster profile without changing the
 
 Required: `specialMusicProfileId`, `expectedVersion`
 
-Optional: `displayName`, `groupName`, `profileType`, `tier`, `members`, `accompanists`, `aliases`, `notes`, `status`
+Optional: `displayName`, `groupName`, `profileType`, `tier`, `members`, `accompanists`, `aliases`, `notes`, `status`, `defaultAvailability`, `availabilityWindows`
 
 Confirmation policy: `none`
 
-Argument guidance: Use a stable top-level idempotencyKey. Creation requires displayName, profileType, tier and expectedVersion 0. Individuals require one named member. Groups may have unknown membership (empty members). groupName is optional for groups; empty string clears it. displayName is the scheduling label even without a formal group name. Updates preserve omitted fields and require the current version. Status is active or inactive; explicitly set active to restore an archived profile. Tier availability is backend-derived and stored. Names are preserved exactly; person IDs are optional. Read back after saving.
+Argument guidance: Use a stable top-level idempotencyKey. Creation requires displayName, profileType, tier and expectedVersion 0. Individuals need one member; groups may have empty members and optional groupName. Updates preserve omitted fields and need the current version. accompanists is an array of {pianistId} from listPianists; [] clears it. defaultAvailability is available (open) or unavailable (only within available windows). availabilityWindows is an array of {startDate, endDate, available: boolean, reason?: string}; dates are inclusive YYYY-MM-DD, unavailable wins overlaps, and windows never override tier/status. Supplying the array replaces it; [] clears all windows. Omit fields to preserve them. Use no inferred dates or reasons. Status is active or inactive; explicitly set active to restore an archive. Read back after saving.
 
 ```json
 {

@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { runIdempotentMinistryPlanningOperation: run } = require("../lib/ministry-planning-operation-execution");
-const { listSpecialMusicProfiles, getSpecialMusicProfile } = require("../lib/special-music-profile-service");
+const { listSpecialMusicProfiles, getSpecialMusicProfile, evaluateAvailability } = require("../lib/special-music-profile-service");
 
 function fixture() {
   const store = new Map();
@@ -115,4 +115,65 @@ test("accompanists use canonical pianist IDs, preserve on update, and show in ta
   await assert.rejects(run(request("bad-reference", 3, { accompanists: [{ pianistId: "missing" }] }), deps), { code: "pianist_not_found" });
   await assert.rejects(run(request("duplicate-reference", 3, { accompanists: [{ pianistId: "pianist-a" }, { pianistId: "pianist-a" }] }), deps));
   assert.equal(store.has("profiles/bad-reference"), false);
+});
+
+test("blackout ranges include both boundaries, reject invalid dates, and preserve open defaults", async () => {
+  const { deps, store } = fixture();
+  const input = request("blackout", 3, { availabilityWindows: [{ startDate: "2026-11-01", endDate: "2026-11-30", available: false }] });
+  await run(input, deps);
+  for (const day of ["2026-11-01", "2026-11-15", "2026-11-30"]) {
+    assert.equal((await listSpecialMusicProfiles({ serviceDate: day }, deps)).count, 0);
+  }
+  for (const day of ["2026-10-31", "2026-12-01"]) assert.equal((await listSpecialMusicProfiles({ serviceDate: day }, deps)).count, 1);
+  const table = await listSpecialMusicProfiles({ serviceDate: "2026-11-15", includeUnavailable: true, format: "table" }, deps);
+  assert.equal(table.count, 1);
+  assert.match(table.table.rows[0][8], /Unavailable on 2026-11-15/);
+  assert.match(table.table.rows[0][9], /2026-11-01 through 2026-11-30/);
+  for (const range of [
+    { startDate: "2026-02-29", endDate: "2026-03-01", available: false },
+    { startDate: "2026-04-31", endDate: "2026-05-01", available: false },
+    { startDate: "2026-12-01", endDate: "2026-11-01", available: false },
+    { startDate: "2026-11-01", endDate: "2026-11-30", available: "false" }
+  ]) await assert.rejects(run(request("invalid-window", 3, { availabilityWindows: [range] }), deps));
+  await assert.rejects(run(request("invalid-null", 3, { availabilityWindows: null }), deps));
+  assert.equal(store.has("profiles/invalid-window"), false);
+  await assert.rejects(listSpecialMusicProfiles({ serviceDate: "2026-02-30" }, deps));
+  await assert.rejects(listSpecialMusicProfiles({ includeUnavailable: true }, deps));
+});
+
+test("in-town-only windows, overlapping blackout precedence, tiers and inactive status", async () => {
+  const { deps } = fixture();
+  const response = await run(request("visitor", 2, { profileType: "family", members: [], defaultAvailability: "unavailable", availabilityWindows: [
+    { startDate: "2026-10-01", endDate: "2026-10-31", available: true, reason: "In town" },
+    { startDate: "2026-10-10", endDate: "2026-10-20", available: false }
+  ] }), deps);
+  const profile = response.result.profile;
+  assert.equal(evaluateAvailability(profile, "2026-10-01", "sunday_night").available, true);
+  assert.equal(evaluateAvailability(profile, "2026-10-31", "sunday_night").available, true);
+  assert.equal(evaluateAvailability(profile, "2026-11-01", "sunday_night").available, false);
+  assert.equal(evaluateAvailability(profile, "2026-10-15", "sunday_night").available, false);
+  assert.equal(evaluateAvailability({ ...profile, availabilityWindows: [...profile.availabilityWindows].reverse() }, "2026-10-15", "sunday_night").available, false);
+  assert.equal(evaluateAvailability(profile, "2026-10-01", "sunday_morning").source, "tier");
+  assert.equal(evaluateAvailability({ ...profile, status: "inactive" }, "2026-10-01", "sunday_night").available, false);
+  assert.equal(evaluateAvailability({ ...profile, availabilityWindows: [] }, "2026-10-01").available, false);
+  const leap = { ...profile, availabilityWindows: [{ startDate: "2028-02-29", endDate: "2028-02-29", available: true }] };
+  assert.equal(evaluateAvailability(leap, "2028-02-29").available, true);
+});
+
+test("availability edits preserve omitted rules, can clear windows, and do not backfill records during reads", async () => {
+  const { deps, store } = fixture();
+  await run(request("open-profile"), deps);
+  const raw = store.get("profiles/open-profile");
+  delete raw.defaultAvailability; delete raw.availabilityWindows;
+  const storedBeforeRead = structuredClone(raw);
+  const { profile } = await getSpecialMusicProfile({ specialMusicProfileId: "open-profile", serviceDate: "2026-10-04", serviceType: "sunday_morning" }, deps);
+  assert.equal(profile.defaultAvailability, "available");
+  assert.deepEqual(profile.availabilityWindows, []);
+  assert.equal(profile.availability.available, true);
+  assert.deepEqual(store.get("profiles/open-profile"), storedBeforeRead);
+  const update = (version, changes) => run({ mode: "command", operation: "saveSpecialMusicProfile", idempotencyKey: `availability-edit-${version}`, arguments: { specialMusicProfileId: "open-profile", expectedVersion: version, ...changes } }, deps);
+  const window = { startDate: "2026-10-01", endDate: "2026-10-31", available: false, reason: "" };
+  await update(1, { availabilityWindows: [window] });
+  assert.deepEqual((await update(2, { notes: "Unrelated edit" })).result.profile.availabilityWindows, [window]);
+  assert.deepEqual((await update(3, { availabilityWindows: [] })).result.profile.availabilityWindows, []);
 });
