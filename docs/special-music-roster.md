@@ -115,6 +115,16 @@ code and tests do not create a production collection or populate the roster.
 
 ## Last sang and rotation
 
+Dan's September 30 instruction places all active `profileType: family` profiles
+in the Sunday-night family rotation. Use the existing type, Sunday-night tier,
+date-availability and last-sang sorting filters. Work through available families
+before repeating one, accounting for both existing bookings and the current
+multiweek draft. Review unknown history separately so missing dates do not cause
+families to be repeatedly overlooked. Preserve other service eligibility and
+existing bookings. Tate and Lane participation requires being in town; unset
+windows are not evidence of that. This rule is served from the backend's
+operator guidance; it does not generate or change schedule bookings by itself.
+
 `lastSangDate` stores the latest confirmed performance date as YYYY-MM-DD, or
 null when not recorded. Older documents read as null without a migration write.
 Save through the existing versioned, idempotent profile operation; omit to
