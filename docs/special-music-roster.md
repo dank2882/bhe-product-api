@@ -112,3 +112,28 @@ Schedule-to-roster ID assignment is a later integration. This change neither
 guesses IDs from existing schedule text nor rewrites imported schedule rows.
 Firestore creates the collection on the first authorized profile write; local
 code and tests do not create a production collection or populate the roster.
+
+## Last sang and rotation
+
+`lastSangDate` stores the latest confirmed performance date as YYYY-MM-DD, or
+null when not recorded. Older documents read as null without a migration write.
+Save through the existing versioned, idempotent profile operation; omit to
+preserve, or explicitly pass null to clear an incorrect date. Reject invalid
+calendar dates and future dates using America/Los_Angeles ministry time.
+Scheduling and spreadsheet imports do not automatically count as performances.
+A staff-confirmed date may correct either direction; when recording an older
+performance, retain the newer confirmed date unless correcting a mistake.
+
+Use `sortBy: "lastSangDate"` on `listSpecialMusicProfiles` with service type and
+date. It ranks the full eligible set before pagination: oldest known date first,
+unknown dates last, profile ID breaks ties. Keep filters and sort order unchanged
+when passing nextCursor as afterId. A missing cursor profile requires restarting.
+The existing 5,000-record scan bound fails explicitly for rotation instead of
+returning a misleading partial ranking. Default ID ordering is unchanged.
+
+Table output includes Last sang. Unknown is not never sung, and recommendations
+must identify the history gap. Each scheduling profile has its own date; member
+names and overlapping groups do not silently transfer a performance. No actual
+dates were supplied with the September 30 feature request, so initial values
+remain unknown until confirmed. Existing schedule entries can aid review but
+are not proof of a completed performance.

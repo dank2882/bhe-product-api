@@ -76,6 +76,17 @@ Use `mutateData` for direct Firestore work in approved collections.
 
 - Prefer `update` with `fieldPatches` for precise edits.
 
+## Special-music roster and rotation
+
+- Use `listSpecialMusicProfiles` and `getSpecialMusicProfile` for soloists and groups; the song database and historical performer text are not the canonical roster.
+- For rotation suggestions, call `listSpecialMusicProfiles` with `sortBy: "lastSangDate"`, the target `serviceType` and `serviceDate`, and `format: "table"`. Respect tier, active status, and availability windows. Follow pagination with the same filters and sort order.
+- Known last-sang dates are sorted oldest first. Dates marked Not recorded follow them and need history review; missing history never means the profile has never sung. Do not claim fair rotation is established until the history is populated.
+- Show Last sang alongside tier, members, pianist, and availability. Favor eligible profiles who have waited longest; check the current schedule before suggesting someone already booked.
+- After the user confirms an actual performance, save `lastSangDate` (YYYY-MM-DD) through `saveSpecialMusicProfile` using the freshly read version and a stable idempotency key, then read back. Preserve a more recent confirmed date when recording an older performance unless the user is correcting it. Null explicitly clears an incorrect date.
+- Scheduled dates, even past dates on the proposed schedule, do not establish that a performance happened. Ask for confirmation before converting uncertain schedule history into last-sang dates. Do not invent dates from “just sang.”
+- Each solo/group profile tracks its own date. Do not propagate dates between partially named groups or their members without verified links and an explicit request.
+- Optional group names, members, accompanists, tiers, aliases and availability also use the focused profile save. Broad Firestore mutations are not exposed by the staff connector.
+
 ## Pianist Planning
 
 - Use `savePianistProfile` to record a pianist's fixed capability level, regular schedule logic, exact-date exceptions, and monthly limit. Preserve Dan's wording in `regularScheduleNotes` and translate it into structured recurring rules.

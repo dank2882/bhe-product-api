@@ -177,3 +177,42 @@ test("availability edits preserve omitted rules, can clear windows, and do not b
   assert.deepEqual((await update(2, { notes: "Unrelated edit" })).result.profile.availabilityWindows, [window]);
   assert.deepEqual((await update(3, { availabilityWindows: [] })).result.profile.availabilityWindows, []);
 });
+
+test("last sang is a confirmed calendar date, preserved on edits, cleared explicitly, and never a future plan", async () => {
+  const { deps, store } = fixture();
+  deps.now = () => Date.parse("2026-10-01T02:00:00Z"); // September 30 in ministry time.
+  await run(request("solo", 3, { lastSangDate: "2026-09-30" }), deps);
+  const update = (version, changes) => run({ mode: "command", operation: "saveSpecialMusicProfile", idempotencyKey: `last-sang-${version}`, arguments: { specialMusicProfileId: "solo", expectedVersion: version, ...changes } }, deps);
+  await update(1, { notes: "Keep the performance date" });
+  assert.equal((await getSpecialMusicProfile({ specialMusicProfileId: "solo" }, deps)).profile.lastSangDate, "2026-09-30");
+  for (const lastSangDate of ["2026-10-01", "2026-02-30", "", 20260930]) {
+    await assert.rejects(run(request("invalid-date", 3, { lastSangDate }), deps));
+  }
+  assert.equal(store.has("profiles/invalid-date"), false);
+  await update(2, { lastSangDate: null });
+  assert.equal((await getSpecialMusicProfile({ specialMusicProfileId: "solo" }, deps)).profile.lastSangDate, null);
+  assert.equal((await listSpecialMusicProfiles({ format: "table" }, deps)).table.rows[0].at(-1), "Not recorded");
+});
+
+test("rotation ranks all eligible records before paging, oldest first with unknown history last", async () => {
+  const { deps, store } = fixture();
+  deps.now = () => Date.parse("2026-09-30T19:00:00Z");
+  for (let i = 0; i < 205; i++) store.set(`profiles/a-${String(i).padStart(3, "0")}`, { tier: 3, status: "active", profileType: "individual", lastSangDate: "2026-09-27" });
+  await run(request("z-old", 3, { lastSangDate: "2026-06-01" }), deps);
+  await run(request("z-unknown"), deps);
+  await run(request("ineligible", 1, { lastSangDate: "2026-01-01" }), deps);
+  await run(request("absent", 3, { lastSangDate: "2026-01-01", defaultAvailability: "unavailable" }), deps);
+  await run(request("inactive", 3, { lastSangDate: "2026-01-01", status: "inactive" }), deps);
+  const args = { sortBy: "lastSangDate", serviceType: "sunday_morning", serviceDate: "2026-10-04", limit: 200 };
+  const first = await listSpecialMusicProfiles(args, deps);
+  const second = await listSpecialMusicProfiles({ ...args, afterId: first.nextCursor }, deps);
+  const all = [...first.profiles, ...second.profiles];
+  assert.equal(all.length, 207);
+  assert.equal(new Set(all.map(p => p.specialMusicProfileId)).size, 207);
+  assert.equal(all[0].specialMusicProfileId, "z-old");
+  assert.equal(all.at(-1).specialMusicProfileId, "z-unknown");
+  assert.equal(second.nextCursor, null);
+  assert.equal(store.get("profiles/a-000").version, undefined);
+  await assert.rejects(listSpecialMusicProfiles({ ...args, afterId: "absent" }, deps), { code: "invalid_rotation_cursor" });
+  await assert.rejects(listSpecialMusicProfiles({ sortBy: "other" }, deps));
+});

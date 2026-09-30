@@ -12,9 +12,9 @@ This generated file is a local review artifact. The Custom GPT reads the live ca
 6. Send one stable `idempotencyKey` per command intent and reuse it only to retry that intent.
 7. Never ask Dan to read back a generated `sourceImportId`; `syncMusicPlanningSpreadsheet` resolves it internally.
 
-Catalog version: `1-02cc46e39827`
+Catalog version: `1-12cfd9a6faca`
 
-Catalog hash: `02cc46e3982741e261d5e599bf0bac05a4c5915295793e9eb0fff468ff3b1ff9`
+Catalog hash: `12cfd9a6faca14b64376b952640a47a5e05778369bbf9eecd2ed8e6eb1e6b507`
 
 The registry currently exposes 30 operations.
 
@@ -28,11 +28,11 @@ List canonical special-music individuals and groups by tier, type, status, or se
 
 Required: none
 
-Optional: `tier`, `profileType`, `status`, `serviceType`, `serviceDate`, `includeUnavailable`, `limit`, `afterId`, `format`
+Optional: `tier`, `profileType`, `status`, `serviceType`, `serviceDate`, `includeUnavailable`, `limit`, `afterId`, `format`, `sortBy`
 
 Confirmation policy: `none`
 
-Argument guidance: Defaults to active. Supply serviceDate YYYY-MM-DD to exclude unavailable profiles; includeUnavailable true keeps date-unavailable profiles for review and requires serviceDate. serviceType still filters by tier. Without a date, availability is not evaluated. Use format table for names, tiers, members, pianists, status, availability and date windows. Types: individual, group, duo, small_group, family, ensemble, choir, school_group. Tier 1: Wednesday night; 2: Sunday night and Wednesday night; 3: any service. Follow nextCursor as afterId until null, including empty filtered pages. Use status all for a complete import read-back.
+Argument guidance: Defaults to active. For rotation suggestions use sortBy lastSangDate with serviceType and serviceDate: eligible profiles with known dates sort oldest first, unknown dates last (not never sung); ties use profile ID. Keep the same filters and sortBy on subsequent pages. Review unknown history separately before scheduling. Supply serviceDate YYYY-MM-DD to exclude unavailable profiles; includeUnavailable true keeps date-unavailable profiles for review and requires serviceDate. serviceType still filters by tier. Without a date, availability is not evaluated. Use format table for names, tiers, members, pianists, status, availability, date windows and Last sang. Types: individual, group, duo, small_group, family, ensemble, choir, school_group. Tier 1: Wednesday night; 2: Sunday night and Wednesday night; 3: any service. Follow nextCursor as afterId until null, including empty filtered pages. Use status all for a complete import read-back.
 
 ```json
 {
@@ -385,11 +385,11 @@ Create or update one versioned special-music roster profile without changing the
 
 Required: `specialMusicProfileId`, `expectedVersion`
 
-Optional: `displayName`, `groupName`, `profileType`, `tier`, `members`, `accompanists`, `aliases`, `notes`, `status`, `defaultAvailability`, `availabilityWindows`
+Optional: `displayName`, `groupName`, `profileType`, `tier`, `members`, `accompanists`, `aliases`, `notes`, `status`, `defaultAvailability`, `availabilityWindows`, `lastSangDate`
 
 Confirmation policy: `none`
 
-Argument guidance: Use a stable top-level idempotencyKey. Creation requires displayName, profileType, tier and expectedVersion 0. Individuals need one member; groups may have empty members and optional groupName. Updates preserve omitted fields and need the current version. accompanists is an array of {pianistId} from listPianists; [] clears it. defaultAvailability is available (open) or unavailable (only within available windows). availabilityWindows is an array of {startDate, endDate, available: boolean, reason?: string}; dates are inclusive YYYY-MM-DD, unavailable wins overlaps, and windows never override tier/status. Supplying the array replaces it; [] clears all windows. Omit fields to preserve them. Use no inferred dates or reasons. Status is active or inactive; explicitly set active to restore an archive. Read back after saving.
+Argument guidance: Use a stable top-level idempotencyKey. Creation requires displayName, profileType, tier and expectedVersion 0. Individuals need one member; groups may have empty members and optional groupName. Updates preserve omitted fields and need the current version. accompanists is an array of {pianistId} from listPianists; [] clears it. defaultAvailability is available (open) or unavailable (only within available windows). availabilityWindows is an array of {startDate, endDate, available: boolean, reason?: string}; dates are inclusive YYYY-MM-DD, unavailable wins overlaps, and windows never override tier/status. Supplying the array replaces it; [] clears all windows. lastSangDate is a confirmed past/today YYYY-MM-DD performance date or null to clear an incorrect date. Omit to preserve. Scheduled dates are not confirmed performances; do not infer dates from planned service rows. Omit fields to preserve them. Use no inferred dates or reasons. Status is active or inactive; explicitly set active to restore an archive. Read back after saving.
 
 ```json
 {
