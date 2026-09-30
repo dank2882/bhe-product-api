@@ -28,10 +28,13 @@ function sha256(value) {
 }
 
 const documents = Object.fromEntries(Object.entries(sources).map(([section, relativePath]) => {
-  const content = fs.readFileSync(path.join(rootDir, relativePath), "utf8");
+  const sourceFiles = section === "operatorGuidance"
+    ? [relativePath, "docs/gpts/special-music-scheduling-rules.md"] : [relativePath];
+  const content = sourceFiles.map(file => fs.readFileSync(path.join(rootDir, file), "utf8")).join("\n\n");
   return [section, {
     section,
     sourceFile: relativePath,
+    sourceFiles,
     contentType: "text/markdown",
     sha256: sha256(content),
     content

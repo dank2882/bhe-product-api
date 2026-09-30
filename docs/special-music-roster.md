@@ -115,15 +115,13 @@ code and tests do not create a production collection or populate the roster.
 
 ## Last sang and rotation
 
-Dan's September 30 instruction places all active `profileType: family` profiles
-in the Sunday-night family rotation. Use the existing type, Sunday-night tier,
-date-availability and last-sang sorting filters. Work through available families
-before repeating one, accounting for both existing bookings and the current
-multiweek draft. Review unknown history separately so missing dates do not cause
-families to be repeatedly overlooked. Preserve other service eligibility and
-existing bookings. Tate and Lane participation requires being in town; unset
-windows are not evidence of that. This rule is served from the backend's
-operator guidance; it does not generate or change schedule bookings by itself.
+The canonical [scheduling rules](gpts/special-music-scheduling-rules.md) are
+included in live operator guidance. Sunday evenings with two specials use a
+family in Special #1; a single-special Sunday evening uses a vocal soloist or
+non-family vocal group. This supersedes the earlier blanket family rotation.
+Profile-level eligibility and last-sang sorting do not prove that person-level
+workload, slot colors, membership or format have been verified. See the policy's
+implementation boundary and proposal checks.
 
 `lastSangDate` stores the latest confirmed performance date as YYYY-MM-DD, or
 null when not recorded. Older documents read as null without a migration write.
