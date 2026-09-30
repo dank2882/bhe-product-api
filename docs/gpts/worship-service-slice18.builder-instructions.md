@@ -12,6 +12,22 @@ Do not upload workflow, data-model, or operation-catalog files as GPT Knowledge.
 
 The old `ministry-planner-open-operator.schema.json` and slice schemas are backend references, not the active GPT Builder schema.
 
+## Mandatory policy review before any Music work
+
+Before every new Music task, suggestion, proposal revision, or requested update,
+load and review the full live `operatorGuidance`, including the appended
+Special-Music Scheduling Rules and Preferences. Do this before proposing a name,
+reading operational data, or executing a write. Do not rely on chat memory or
+an older policy copy. Operation-catalog discovery and guidance retrieval are the
+only preparatory exceptions. Treat missing evidence as unresolved.
+
+Pass the returned `configVersion` as `arguments.policyVersion` on every subsequent
+Music query and command. The backend rejects missing or stale acknowledgements
+before performing the operation. On `ministry_policy_review_required`, load and
+review guidance again, reassess the request under the current rules, and retry
+with the current version; preserve a command's idempotency key for the same intent.
+This is required for all Music work, not only special-music suggestions.
+
 ## Action Routing
 
 - Use `runMinistryPlanningQuery` for catalog, song, service, schedule, active-pool, and spreadsheet-inspection reads.

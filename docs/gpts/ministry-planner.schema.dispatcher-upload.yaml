@@ -152,6 +152,7 @@ components:
         specialMusicProfileId: {"type": "string"}
         profileType: {"type": "string"}
         tier: {"type": "integer", "minimum": 1, "maximum": 3}
+        policyVersion: {"type": "string", "description": "Required current configVersion after reviewing operatorGuidance."}
         afterId: {"type": "string"}
         sortBy: {"type": "string", "enum": ["id", "lastSangDate"]}
         configId:
@@ -308,6 +309,7 @@ components:
             - piano_2
             - developing
             - not_schedulable
+        policyVersion: {"type": "string", "description": "Required current configVersion after reviewing operatorGuidance."}
         lastSangDate: {"type": ["string", "null"], "format": "date", "description": "Latest confirmed performance date; null clears it. Future scheduled dates are rejected."}
         defaultAvailability:
           type: string

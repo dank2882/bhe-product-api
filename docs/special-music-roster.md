@@ -145,3 +145,24 @@ names and overlapping groups do not silently transfer a performance. No actual
 dates were supplied with the September 30 feature request, so initial values
 remain unknown until confirmed. Existing schedule entries can aid review but
 are not proof of a completed performance.
+
+## Required current-policy acknowledgement
+
+The `/ministry-planning/query` and `/ministry-planning/command` dispatchers now
+require `arguments.policyVersion` equal to the current default configVersion.
+Read and review `getMinistryPlanningConfig` with `operatorGuidance` first, at the
+start of every Music task or proposal revision. Only guidance retrieval is
+exempt inside the dispatcher; catalog discovery also remains accessible.
+Missing/stale versions return `ministry_policy_review_required` before domain
+execution. Missing policy fails closed. This is a workflow prerequisite, not an
+authorization credential or proof of cognitive review. It cannot stop a client
+from producing unsupported prose without tools, so the durable instructions also
+forbid suggestions before policy review.
+
+The acknowledgement is removed before domain validation and command fingerprinting.
+Reloading updated guidance therefore does not change an idempotent write intent.
+No new MCP tool or top-level schema field is needed: existing free-form arguments
+carry the version. The CLI importer prints the live policy and requires the
+operator to set `MINISTRY_REVIEWED_POLICY_VERSION` before continuing; it does not
+silently acknowledge the policy for the operator. Legacy non-dispatcher endpoints
+and direct internal library calls are not claimed to be protected by this gate.

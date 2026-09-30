@@ -21,7 +21,9 @@ const hash = value => createHash("sha256").update(stableStringify(value)).digest
 const sourceHash = hash(profiles);
 const baseUrl = process.env.MINISTRY_BASE_URL || "https://bhe-product-api-mwhc25pkra-uw.a.run.app";
 if (!process.env.BHE_API_KEY || !process.env.MINISTRY_ACTOR_SUBJECT) throw new Error("BHE_API_KEY and MINISTRY_ACTOR_SUBJECT are required");
+let policyVersion;
 async function call(mode, operation, arguments_, idempotencyKey) {
+  if (operation !== "getMinistryPlanningConfig") arguments_ = { ...arguments_, policyVersion };
   const response = await fetch(`${baseUrl}/ministry-planning/${mode}`, {
     method: "POST", headers: { "content-type": "application/json", "x-api-key": process.env.BHE_API_KEY, "x-bhe-actor-sub": process.env.MINISTRY_ACTOR_SUBJECT },
     body: JSON.stringify({ operation, arguments: arguments_, ...(idempotencyKey ? { idempotencyKey } : {}) })
@@ -43,6 +45,13 @@ async function readAll() {
 function matches(expected, actual) {
   return actual && Object.keys(expected).every(key => stableStringify(expected[key]) === stableStringify(actual[key]));
 }
+const guidance = await call("query", "getMinistryPlanningConfig", { sections: ["operatorGuidance"] });
+if (!guidance.documents?.operatorGuidance?.content) throw new Error("Current ministry policy unavailable");
+if (process.env.MINISTRY_REVIEWED_POLICY_VERSION !== guidance.configVersion) {
+  console.log(guidance.documents.operatorGuidance.content);
+  throw new Error(`Review the policy above, then set MINISTRY_REVIEWED_POLICY_VERSION=${guidance.configVersion} to acknowledge it before importing.`);
+}
+policyVersion = guidance.configVersion;
 const existing = new Map((await readAll()).map(profile => [profile.specialMusicProfileId, profile]));
 for (const profile of profiles) {
   const current = existing.get(profile.specialMusicProfileId);

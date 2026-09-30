@@ -11657,9 +11657,11 @@ async function handleMinistryPlanningOperation(req, res, mode) {
   }));
 
   try {
-    const result = await runIdempotentMinistryPlanningOperation(
+    const { runWithMinistryPlanningPolicy } = require("./lib/ministry-planning-policy-gate");
+    const result = await runWithMinistryPlanningPolicy(
       { mode, operation, arguments: operationArguments, idempotencyKey },
-      getMinistryPlanningDependencies({ actorSubject: req.header("x-bhe-actor-sub") || "" })
+      getMinistryPlanningDependencies({ actorSubject: req.header("x-bhe-actor-sub") || "" }),
+      runIdempotentMinistryPlanningOperation
     );
     const responseBody = { ok: true, requestId, ...result };
     console.log(JSON.stringify({

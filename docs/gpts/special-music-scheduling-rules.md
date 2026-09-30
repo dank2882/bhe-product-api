@@ -4,6 +4,17 @@ Accepted direction from Dan, September 30, 2026. This is the canonical schedulin
 policy, included in live operatorGuidance. It supersedes the earlier general
 instruction to put families on Sunday nights wherever a special is needed.
 
+## Mandatory prerequisite
+
+Before any Music suggestion or work, retrieve and review the complete current
+operatorGuidance. Review again for each new task or proposal revision. Do not
+start from an old chat's instructions. All operational dispatcher queries and
+commands require `arguments.policyVersion` matching the guidance's configVersion;
+missing or stale versions are blocked before execution. Guidance and operation
+catalog retrieval remain available to satisfy this prerequisite. A version
+acknowledgement is not proof that every reasoning check passed; the proposal
+must still show its evidence and unresolved checks.
+
 ## Spreadsheet status
 
 These colors apply to **Special #1 and Special #2**:
