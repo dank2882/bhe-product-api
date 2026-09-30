@@ -1,6 +1,8 @@
 # Mark Travel Advisor
 
-Status: Accepted by Dan on September 30, 2026; implementation in progress.
+Status: Accepted by Dan on September 30, 2026; implemented and deployed.
+See [release evidence](mark-travel-advisor-release.md) for verified scope and
+remaining Mark-client acceptance.
 Approval: "yes go ahead with that".
 Requested by: Dan Kirchner, September 30, 2026.
 Intended user: `marks@foundedonfaith.com`.
