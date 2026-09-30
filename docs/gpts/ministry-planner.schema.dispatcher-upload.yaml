@@ -153,6 +153,7 @@ components:
         profileType: {"type": "string"}
         tier: {"type": "integer", "minimum": 1, "maximum": 3}
         afterId: {"type": "string"}
+        sortBy: {"type": "string", "enum": ["id", "lastSangDate"]}
         configId:
           type: string
         section:
@@ -307,6 +308,7 @@ components:
             - piano_2
             - developing
             - not_schedulable
+        lastSangDate: {"type": ["string", "null"], "format": "date", "description": "Latest confirmed performance date; null clears it. Future scheduled dates are rejected."}
         defaultAvailability:
           type: string
           enum:
