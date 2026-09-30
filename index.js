@@ -11825,6 +11825,27 @@ app.post("/internal/notebook-indexing-jobs/:jobId/run", async (req, res) => {
   }
 });
 
+const { listTravelAdvisorOperations, runTravelAdvisorOperation } = require("./lib/travel-advisor-service");
+function getTravelAdvisorDependencies(req) {
+  return { firestoreDb: db, ...getProjectTaskDependencies(), taskAccess: buildTaskAccessFromRequest(req) };
+}
+app.get("/travel-advisor/operations", async (req, res) => {
+  try { return res.json({ ok: true, ...await listTravelAdvisorOperations(req.query, getTravelAdvisorDependencies(req)) }); }
+  catch (error) { return res.status(error.statusCode || 500).json(buildDanTravelOperationError(error)); }
+});
+for (const mode of ["query", "command"]) {
+  app.post(`/travel-advisor/${mode}`, async (req, res) => {
+    const requestId = randomUUID();
+    try {
+      const result = await runTravelAdvisorOperation({ mode, operation: req.body?.operation,
+        arguments: req.body?.arguments, idempotencyKey: req.body?.idempotencyKey }, getTravelAdvisorDependencies(req));
+      return res.json({ ok: true, requestId, ...result });
+    } catch (error) {
+      return res.status(error.statusCode || 500).json(buildDanTravelOperationError(error, { requestId, mode, operation: req.body?.operation }));
+    }
+  });
+}
+
 app.get("/dan-travel/operations", (req, res) => {
   const requestId = randomUUID();
   try {
