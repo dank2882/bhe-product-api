@@ -46,6 +46,26 @@ These colors apply to **Special #1 and Special #2**:
 - No fixed minimum interval between appearances has been approved.
 - Historical schedule entries show recorded assignments, not proof that someone actually performed. Missing group membership or unnamed entries can limit rotation analysis.
 
+## Full-roster comparison before selecting names
+
+These requirements were approved by Dan on September 30, 2026:
+
+1. **Start fresh from the full roster.** Retrieve every roster page and screen the entire current roster for the service before choosing names. Previous suggestions get no preference just because they were already discussed. Preserve confirmed bookings while reassessing draft choices.
+2. **Count people, not group names.** Consider each known person's participation across solos, duets, families, ensembles, and named choir features. Include confirmed assignments, named tentative bookings, and assignments in the new proposal itself. Do not double-count a single appearance merely because the same event appears in more than one source.
+3. **Look for overlooked people first.** Compare eligible people with fewer recent appearances and fewer upcoming bookings. An old solo date does not establish underuse when that person regularly sings in groups. State the exact past and future date ranges reviewed and use the same comparison period for all candidates for an opening. A review period is not an approved minimum waiting interval.
+4. **Investigate missing information.** Unknown history or membership means needs checking, not skip this person, never used, or zero appearances. Seek the missing evidence, separate verified facts from unknowns, and report limits rather than inventing members or counts. Do not let incomplete records continually push someone out of consideration.
+5. **Compare alternatives before selecting.** For each opening, evaluate at least three verified eligible options when available, including a less-used option when one can be verified. Screen the full roster before making that shortlist. Explain when fewer than three qualify, or when no less-used option can be verified. Explain briefly why the selected candidate fits better; do not fill the comparison with ineligible names merely to reach three.
+6. **Review the whole proposed schedule.** Check whether the proposal broadens participation across people rather than merely changing combinations of the same people. Report the number of verified distinct people participating and identify who repeats, with appearance counts or dates. Where identities or memberships are incomplete, label that count as incomplete and show the unresolved lineups rather than presenting a false total.
+
+Use this compact comparison for each opening:
+
+**Candidate → recent participation → upcoming bookings → service fit → reason chosen or deferred.**
+
+Keep the full-roster review and the final shortlist distinct: a concise comparison
+does not excuse screening only familiar candidates. This strengthens the required
+reasoning process; it does not claim that automatic person-level counting or
+complete group membership is already implemented.
+
 ## Specialist restrictions and corrections
 
 - **Michaela Hogan:** Unavailable through **December 31, 2026**; roster availability resumes **January 1, 2027**.
@@ -84,8 +104,8 @@ These colors apply to **Special #1 and Special #2**:
 2. Resolve the canonical profile, family/non-family classification, vocal/instrumental format, and actual members. Mark unknown identities or membership explicitly. Do not infer an instrument or format merely from profileType.
 3. Apply current tier, status, profile availability and each known member's restrictions. A group cannot bypass a required member's unavailability. The Reynolds Family restriction does not establish that the separately named Reynolds Ladies is the same lineup; verify membership before recommending it.
 4. Review recorded history and both earlier and later scheduled participation for every known member, including named choir features and tentative entries. Report actual dates and same-day overlaps, not an invented minimum interval. Do not claim complete coverage when the checked range or missing membership limits it.
-5. Compare other eligible candidates, including those with unknown history, so a recent repeat is not preferred merely because that person's records are more complete. For a multiweek proposal, count the proposal's own assignments in subsequent choices.
-6. Present the entire service lineup with Special #1 and Special #2 status, candidate, last recorded assignment, nearby person-level appearances, reason for selection, and unresolved checks. Explain exceptions to the preference against two solos. Do not silently override a restriction.
+5. Apply the full-roster comparison requirements above before selecting names: screen every roster page, investigate unknown history, compare at least three verified eligible alternatives when available, and include the proposal's own assignments in subsequent workload checks.
+6. Present the compact candidate comparison and the entire service lineup with Special #1 and Special #2 status, candidate, last recorded assignment, nearby person-level appearances, reason for selection, and unresolved checks. Finish with verified distinct-person participation and repeats across the whole proposal. Explain exceptions to the preference against two solos. Do not silently override a restriction.
 7. Approval to discuss a lineup is not approval to write it. Before an authorized write, compare the current target contents AND formatting with the reviewed snapshot. If the tool cannot preserve yellow or guard against a collaborator's change, leave the write unresolved; do not imitate a protected write with broad mutation.
 
 ## Current implementation boundary
