@@ -34,6 +34,14 @@ These colors apply to **Special #1 and Special #2**:
 - A duet is not automatically classified as a family special. Use the established group classification and Dan’s direction.
 - Do not assume an ensemble qualifies as a family, or rename an ensemble as a family to make it fit.
 
+## Breeze service theme
+
+- Before recommending specials, cross-reference the theme in Breeze for the exact service date and service type. Match the actual service; do not assume morning and evening share a theme.
+- Include the theme as another consideration when comparing eligible singers, groups, and songs. A known, suitable song or repertoire may make one candidate a better fit for that service. Explain that connection briefly and do not invent a performer's repertoire or readiness.
+- Theme fit complements full-roster rotation, person-level workload, availability, tier eligibility, and service composition. It does not silently override those requirements or automatically favor a frequently used singer.
+- Identify the Breeze service/source checked and distinguish live Breeze information from an imported snapshot. Do not call a spreadsheet theme Breeze-verified without checking its source. If the Breeze theme conflicts with the spreadsheet, report the difference rather than silently resolving it.
+- If Breeze cannot be checked or its theme is missing, say that theme fit remains unverified. Other verified considerations can still support a clearly qualified proposal; do not invent a theme or claim a match.
+
 ## Rotation and workload
 
 - Prioritize eligible people and groups who have **not sung in a while**, especially those overlooked while others are repeatedly scheduled.
@@ -59,7 +67,7 @@ These requirements were approved by Dan on September 30, 2026:
 
 Use this compact comparison for each opening:
 
-**Candidate → recent participation → upcoming bookings → service fit → reason chosen or deferred.**
+**Candidate → recent participation → upcoming bookings → service/theme fit → reason chosen or deferred.**
 
 Keep the full-roster review and the final shortlist distinct: a concise comparison
 does not excuse screening only familiar candidates. This strengthens the required
@@ -100,7 +108,7 @@ complete group membership is already implemented.
 
 ## Required reasoning for each proposal
 
-1. Read the live sheet and establish each special slot's color and contents. State the exact source and date range checked. If color cannot be retrieved, slot status and the number of required specials are unresolved; values alone cannot establish an opening.
+1. Read the live sheet and establish each special slot's color and contents. Cross-reference the exact service's Breeze theme and identify its source/freshness, or disclose that the theme could not be verified. State the exact source and date range checked. If color cannot be retrieved, slot status and the number of required specials are unresolved; values alone cannot establish an opening.
 2. Resolve the canonical profile, family/non-family classification, vocal/instrumental format, and actual members. Mark unknown identities or membership explicitly. Do not infer an instrument or format merely from profileType.
 3. Apply current tier, status, profile availability and each known member's restrictions. A group cannot bypass a required member's unavailability. The Reynolds Family restriction does not establish that the separately named Reynolds Ladies is the same lineup; verify membership before recommending it.
 4. Review recorded history and both earlier and later scheduled participation for every known member, including named choir features and tentative entries. Report actual dates and same-day overlaps, not an invented minimum interval. Do not claim complete coverage when the checked range or missing membership limits it.
