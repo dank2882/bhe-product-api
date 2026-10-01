@@ -158,6 +158,9 @@ const {
   searchTripMemories
 } = require("./lib/trip-service");
 const { listNotebookOperations, runNotebookOperation } = require("./lib/notebooks-operation-registry");
+const { listIntakeOperations, runIntakeOperation } = require("./lib/intake-operation-registry");
+const { runIntakeCommand } = require("./lib/intake-service");
+const { createIntakeDestinations } = require("./lib/intake-destinations");
 const { listShippingOperations, runShippingOperation } = require("./lib/shipping-operation-registry");
 const { processNotebookIndexingJob } = require("./lib/notebooks-service");
 const { requireDanPrivateAccess } = require("./lib/dan-private-access");
@@ -2620,6 +2623,7 @@ const maintenanceMessagingRequest = require("./lib/maintenance-messaging-client"
 
 function getProjectTaskDependencies(overrides = {}) {
   return {
+    danOwnerSubjects: DAN_TRAVEL_OWNER_SUBJECTS,
     maintenanceMessagingRequest,
     projectsCollection,
     tasksCollection,
@@ -2675,6 +2679,13 @@ function getNotebookDependencies(overrides = {}) {
     enqueueNotebookIndexingJob,
     ...overrides
   };
+}
+
+function getIntakeDependencies(overrides = {}) {
+  const deps = { ...getProjectTaskDependencies(overrides), ...getNotebookDependencies(overrides),
+    intakeBucket: storage.bucket(BUCKET_NAME) };
+  deps.intakeDestinations = createIntakeDestinations(deps);
+  return deps;
 }
 
 async function enqueueNotebookIndexingJob({ jobId, retryGeneration = 0 }) {
@@ -11793,6 +11804,37 @@ for (const mode of ["query", "command"]) {
     catch (error) {
       console.error(JSON.stringify({ event: "shipping_operation_failed", requestId, operation: req.body?.operation, code: error.code || "shipping_failed" }));
       return res.status(error.statusCode || 500).json({ ok: false, requestId, error: { code: error.code || "shipping_failed", message: error.statusCode ? error.message : "Shipping operation failed", status: error.statusCode || 500 } });
+    }
+  });
+}
+
+// Service-to-service receipt endpoint, authenticated by the existing API-key
+// middleware and actor headers. Not exposed as a generic MCP command: the
+// gateway constructs this receipt only after an authorized owning-domain read.
+app.post("/intake/verify-domain-reference", async (req, res) => {
+  try {
+    const result = await runIntakeCommand("recordIntakeDomainVerification", req.body?.arguments || {}, req.body?.idempotencyKey,
+      getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req), trustedDomainVerification: true }));
+    return res.json({ ok: true, result });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "intake_failed", message: error.statusCode ? error.message : "Reference verification failed" } });
+  }
+});
+app.get("/intake/operations", (req, res) => {
+  try {
+    requireDanPrivateAccess(getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) }));
+    return res.json({ ok: true, ...listIntakeOperations(req.query) });
+  } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "intake_failed", message: error.message } }); }
+});
+for (const mode of ["query", "command"]) {
+  app.post(`/intake/${mode}`, async (req, res) => {
+    const requestId = randomUUID();
+    try {
+      const response = await runIntakeOperation({ ...req.body, mode }, getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) }));
+      return res.json({ ok: true, requestId, ...response });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "intake_operation_failed", requestId, operation: req.body?.operation, code: error.code || "intake_failed" }));
+      return res.status(error.statusCode || 500).json({ ok: false, requestId, error: { code: error.code || "intake_failed", message: error.statusCode ? error.message : "Intake operation failed" } });
     }
   });
 }

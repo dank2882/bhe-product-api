@@ -447,6 +447,7 @@ test("daily review surfaces overdue, high-priority, waiting, and project gaps", 
       "proj-without-next": {
         projectId: "proj-without-next",
         name: "Needs next action",
+        projectKind: "outcome",
         status: "active",
         updatedAt: "2026-07-01T15:00:00.000Z"
       }
@@ -624,7 +625,7 @@ test("overdue tasks enter needs review without overwriting their priority", asyn
 test("leadership brief groups only staff-visible work by assignee", async () => {
   const deps = createDeps({
     projects: {
-      "proj-staff": { projectId: "proj-staff", name: "Staff rollout", status: "active", visibility: "staff" },
+      "proj-staff": { projectId: "proj-staff", name: "Staff rollout", projectKind: "outcome", status: "active", visibility: "staff" },
       "proj-private": { projectId: "proj-private", name: "Private planning", status: "active", visibility: "private", ownerSub: "dan" }
     },
     tasks: {
