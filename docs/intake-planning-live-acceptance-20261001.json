@@ -1,0 +1,29 @@
+{
+  "state": "verified_internal_service_acceptance",
+  "run": "intake-review-20261001-v1",
+  "base": "https://intake-review---bhe-product-api-mwhc25pkra-uw.a.run.app",
+  "intakeId": "intake-545f949d1f05cd34c728c76b25a018e2",
+  "syntheticProjectIds": [
+    "project-intake-review-20261001-v1-philippines",
+    "project-intake-review-20261001-v1-containers",
+    "project-intake-review-20261001-v1-vans"
+  ],
+  "syntheticTaskId": "task-2326e9ffbf2011ec370b6fd2ae7ee22f",
+  "checked": [
+    "nested monthly outcomes",
+    "paused due review",
+    "read-only review",
+    "parent-child completion isolation",
+    "exact source",
+    "owning task write",
+    "interruption recovery",
+    "repeat without duplicate",
+    "synthetic work closed"
+  ],
+  "notChecked": [
+    "actual photo host handoff",
+    "fresh ChatGPT client",
+    "later calendar day",
+    "real project choices"
+  ]
+}

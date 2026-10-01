@@ -1,7 +1,7 @@
 # Dan intake and whole-life reviews
 
-Status: accepted for implementation October 1, 2026; implementation and live
-verification are not yet complete. Dan authorized: “the goal is to create and
+Status: implemented and deployed October 1, 2026; fresh-client photo and
+later-date acceptance remain open. Dan authorized: “the goal is to create and
 impliment this intake module as well as the overall system we just talked about”.
 
 ## Ownership and scope
@@ -92,16 +92,16 @@ established as a general FBC repository. Do not migrate reference material here.
 
 ## Implementation and acceptance ledger
 
-- [ ] Intake backend and image preservation; access/delegation and exact text.
-- [ ] Proposal/approval/dispatch/verification with partial-failure recovery.
+- [x] Intake backend and image preservation; access/delegation and exact text.
+- [x] Proposal/approval/dispatch/verification with partial-failure recovery.
 - [ ] Resume unfinished intake from a fresh session without duplicate writes.
-- [ ] Core project review completion, history and due/missed-work resurfacing.
-- [ ] Weekly/monthly review queries, distinct routines and bounded setup queue.
-- [ ] Catalogs, Life OS gateway, maintained instructions and in-place distribution.
-- [ ] Focused tests plus relevant backend/gateway checks and regression suites.
-- [ ] Deploy backend before gateway; retain rollback revisions and data.
+- [x] Core project review completion, history and due/missed-work resurfacing.
+- [x] Weekly/monthly review queries, distinct routines and bounded setup queue.
+- [x] Catalogs, Life OS gateway, maintained instructions and in-place distribution.
+- [x] Focused tests plus relevant backend/gateway checks and regression suites.
+- [x] Deploy backend before gateway; retain rollback revisions and data.
 - [ ] Synthetic vehicle/Philippines acceptance; explicit preview of real changes.
-- [ ] Configure real review routines with read-back, without changing Think Tank.
+- [x] Configure real review routines with read-back, without changing Think Tank.
 - [ ] Fresh-client photo handoff, mixed intake, interruption recovery and reviews.
 - [ ] Later-date resurfacing; separate implementation and verification receipts.
 
@@ -135,3 +135,51 @@ date. Five setup items are a preview, not a claim of complete cleanup.
 Release gate: record commits, revisions and synthetic evidence below. Unit tests,
 backend deployment, gateway deployment, plugin publication, fresh-client photo
 handoff, and actual later-date use remain distinct verification steps.
+
+## October 1 release evidence
+
+Core implementation `f677884`; live acceptance script `4fef79e`. Gateway and
+maintained/distributed instructions `bhe-agent-platform:4f6878f`. Core: 749 tests;
+platform: 206 tests; both check suites and diff checks pass.
+
+Core `bhe-product-api-00313-qib` and gateway `dan-life-os-mcp-00030-kag` each serve
+100 percent. Rollback revisions: core `00311-niy`, gateway `00028-veq`. Gateway
+environment and runtime identity exactly match the prior revision; no OAuth or
+permission changes. The tagged gateway URL correctly rejects an unapproved Host;
+the canonical endpoint health check returns 200 after promotion.
+
+[Internal service acceptance](intake-planning-live-acceptance-20261001.json)
+verified nested monthly outcomes, paused due reviews, zero review mutations,
+parent/child completion isolation, exact-source intake, owning task save,
+interruption recovery and repeat without duplicate creation. Synthetic task and
+projects were closed with independent read-back. This test uses the existing
+service API boundary and is not end-user OAuth or fresh-chat acceptance.
+
+Actual connected Life OS commands created and independently reread:
+- `routine-weekly-whole-life-review`: version 1, due 2026-10-02.
+- `routine-monthly-horizon-review`: version 1, due 2026-10-01.
+- Existing `routine-review-think-tank-weekly-46821b97` remains byte-equivalent
+  to its pre-change summary, version 1.
+- Live daily review October 1 surfaces Monthly Horizon Review, one project
+  review due, and all 166 active next tasks.
+
+Existing ChatGPT listing `plugin_asdk_app_6abe50f62c548191b49081448379e268` was
+updated in place to 1.0.2. Downloaded original retained as rollback. All eight
+saved package files match submission bytes; app binding unchanged. Admin
+refresh shows all five intake tools enabled (43 read tools, 48 write tools).
+No new connection or listing was created.
+
+Remaining gates:
+- Fresh ChatGPT image handoff is unverified. Browser filechooser repeatedly
+  timed out. Native picker completed the package update, but photo acceptance
+  was not completed while the active Chrome window changed. No original image
+  is claimed saved by this attempted fresh-client test.
+- Fresh-session mixed intake and independently verified specialized-domain links.
+- Actual later-calendar-day resurfacing (unit/date-simulation tests passed).
+- Real vehicle/Philippines project choices remain unchanged; leave dates/status
+  to the first review unless Dan chooses a concrete pilot plan.
+- Outlook-event and member-care-note receipt integration remains unresolved.
+  Do not add new credentials or misclassify those records to clear intake.
+
+Developer decision is implemented, not fully verified. Keep the workstream and
+user goal active until the remaining acceptance requirements are resolved.
