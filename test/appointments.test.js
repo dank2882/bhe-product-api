@@ -276,3 +276,13 @@ test("policy edits invalidate approvals and cancellation remains possible withou
   r = await f.command("recordAppointmentObservation", { ...fields(r), actionId, observedAt: at, currentEvent: { eventId: "family-meeting", start: "2026-10-03T00:00:00Z", end: "2026-10-03T00:45:00Z", subject: "Pastoral appointment", location: "Church office", attendees: [] } });
   r = await f.command("beginAppointmentAction", { ...fields(r), actionId }); assert.equal(r.dispatchInstruction, "execute_once");
 });
+
+test("cancelled arrangements cannot reacquire wife approval or send stale confirmed notices", async () => {
+  const f = fixture(); let r = await familyBooked(f); const n = r.appointment.pendingFamilyNotices[0];
+  r = await propose(f, r, { kind: "message", familyPurpose: "confirmed", arrangementHash: n.arrangementHash, familyNoticeId: n.noticeId, channel: "email", recipients: ["wife@example.invalid"], reference: { system: "correspondence", recordId: "stale-confirmation", expectedVersion: 1 } });
+  r = await approve(f, r, [r.appointment.actions.at(-1)]); const aid = r.appointment.actions.at(-1).actionId;
+  r = await f.command("reconcileAppointmentEvent", { ...fields(r), role: "meeting", observedAt: at, event: { eventId: "family-meeting", cancelled: true } });
+  await assert.rejects(wifeApprove(f, r), { code: "appointments_family_arrangement_changed" });
+  await assert.rejects(f.command("beginAppointmentAction", { ...fields(r), actionId: aid }), { code: "appointments_family_notice_changed" });
+  assert.equal(r.appointment.pendingFamilyNotices[0].kind, "cancelled");
+});
