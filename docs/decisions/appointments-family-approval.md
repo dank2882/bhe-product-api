@@ -3,8 +3,7 @@
 Accepted October 1, 2026. Dan requested approval from his wife for meetings
 outside his normal schedule, then notification when confirmed. He authorized
 implementation with “ok create that please”. His normal hours are Monday–Friday,
-08:30–11:30 and 13:30–16:30, America/Los_Angeles. Notification channel is configured
-only after Dan chooses it.
+08:30–11:30 and 13:30–16:30, America/Los_Angeles. Dan selected text and confirmed Sarah's mobile number; policy version 2 has complete setup, independently read back.
 
 ## Scope and ownership
 
@@ -67,3 +66,24 @@ confirmation notice lifecycle, unknown sends, cancellation and duplicate recover
 Run both repository checks and suites; verify candidate/production deployments,
 policy readback, and published instructions. Real messages to Sarah need their
 exact wording reviewed; no unsolicited live test message is sent.
+
+## October 1 release evidence
+
+Core revision `bhe-product-api-00327-cog` and gateway revision
+`dan-life-os-mcp-00036-waw` serve 100 percent of normal traffic. Runtime
+environment and service accounts match the pre-feature revisions. Core checks
+and 770 tests pass; platform checks and 212 tests pass. The final cancellation
+regression prevents stale confirmed notices and new approvals after closure.
+
+Policy version 2 is enabled and fully configured with Dan-confirmed text contact.
+Production readback and a fresh Life OS chat both show the supplied hours and
+text preference. Live negative tests denied booking without wife approval and
+Dan acting as the wife; their synthetic appointment was closed without calendar
+writes or sends. Published ChatGPT plugin 1.0.6 independently matched all nine
+submitted files (repository/Codex package version 1.0.8).
+
+Text delivery remains unverified: Messages lookup returns `bootstrapTimedOut`.
+No test message was sent to Sarah. End-to-end approval request, actual reply and
+confirmation acceptance remains open; pending notices remain visible. See
+[`appointments-family-acceptance-20261001.json`](../appointments-family-acceptance-20261001.json)
+for bounded evidence and the fresh-client reference.

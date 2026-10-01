@@ -1,0 +1,137 @@
+{
+  "state": "implemented_deployed_policy_verified_text_delivery_unverified",
+  "observedAt": "2026-10-01T18:38:37.877939+00:00",
+  "decisionId": "dan-appointments-family-approval-20261001",
+  "coreCommit": "540142f",
+  "gatewayCommit": "62572e3",
+  "tests": {
+    "core": 770,
+    "platform": 212,
+    "checks": "passed"
+  },
+  "policy": {
+    "version": 2,
+    "enabled": true,
+    "timezone": "America/Los_Angeles",
+    "windows": [
+      {
+        "day": 1,
+        "start": "08:30",
+        "end": "11:30"
+      },
+      {
+        "day": 1,
+        "start": "13:30",
+        "end": "16:30"
+      },
+      {
+        "day": 2,
+        "start": "08:30",
+        "end": "11:30"
+      },
+      {
+        "day": 2,
+        "start": "13:30",
+        "end": "16:30"
+      },
+      {
+        "day": 3,
+        "start": "08:30",
+        "end": "11:30"
+      },
+      {
+        "day": 3,
+        "start": "13:30",
+        "end": "16:30"
+      },
+      {
+        "day": 4,
+        "start": "08:30",
+        "end": "11:30"
+      },
+      {
+        "day": 4,
+        "start": "13:30",
+        "end": "16:30"
+      },
+      {
+        "day": 5,
+        "start": "08:30",
+        "end": "11:30"
+      },
+      {
+        "day": 5,
+        "start": "13:30",
+        "end": "16:30"
+      }
+    ],
+    "channel": "text",
+    "recipientConfirmedByDan": true,
+    "recipientLastFour": "8325",
+    "setupNeeded": false
+  },
+  "liveChecks": {
+    "bookingDeniedWithoutWifeApproval": true,
+    "danCannotActAsAuthenticatedWife": true,
+    "testAppointmentClosed": true,
+    "externalCalendarWrites": 0,
+    "messagesSent": 0
+  },
+  "testAppointmentId": "appointment-67a1e65eacde5acf733f59c9aad1e26f",
+  "plugin": {
+    "version": "1.0.6",
+    "filesMatched": 9,
+    "appBindingUnchanged": true
+  },
+  "limitations": [
+    "Messages find_chats returns bootstrapTimedOut; actual text request/reply/send readback not verified.",
+    "No message was sent to Sarah merely for testing.",
+    "Reply approvals are client connector evidence; authenticated-wife approval requires her own configured identity.",
+    "Direct Outlook edits are detected on reconciliation, not prevented at the provider."
+  ],
+  "freshClient": {
+    "url": "https://chatgpt.com/c/6abea6ab-0d7c-83e8-8420-d902be208b28",
+    "policyReadPassed": true,
+    "hoursMatched": true,
+    "enabled": true,
+    "channel": "text",
+    "setupNeeded": false
+  },
+  "deployment": {
+    "bhe-product-api": {
+      "runtimeConfigurationUnchanged": true,
+      "serving": [
+        {
+          "percent": 100,
+          "revisionName": "bhe-product-api-00327-cog",
+          "tag": "family-review",
+          "url": "https://family-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+        }
+      ],
+      "rollback": [
+        "bhe-product-api-00323-mov"
+      ]
+    },
+    "dan-life-os-mcp": {
+      "runtimeConfigurationUnchanged": true,
+      "serving": [
+        {
+          "percent": 100,
+          "revisionName": "dan-life-os-mcp-00036-waw",
+          "tag": "family-review",
+          "url": "https://family-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+        }
+      ],
+      "rollback": [
+        "dan-life-os-mcp-00034-ruv"
+      ]
+    },
+    "health": {
+      "ok": true,
+      "service": "dan-life-os-mcp",
+      "profile": "dan-life-os"
+    },
+    "observedAt": "2026-10-01T18:38:37.877939+00:00"
+  },
+  "productionPolicyReadRequestId": "ce684518-4d13-4fcc-bb83-dd164e0ed2fe"
+}
