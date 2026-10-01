@@ -127,3 +127,10 @@ client initially overstated email delivery from a sent-copy timestamp and then
 corrected that statement; the durable workflow never asserted delivery. A sent
 copy's receivedDateTime is not delivery proof. These checks do not establish
 post-expiry OAuth durability or autonomous inbox monitoring.
+
+## Family scheduling approval
+
+See [family approval decision](decisions/appointments-family-approval.md) for the
+October 1 extension: versioned normal hours, wife approval for the full
+arrangement, and pending confirmation/change/cancellation notices. Read live
+`getAppointmentFamilyPolicy` for setup status and current windows/contact.
