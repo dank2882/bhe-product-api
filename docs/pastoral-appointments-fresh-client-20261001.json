@@ -1,0 +1,24 @@
+{
+  "state": "verified_fresh_client_acceptance",
+  "observedAt": "2026-10-01T17:58:32.932Z",
+  "conversationUrl": "https://chatgpt.com/c/6abe9df3-739c-83e8-b668-4cee3edaae2d",
+  "appointmentId": "appointment-49f5902c304fcb7d69e8724a087c7fa7",
+  "appointmentVersion": 36,
+  "complete": true,
+  "taskId": "task-acceptance-pastoral-appointment-follow-up-a8375dc4",
+  "taskVersion": 2,
+  "taskStatus": "done",
+  "checks": [
+    "Refreshed existing app catalog exposes all four appointment tools.",
+    "New chat retrieved appointment, history and preparation through OAuth MCP.",
+    "New chat independently confirmed both deleted calendar IDs return 404.",
+    "Follow-up handoff approved, begun with stable key, saved through Task Management, bound, and independently verified through owning gateway.",
+    "Debrief finished; client read task still next at version 1 before separately authorized cleanup.",
+    "Independent operator reread confirmed appointment complete at version 36 and private task done at version 2."
+  ],
+  "limitations": [
+    "The initial client answer incorrectly inferred recipient delivery from the source message receivedDateTime. A follow-up check corrected this: only the sent source ID had been fetched. Stored deliveryConfirmed remained false throughout.",
+    "No email resent. No fabricated care or prayer records.",
+    "No claim of post-expiry OAuth durability; authentication settings were unchanged."
+  ]
+}

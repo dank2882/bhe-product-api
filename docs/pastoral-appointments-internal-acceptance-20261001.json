@@ -1,0 +1,24 @@
+{
+  "state": "verified_internal_service_acceptance",
+  "base": "https://appointments-review---bhe-product-api-mwhc25pkra-uw.a.run.app",
+  "run": "appointments-20261001-v1",
+  "appointmentId": "appointment-75065995b0ac5dafbf616fbab40b3fc7",
+  "taskId": "task-appointments-20261001-v1",
+  "checked": [
+    "authenticated catalog",
+    "outsider denied",
+    "durable workflow",
+    "approved handoff",
+    "independent exact task readback",
+    "interruption recovery without duplicate",
+    "trusted reference receipt",
+    "debrief completion does not complete task",
+    "synthetic work cleanup"
+  ],
+  "notChecked": [
+    "real Outlook writes",
+    "real outgoing message",
+    "fresh-client MCP and OAuth",
+    "pastoral-care or prayer writes"
+  ]
+}

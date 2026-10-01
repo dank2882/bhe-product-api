@@ -1,0 +1,33 @@
+{
+  "state": "verified_client_connector_calendar_and_email_acceptance",
+  "observedAt": "2026-10-01T17:53:28.660Z",
+  "appointmentId": "appointment-49f5902c304fcb7d69e8724a087c7fa7",
+  "correspondenceId": "correspondence-49a609d7dea200a7b7a10f0ba6129edba02e946d",
+  "approval": "Dan approved exact temporary blocks, moving both 15 minutes later, removing both, and one exact self-addressed email.",
+  "checks": {
+    "calendarCreated": true,
+    "attendeesEmpty": true,
+    "remindersOff": true,
+    "movedBoth15Minutes": true,
+    "externalChangesDetected": true,
+    "priorAgreementInvalidated": true,
+    "sequenceReconciled": true,
+    "bothDeletedAndEach404": true,
+    "boundedCalendarEmpty": true,
+    "oneEmailSent": true,
+    "sentItemsExactRecipientSubjectAndWording": true,
+    "transportLineWrappingNormalized": true,
+    "correspondenceSentReadbackVersion": 2,
+    "unknownSendReconciledWithoutResend": true,
+    "appointmentComplete": true
+  },
+  "limitations": [
+    "Provider results are client connector readbacks, not independently backend-verified provider evidence.",
+    "Sent copy does not establish recipient delivery.",
+    "No actual pastoral-care or prayer history was fabricated."
+  ],
+  "events": {
+    "preparationId": "AAMkADc5NjZhYjFjLWUzNjgtNDdhZi1hNWMxLTJhYzdlZTNhMmQxNABGAAAAAADBUmL5xLVrSq_FKtdLIf68BwDV27L-cjHqQ4qRkiPSBeGTAAAAACNnAADJuzWnvTMmTJrqPpvdf5gEAAaEaVUJAAA=",
+    "meetingId": "AAMkADc5NjZhYjFjLWUzNjgtNDdhZi1hNWMxLTJhYzdlZTNhMmQxNABGAAAAAADBUmL5xLVrSq_FKtdLIf68BwDV27L-cjHqQ4qRkiPSBeGTAAAAACNnAADJuzWnvTMmTJrqPpvdf5gEAAaEaVUKAAA="
+  }
+}
