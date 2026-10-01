@@ -1,7 +1,7 @@
 # Dan intake and whole-life reviews
 
-Status: implemented and deployed October 1, 2026; fresh-client photo and
-later-date acceptance remain open. Dan authorized: “the goal is to create and
+Status: implemented and deployed October 1, 2026; fresh-client text/photo/resume acceptance passed;
+later-date observation and Outlook integration remain open. Dan authorized: “the goal is to create and
 impliment this intake module as well as the overall system we just talked about”.
 
 ## Ownership and scope
@@ -94,15 +94,15 @@ established as a general FBC repository. Do not migrate reference material here.
 
 - [x] Intake backend and image preservation; access/delegation and exact text.
 - [x] Proposal/approval/dispatch/verification with partial-failure recovery.
-- [ ] Resume unfinished intake from a fresh session without duplicate writes.
+- [x] Resume unfinished intake from a fresh session without duplicate writes.
 - [x] Core project review completion, history and due/missed-work resurfacing.
 - [x] Weekly/monthly review queries, distinct routines and bounded setup queue.
 - [x] Catalogs, Life OS gateway, maintained instructions and in-place distribution.
 - [x] Focused tests plus relevant backend/gateway checks and regression suites.
 - [x] Deploy backend before gateway; retain rollback revisions and data.
-- [ ] Synthetic vehicle/Philippines acceptance; explicit preview of real changes.
+- [x] Synthetic vehicle/Philippines acceptance; real choices deliberately unchanged.
 - [x] Configure real review routines with read-back, without changing Think Tank.
-- [ ] Fresh-client photo handoff, mixed intake, interruption recovery and reviews.
+- [x] Fresh-client photo handoff, mixed intake, interruption recovery and review retrieval.
 - [ ] Later-date resurfacing; separate implementation and verification receipts.
 
 Use concrete source evidence for each checked item. Do not label deployment or
@@ -114,15 +114,16 @@ The first implementation supports direct owning-command dispatch for task,
 project, routine, Think Tank and notebook records. Specialized records use a
 link-only `domain_reference` after their existing owning workflow saves and
 verifies the source. The Life OS gateway independently reads the referenced
-sermon, prayer, Extended Care matter, correspondence, trip or relationship.
+sermon, prayer, Extended Care or member-care matter, correspondence, trip or relationship.
 It sends only an identity/version receipt over the existing authenticated
 service boundary; receipt submission is not exposed as a generic MCP command.
 No content or caller-supplied `verified` boolean is accepted by that tool.
 A verified reference proves the link, not full source-text preservation.
 
 Unrouted items can retain questions without a proposal. Unsupported destinations
-remain unresolved rather than silently becoming tasks/notes. Outlook-event and
-member-care-note receipt adapters remain a follow-on acceptance gap. This does
+remain unresolved rather than silently becoming tasks/notes. Outlook-event receipt verification remains a follow-on integration gap.
+The member-care adapter now uses the existing exact-person/matter reader;
+focused identity/privacy tests and a fresh-client live member-care link test pass. This does
 not change their ownership or authorize duplicate storage. Sensitive originals
 must be preserved by their owning domain before a neutral intake receipt exists.
 
@@ -142,8 +143,9 @@ Core implementation `f677884`; live acceptance script `4fef79e`. Gateway and
 maintained/distributed instructions `bhe-agent-platform:4f6878f`. Core: 749 tests;
 platform: 206 tests; both check suites and diff checks pass.
 
-Core `bhe-product-api-00313-qib` and gateway `dan-life-os-mcp-00030-kag` each serve
-100 percent. Rollback revisions: core `00311-niy`, gateway `00028-veq`. Gateway
+The initial release used core `bhe-product-api-00313-qib` and gateway
+`dan-life-os-mcp-00030-kag`. After bounded follow-up fixes, core `00319-jug` and
+gateway `00032-zol` each serve 100 percent. Rollback revisions: core `00311-niy`, gateway `00028-veq`. Gateway
 environment and runtime identity exactly match the prior revision; no OAuth or
 permission changes. The tagged gateway URL correctly rejects an unapproved Host;
 the canonical endpoint health check returns 200 after promotion.
@@ -169,17 +171,52 @@ saved package files match submission bytes; app binding unchanged. Admin
 refresh shows all five intake tools enabled (43 read tools, 48 write tools).
 No new connection or listing was created.
 
-Remaining gates:
-- Fresh ChatGPT image handoff is unverified. Browser filechooser repeatedly
-  timed out. Native picker completed the package update, but photo acceptance
-  was not completed while the active Chrome window changed. No original image
-  is claimed saved by this attempted fresh-client test.
-- Fresh-session mixed intake and independently verified specialized-domain links.
-- Actual later-calendar-day resurfacing (unit/date-simulation tests passed).
-- Real vehicle/Philippines project choices remain unchanged; leave dates/status
-  to the first review unless Dan chooses a concrete pilot plan.
-- Outlook-event and member-care-note receipt integration remains unresolved.
-  Do not add new credentials or misclassify those records to clear intake.
+## Fresh-client acceptance and release follow-up
 
-Developer decision is implemented, not fully verified. Keep the workstream and
-user goal active until the remaining acceptance requirements are resolved.
+[Fresh-client evidence](intake-planning-client-acceptance-20261001.json) records:
+- Mixed exact text saved as one private Notebook note and one Think Tank idea,
+  both independently read from their owning systems.
+- A real ChatGPT image attachment reached private Intake storage. Independent
+  download matched all 31,211 original bytes and the SHA-256 checksum.
+- The photo reused both existing destinations without duplicates and retained
+  one unresolved question. A separate new chat found the intake from durable
+  records, dismissed only the authorized synthetic marker, and completed it.
+- An opaque Sermon Workspace reference passed the live owning-gateway reader;
+  no sermon content, title or history was copied into intake.
+- A neutral member-care reference passed the authenticated gateway and independent
+  intake readback; no member name, matter title or care history was copied.
+- Synthetic note archived and idea closed with independent version-2 readbacks;
+  intake source and audit receipts retained.
+
+Commit `2022e3a` corrects review coverage using the existing configured historical
+Dan owner subjects. Live review now includes 192 projects across 19 roots; the
+one excluded staff root belongs to another lead. No record ownership was changed.
+Commit `09c1293` makes unfinished Intake an explicit weekly/monthly retrieval
+request, bounded to five with total count. The setup queue also remains five.
+
+Plugin 1.0.3 was published in place; all eight downloaded files match the submitted
+package, including the unchanged app binding. It clarifies that ordinary private
+notes use sensitivity `general`. Member-care receipt support is committed in
+core `c600d5d` and platform `c08e3d6`, deployed in those final revisions. Gateway
+environment and runtime identity still match revision `00030-kag`; canonical
+health returns 200. Focused suites now include 25 core intake/review tests and
+eight gateway/plugin tests, all passing.
+
+The final 1.0.4 package is prepared at
+`/Users/danielkirchner/Downloads/dan-life-os-intake-1.0.4.zip`
+(SHA-256 `452285c00d56dc6f5393553168e5bf6c1d601ad3b9170979e77d57d9b078bdc7`).
+Its only remaining instruction change adds the now-supported member-care receipt.
+Publication is pending: native Chrome window control became unavailable and
+the browser file chooser timed out. Published 1.0.3 is retained and working;
+1.0.4 must not be reported as installed.
+
+Remaining verification/integration work:
+- Publish and independently download/compare the prepared 1.0.4 package.
+- Actual later-calendar-day resurfacing (unit/date-simulation tests passed).
+- Outlook-event receipt integration remains unresolved. Outlook continues to own
+  calendar actions through its existing connector. Pending handoffs must stay
+  visible; do not invent verification or add new credentials to clear intake.
+- Real vehicle/Philippines dates and status stay for Dan's first review.
+
+Developer decision is implemented, not fully verified. Keep outstanding gates
+in the engineering workstream rather than treating deployment as full acceptance.

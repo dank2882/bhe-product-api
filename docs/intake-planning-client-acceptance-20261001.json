@@ -1,0 +1,115 @@
+{
+  "checkedAt": "2026-10-01T15:02:44.691Z",
+  "state": "verified_fresh_chat_text_image_resume_and_domain_link",
+  "textChat": "https://chatgpt.com/c/6abe6ee6-a7c8-83e8-a54d-74000601341f",
+  "photoChat": "https://chatgpt.com/c/6abe7131-3a38-83e8-9f98-a2975369654b",
+  "resumeChat": "https://chatgpt.com/c/6abe7311-bab0-83e8-b21e-9b38d8d89149",
+  "originalImage": {
+    "byteCount": 31211,
+    "checksumSha256": "469e7b62def51f58f7e903a7a18c1d11d192ca1fdb149c7202e00eb89db68bd1",
+    "originalBytesMatch": true
+  },
+  "receipts": [
+    {
+      "intakeId": "intake-fd07cdb8888223884385f4b714f476ac",
+      "version": 11,
+      "status": "complete",
+      "sourcePreserved": true,
+      "sourceChecksum": "27c08e20bc6d0671e13ba064f0295d8df6be0690101eb3f4a9d628827b5aa4e7",
+      "items": [
+        {
+          "status": "verified",
+          "recordId": "note-8bc6da080a46195099c964eb2d307a47",
+          "version": 1,
+          "method": "owning_domain_readback"
+        },
+        {
+          "status": "verified",
+          "recordId": "thought-8d229a3bd7d32672d9d55e9c62ceda70",
+          "version": 1,
+          "method": "owning_domain_readback"
+        }
+      ]
+    },
+    {
+      "intakeId": "intake-7f27ae5a033e562602d832dcf171e0a1",
+      "version": 14,
+      "status": "complete",
+      "sourcePreserved": true,
+      "sourceChecksum": "469e7b62def51f58f7e903a7a18c1d11d192ca1fdb149c7202e00eb89db68bd1",
+      "items": [
+        {
+          "status": "verified",
+          "recordId": "note-8bc6da080a46195099c964eb2d307a47",
+          "version": 1,
+          "method": "owning_domain_readback"
+        },
+        {
+          "status": "verified",
+          "recordId": "thought-8d229a3bd7d32672d9d55e9c62ceda70",
+          "version": 1,
+          "method": "owning_domain_readback"
+        },
+        {
+          "status": "dismissed"
+        }
+      ]
+    },
+    {
+      "intakeId": "intake-80cf1d87e97ccc4a3c3b71f7ceceed49",
+      "version": 7,
+      "status": "complete",
+      "sourcePreserved": true,
+      "sourceChecksum": "af8ddf82fa16b554e22b9aedf7c6c96cb91fad6b1c54d9cf6c229814c5e5b76f",
+      "items": [
+        {
+          "status": "verified",
+          "recordId": "sermon-imported-audio-2012-06-12-08-02-43-77c03d19",
+          "system": "sermon_workspace",
+          "version": null,
+          "method": "owning_gateway_readback"
+        }
+      ]
+    }
+  ],
+  "monthlyScope": {
+    "openProjectCount": 192,
+    "topLevelCount": 19,
+    "attentionCount": 4,
+    "setupCount": 192,
+    "waitingCount": 6,
+    "outcomeCount": 0,
+    "areaCount": 0,
+    "horizonCounts": {
+      "overdue": 0,
+      "0_30": 0,
+      "31_90": 0,
+      "91_365": 0,
+      "later": 0,
+      "no_horizon": 0
+    }
+  },
+  "scopeNote": "Nine historical-owner roots restored using existing backend mapping. One unrelated staff root correctly excluded. Real project classification and dates unchanged.",
+  "limitations": [
+    "Actual later-calendar-day resurfacing not yet observed",
+    "Outlook receipt integration is not implemented"
+  ],
+  "cleanup": {
+    "noteId": "note-8bc6da080a46195099c964eb2d307a47",
+    "noteArchived": true,
+    "noteVersion": 2,
+    "thoughtId": "thought-8d229a3bd7d32672d9d55e9c62ceda70",
+    "thoughtStatus": "closed",
+    "thoughtVersion": 2,
+    "independentReadBack": true
+  },
+  "memberCare": {
+    "intakeId": "intake-813b5e0b3dcfde3ae88918f7e0592d58",
+    "version": 7,
+    "status": "complete",
+    "system": "pastoral_care_member",
+    "method": "owning_gateway_readback",
+    "sourceText": "Synthetic opaque member-care reference",
+    "opaqueOnly": true
+  }
+}
