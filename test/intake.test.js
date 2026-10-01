@@ -189,3 +189,17 @@ for (const [destination, args] of [
   const r = await f.call('dispatchIntakeItem', { intakeId: a.intakeId, expectedVersion: a.version, itemId: a.intake.items[0].itemId });
   assert.equal(r.intake.items[0].status, 'verified');
 });
+
+test('member care locks exact opaque person and matter IDs and rejects source content', async () => {
+  const f = setup(), created = await f.call('createIntake', { ...capture, exactText: 'Restricted source remains in Pastoral Care.' });
+  const input = { intakeId: created.intakeId, expectedVersion: 1, exactText: 'Opaque member-care reference', proposal: {
+    destination: 'domain_reference', action: 'link', recordId: 'care-matter-one', duplicateCheck: 'Existing matter read',
+    arguments: { system: 'pastoral_care_member', breezePersonId: '123', expectedVersion: 2 } } };
+  await assert.rejects(f.call('proposeIntakeItem', { ...input, proposal: { ...input.proposal, arguments: { ...input.proposal.arguments, content: 'Must not be copied' } } }));
+  const proposed = await f.call('proposeIntakeItem', input);
+  const item = proposed.intake.items[0];
+  const approved = await f.call('approveIntakeItem', { intakeId: created.intakeId, expectedVersion: proposed.version, itemId: item.itemId, proposalHash: item.proposalHash, approvalNote: 'Save opaque link only' });
+  const prepared = await f.call('prepareIntakeDispatch', { intakeId: created.intakeId, expectedVersion: approved.version, itemId: item.itemId });
+  assert.equal(prepared.intake.items[0].dispatch.breezePersonId, '123');
+  assert.equal(prepared.intake.items[0].dispatch.recordId, 'care-matter-one');
+});
