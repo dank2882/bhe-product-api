@@ -159,6 +159,8 @@ const {
 } = require("./lib/trip-service");
 const { listNotebookOperations, runNotebookOperation } = require("./lib/notebooks-operation-registry");
 const { listIntakeOperations, runIntakeOperation } = require("./lib/intake-operation-registry");
+const { listAppointmentOperations, runAppointmentOperation } = require("./lib/appointments-operation-registry");
+const { runAppointmentCommand } = require("./lib/appointments-service");
 const { runIntakeCommand } = require("./lib/intake-service");
 const { createIntakeDestinations } = require("./lib/intake-destinations");
 const { listShippingOperations, runShippingOperation } = require("./lib/shipping-operation-registry");
@@ -11820,6 +11822,30 @@ app.post("/intake/verify-domain-reference", async (req, res) => {
     return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "intake_failed", message: error.statusCode ? error.message : "Reference verification failed" } });
   }
 });
+app.post("/appointments/verify-domain-reference", async (req, res) => {
+  try {
+    const result = await runAppointmentCommand("recordAppointmentDomainVerification", req.body?.arguments || {}, req.body?.idempotencyKey,
+      getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req), trustedDomainVerification: true }));
+    return res.json({ ok: true, result });
+  } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "appointments_failed", message: error.statusCode ? error.message : "Reference verification failed" } }); }
+});
+app.get("/appointments/operations", (req, res) => {
+  try {
+    requireDanPrivateAccess(getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) }));
+    return res.json({ ok: true, ...listAppointmentOperations(req.query) });
+  } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "appointments_failed", message: error.statusCode ? error.message : "Appointment access failed" } }); }
+});
+for (const mode of ["query", "command"]) {
+  app.post(`/appointments/${mode}`, async (req, res) => {
+    const requestId = randomUUID();
+    try { return res.json({ ok: true, requestId, ...await runAppointmentOperation({ ...req.body, mode }, getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) })) }); }
+    catch (error) {
+      console.error(JSON.stringify({ event: "appointments_operation_failed", requestId, code: error.code || "appointments_failed" }));
+      return res.status(error.statusCode || 500).json({ ok: false, requestId, error: { code: error.code || "appointments_failed", message: error.statusCode ? error.message : "Appointment operation failed" } });
+    }
+  });
+}
+
 app.get("/intake/operations", (req, res) => {
   try {
     requireDanPrivateAccess(getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) }));
