@@ -54,6 +54,7 @@ test("monthly areas stay outside outcome horizons and setup is limited to five r
   assert.equal(result.items.find(p => p.projectId === "area").reasons.includes("next_step_missing"), false);
   assert.equal(result.items.find(p => p.projectId === "vans").bucket, "31_90");
   assert.equal(result.planningSetup.items.length, 5);
+  assert.deepEqual(result.retrievalRequests.find(r => r.source === "Intake").arguments, { status: "open", limit: 5 });
   assert.equal(result.planningSetup.totalCount, 13);
   const page = await reviews.buildPlanningReview({ asOfDate: "2026-10-02", section: "setup" }, f.deps);
   assert.equal(page.items.length, 5); assert.equal(page.complete, false);
