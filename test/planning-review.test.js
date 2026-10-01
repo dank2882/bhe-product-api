@@ -128,6 +128,17 @@ test("monthly outcomes include quiet child commitments beneath areas and queries
   assert.deepEqual([...f.db.rows], before);
 });
 
+test("configured historical Dan task owners remain in review without including unrelated staff roots", async () => {
+  const f = setup();
+  f.deps.privateDelegationEnv.DAN_PRIVATE_OWNER_SUBJECTS = "dan,dan-legacy";
+  await f.deps.projectsCollection.doc("legacy").create(project("legacy", { ownerSub: "dan-legacy", leadSub: "dan-legacy" }));
+  await f.deps.projectsCollection.doc("other").create(project("other", { ownerSub: "other", leadSub: "other", visibility: "staff" }));
+  const result = await reviews.buildPlanningReview({ asOfDate: "2026-10-02" }, f.deps);
+  assert.deepEqual(result.items.map(p => p.projectId), ["legacy"]);
+  const delegated = await reviews.buildPlanningReview({ asOfDate: "2026-10-02" }, { ...f.deps, taskAccess: { subject: "sarah", role: "admin" } });
+  assert.deepEqual(delegated.items.map(p => p.projectId), ["legacy"]);
+});
+
 test("future completions fail; backdated routine completion schedules beyond actual today", async () => {
   const f = setup();
   await f.deps.routinesCollection.doc("weekly").create({ routineId: "weekly", title: "Weekly", ownerSub: "dan", reviewKind: "weekly", status: "active", version: 1 });
