@@ -1,0 +1,42 @@
+{
+  "observedAt": "2026-10-01T16:47:02.567Z",
+  "dailyActiveNextCount": 46,
+  "inventoryActiveNextCount": 54,
+  "projects": 42,
+  "routines": 13,
+  "weeklySummary": {
+    "openProjectCount": 23,
+    "topLevelCount": 18,
+    "attentionCount": 4,
+    "setupCount": 23,
+    "waitingCount": 4,
+    "outcomeCount": 0,
+    "areaCount": 0,
+    "horizonCounts": {
+      "overdue": 0,
+      "0_30": 0,
+      "31_90": 0,
+      "91_365": 0,
+      "later": 0,
+      "no_horizon": 0
+    }
+  },
+  "monthlySummary": {
+    "openProjectCount": 23,
+    "topLevelCount": 18,
+    "attentionCount": 4,
+    "setupCount": 23,
+    "waitingCount": 4,
+    "outcomeCount": 0,
+    "areaCount": 0,
+    "horizonCounts": {
+      "overdue": 0,
+      "0_30": 0,
+      "31_90": 0,
+      "91_365": 0,
+      "later": 0,
+      "no_horizon": 0
+    }
+  },
+  "preservedPriorNonMaintenance": true
+}

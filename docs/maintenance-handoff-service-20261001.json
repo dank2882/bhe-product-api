@@ -1,0 +1,28 @@
+{
+  "state": "verified_internal_service_acceptance",
+  "observedAt": "2026-10-01T16:46:20.838Z",
+  "base": "https://maintenance-handoff---bhe-product-api-mwhc25pkra-uw.a.run.app",
+  "rootVersion": 9,
+  "lead": "Shawna Blue",
+  "dailyActiveNextCount": 46,
+  "nonMaintenanceNextPreserved": 46,
+  "defaultScope": "dan_personal_excludes_maintenance",
+  "reviewPages": 12,
+  "maintenanceProjectCount": 169,
+  "maintenanceBoardCount": 122,
+  "maintenanceRoutineCount": 23,
+  "sharedRecordsUnchanged": true,
+  "tasksDigest": "073c84daf0002414eda5bad4e141ebc9cad591f9ff5c5b90f107402b4ca8bb62",
+  "routinesDigest": "93af8c0ffca0cb4638ee14ccb0e20a1fd302a30b6aecfa77250c3efc4cd61e3c",
+  "checks": [
+    "default task/project/routine lists",
+    "daily review and notifications",
+    "all weekly/monthly sections",
+    "non-Maintenance next preservation",
+    "Shawna internal authorized board read",
+    "shared source records unchanged"
+  ],
+  "notChecked": [
+    "Shawna interactive client session"
+  ]
+}

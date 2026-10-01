@@ -46,3 +46,33 @@ is outside that personal responsibility scope regardless of task status.
   all weekly/monthly review sections. Check preserved shared board/routine data.
 
 Deployment and live evidence will be recorded separately after these gates pass.
+
+## Verified release — October 1, 2026
+
+Implementation `6b5921c`; read-only service acceptance `0ad9c3a`.
+All 753 tests and `npm run check` passed. Root lead and appended handoff notes
+independently reread at version 9; manager/member grants unchanged.
+
+Candidate and production revision `bhe-product-api-00321-vev`; 100 percent of
+traffic verified after promotion. Environment and runtime service identity match
+the prior revision. Rollback: `bhe-product-api-00319-jug`.
+
+[Service acceptance](../maintenance-handoff-service-20261001.json) checks every
+weekly/monthly section, complete default lists, daily/notification exclusion,
+non-Maintenance action preservation, and Shawna's authorized internal board read.
+All shared task and routine bytes matched before/after the read-only acceptance.
+This did not simulate a Shawna interactive login; existing grant and service
+boundary acceptance are the evidence for preserved access.
+
+[Connected Life OS acceptance](../maintenance-handoff-connected-20261001.json)
+confirms the promoted production behavior through Dan's actual connection:
+46 personal next actions, preserving every non-Maintenance action from the
+pre-deployment brief; 120 Maintenance next items removed. The shared board retains
+122 unarchived tasks and 23 recurring duties; 169 Maintenance projects are out of
+personal reviews. The broader accessible next inventory has 54 items: its eight
+additional tasks are separate from personal relevance, not evidence of a race.
+Counts are observations at verification time, not permanent expected values.
+
+Only the Maintenance root's operational lead and appended handoff note changed
+in production data. Existing technical ownership/audit fields and individual
+work assignments remain source history and permissions, not Dan's responsibility.
