@@ -19,7 +19,7 @@ setup is intentionally five records per review, with no bulk migration.
 | Waiting party plus follow-up, no implicit parent/child or routine/project completion | Policy/service tests and synthetic live project acceptance | Verified: waiting without follow-up is a gap; review history/version checks work; parent completion leaves child date unchanged. |
 | External source coverage, calendar authority, natural-language presentation | Maintained review and daily-brief instructions, deployed retrieval requests | Outlook/Intake/Think Tank/owning-domain requests are returned. Query-only output does not claim those sources checked. Natural-language preview acceptance is recorded separately. |
 | Existing architecture and durable engineering logic | Accepted contract, Git commits, Developer Tools decision/workstream/evidence | Existing core, Firestore, bucket, gateway, auth and listing reused. No new service, database or OAuth registration. |
-| Current publication matches maintained instructions | Downloaded 1.0.3 package compared byte-for-byte; prepared 1.0.4 package | Incomplete: native Chrome window remains unavailable. 1.0.4 adds member-care instruction support and is not yet installed. |
+| Current publication matches maintained instructions | Reloaded admin page shows 1.0.4; independently downloaded archive compared | Verified October 1: all eight files match submitted bytes, including unchanged app binding. Member-care instructions are published. |
 | Later-calendar-day use | Current clock is October 1 Pacific; live future-date query plus unit simulation | Simulation passed; actual later-day observation cannot be claimed yet. |
 
 ## October 1 date simulation
@@ -42,17 +42,20 @@ question (which organization the stands belong to) and showed no technical field
 This is evidence of the preview experience, not an additional write acceptance
 or proof of any calendar reminder. The earlier fresh-client receipts prove saves.
 
-Native Chrome upload access was rechecked on the next goal continuation and is
-still unavailable. No second package was uploaded, no browser security setting
-was changed, and no alternate authentication path was introduced.
+Dan resumed with: "Keep Outlook as it is. Chrome is open—continue."
+Native Chrome control returned and the prepared 1.0.4 package was published in
+the existing listing. Independent download comparison verified every file.
+Detailed hashes and publication evidence are in `intake-planning-reviews.md`.
+No browser security setting, app binding, or authentication path changed.
 
-1. Restore native Chrome window availability, then publish/download/compare the
-   prepared 1.0.4 package in the existing listing. Existing 1.0.3 is retained.
-2. Resolve Dan's pending Outlook integration preference. The existing connector
-   can own calendar actions; the intake backend cannot independently verify them.
-   No new credential or authentication path is authorized by this audit.
-3. Observe the due review on an actual later Pacific date. Do not complete Dan's
-   real reviews merely to clear an acceptance gate.
+The existing Outlook connector remains the calendar owner. Dan accepted deferring
+the additional backend calendar-receipt integration. This resolves the scope
+decision without claiming unsupported calendar handoffs are backend-verified.
+
+The sole remaining verification gate is observing the due review on an actual
+later Pacific date, on or after October 2. Do not complete Dan's real reviews
+merely to clear this acceptance gate. The current verified clock is still
+October 1; the date-parameter simulation is not actual next-day evidence.
 
 Real vans/Philippines statuses, dates and tasks remain unchanged. Their gradual
 classification belongs in Dan's review, as the accepted bounded setup design

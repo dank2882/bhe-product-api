@@ -206,16 +206,24 @@ The final 1.0.4 package is prepared at
 `/Users/danielkirchner/Downloads/dan-life-os-intake-1.0.4.zip`
 (SHA-256 `452285c00d56dc6f5393553168e5bf6c1d601ad3b9170979e77d57d9b078bdc7`).
 Its only remaining instruction change adds the now-supported member-care receipt.
-Publication is pending: native Chrome window control became unavailable and
-the browser file chooser timed out. Published 1.0.3 is retained and working;
-1.0.4 must not be reported as installed.
+After native Chrome control returned, 1.0.4 was published in the existing listing
+on October 1 at approximately 16:31 UTC. The reloaded admin page shows 1.0.4.
+Independent download `dev-6abe50f62c548191b49081448379e268 (5).zip` has SHA-256
+`a2070e4f32d8eabb2c9bbb29ca023aa14c5643b3ea13f30f614feee2bfa5933c`;
+all eight contained files match the submitted package byte-for-byte, including
+the unchanged app binding. ZIP container bytes differ because of repackaging.
+Screenshot: `/tmp/dan-intake-plugin-1.0.4.png`.
+
+Dan explicitly accepted: "Keep Outlook as it is. Chrome is open—continue."
+The existing Outlook connector remains authoritative for calendar actions.
+Additional backend calendar-receipt integration is deferred, not a pending
+release decision. Unsupported calendar handoffs remain visibly pending; a
+connector readback must not be represented as backend intake verification.
 
 Remaining verification/integration work:
-- Publish and independently download/compare the prepared 1.0.4 package.
 - Actual later-calendar-day resurfacing (unit/date-simulation tests passed).
-- Outlook-event receipt integration remains unresolved. Outlook continues to own
-  calendar actions through its existing connector. Pending handoffs must stay
-  visible; do not invent verification or add new credentials to clear intake.
+- Outlook-event backend receipt integration is an explicitly deferred follow-up.
+  Do not invent verification or add new credentials to clear intake.
 - Real vehicle/Philippines dates and status stay for Dan's first review.
 
 Developer decision is implemented, not fully verified. Keep outstanding gates
