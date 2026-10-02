@@ -96,9 +96,9 @@ while an explicit gate lacks authoritative evidence.
 Core records, per-ministry authorization, matters and decision-task recovery,
 explicit-source calendar reads, guarded single-event API dispatch, existing-series
 browser workflow, ordinary task/project links, appointment references and review
-composition are implemented in the existing repositories. New recurring-series
-creation still requires a complete dispatch contract; it is explicitly rejected
-rather than pretending a single-event write creates a series. The live pilot and
+composition are implemented in the existing repositories. Finite recurring-series creation now requires 2-250 exact approved occurrences,
+one verified series identity and independent browser readback for each occurrence.
+Unbounded series require an explicitly bounded scope first. The live pilot and
 fresh-client acceptance remain open. No production ministry or leader grants have
 been inferred.
 
@@ -117,7 +117,7 @@ Breeze secret and the BREEZE_SUBDOMAIN/BREEZE_API_KEY runtime references. Removi
 that new binding and restoring the prior revision reverses this integration;
 never remove Pastoral Care's existing access or rotate the shared key.
 
-Synthetic checks at this checkpoint: 783 core tests pass and required core
+Synthetic checks at this checkpoint: 785 core tests pass and required core
 configuration checks pass. The platform suite passes its existing 212 tests;
 two new gateway tests pass after correcting their OAuth fixture. The checks cover
 explicit area access, source redaction, changed event approval, ambiguous-create

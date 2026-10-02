@@ -76,3 +76,31 @@ test("event return dates read source changes, unavailable areas stay explicit, a
  const original=s.deps.ministryBreeze.read;s.deps.ministryBreeze.read=async(path,args)=>{if(path==="/api/events"&&args.category_id==="0")throw Error("area unavailable");return original(path,args);};
  assert.equal((await s.call("buildMinistryReview",{})).coverage.events,"partial");
 });
+test("new recurring series binds distinct occurrences and rejects a partial or mixed-series browser result",async()=>{
+ const s=setup(),second={...proposed,start:"2026-10-12T10:00:00-07:00",end:"2026-10-12T11:00:00-07:00"};
+ let result=await approve(s,await propose(s,await create(s),{...proposed,recurrenceScope:"series",occurrences:[proposed,second]}));
+ result=await s.call("beginChurchCalendarAction",{ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.action.actionId,conflictCheck:s.check});
+ assert.equal(result.dispatch.method,"supervised_browser");
+ const events=[proposed,second].map((p,i)=>({instanceId:`created-${i}`,seriesId:"new-series",calendarAreaId:"10",title:p.title,start:local(p.start),end:local(p.end),allDay:false}));
+ const input={ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.action.actionId,outcome:"browser_read_back",observedAt:s.check.observedAt};
+ await assert.rejects(s.call("recordChurchCalendarResult",{...input,events:[events[0]]}),/every approved/);
+ await assert.rejects(s.call("recordChurchCalendarResult",{...input,events:[events[0],{...events[1],seriesId:"wrong"}]}),/every approved/);
+ result=await s.call("recordChurchCalendarResult",{...input,events});assert.equal(result.action.status,"verified");assert.equal(result.action.result.seriesId,"new-series");
+});
+test("private appointment linkage reads its actual family safeguards without exposing them in leader history",async()=>{
+ const s=setup();s.deps.privateDelegationEnv={DAN_PRIVATE_OWNER_SUBJECTS:"dan",DAN_PRIVATE_DELEGATE_SUBJECTS:"sarah"};let n=0;
+ const {runAppointmentOperation}=require("../lib/appointments-operation-registry");
+ const cmd=async(operation,args)=>(await runAppointmentOperation({operation,mode:"command",arguments:args,idempotencyKey:`appointment-link-${++n}`},s.deps)).result;
+ await cmd("configureAppointmentFamilyPolicy",{expectedVersion:0,userApproved:true,policy:{enabled:true,windows:[{day:1,start:"08:00",end:"12:00"}],channel:"text",recipient:"+15555550123",approverSubject:"sarah"}});
+ let appointment=await cmd("createAppointment",{contentClassification:"general_or_neutral"});
+ appointment=await cmd("proposeAppointmentAction",{appointmentId:appointment.appointmentId,expectedVersion:appointment.version,proposal:{kind:"calendar",calendar:{role:"meeting",operation:"create",start:"2026-10-05T19:00:00-07:00",end:"2026-10-05T20:00:00-07:00",subject:"Pastoral appointment",location:"Church",attendees:[]}}});
+ let result=await propose(s,await create(s),proposed);
+ result=await s.call("linkMinistryAppointment",{ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.action.actionId,appointmentId:appointment.appointmentId});
+ const p=(await s.call("getMinistryPicture",{ministryId:"youth"})).picture;assert.equal(p.calendarActions[0].appointment.familyApprovalRequired,true);
+ await s.deps.staffAuthorizationProfilesCollection.doc(getStaffAuthorizationProfileId("leader")).set({status:"active"});
+ result=await s.call("setMinistryAccess",{ministryId:"youth",expectedVersion:result.ministry.version,grants:[{subject:"leader",role:"editor"}]});
+ const leader={...s.deps,taskAccess:{subject:"leader",role:"member"}};
+ const view=await s.call("getMinistry",{ministryId:"youth"},undefined,leader);assert.equal(view.ministry.calendarActions,undefined);
+ const history=await s.call("getMinistryHistory",{ministryId:"youth"},undefined,leader);assert.ok(!JSON.stringify(history).includes(appointment.appointmentId));
+ await assert.rejects(s.call("linkMinistryAppointment",{ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.ministry.calendarActions[0].actionId,appointmentId:appointment.appointmentId},undefined,leader),/Dan must/);
+});
