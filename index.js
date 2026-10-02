@@ -160,6 +160,7 @@ const {
 const { listNotebookOperations, runNotebookOperation } = require("./lib/notebooks-operation-registry");
 const { listIntakeOperations, runIntakeOperation } = require("./lib/intake-operation-registry");
 const { listAppointmentOperations, runAppointmentOperation } = require("./lib/appointments-operation-registry");
+const { listMinistryOverviewOperations, runMinistryOverviewOperation } = require("./lib/ministry-overview-operation-registry");
 const { runAppointmentCommand } = require("./lib/appointments-service");
 const { runIntakeCommand } = require("./lib/intake-service");
 const { createIntakeDestinations } = require("./lib/intake-destinations");
@@ -2687,6 +2688,11 @@ function getIntakeDependencies(overrides = {}) {
   const deps = { ...getProjectTaskDependencies(overrides), ...getNotebookDependencies(overrides),
     intakeBucket: storage.bucket(BUCKET_NAME) };
   deps.intakeDestinations = createIntakeDestinations(deps);
+  if (process.env.BREEZE_SUBDOMAIN && process.env.BREEZE_API_KEY) {
+    deps.ministryBreeze = require("./lib/ministry-breeze-client").createMinistryBreezeClient({
+      subdomain:process.env.BREEZE_SUBDOMAIN,apiKey:process.env.BREEZE_API_KEY,firestoreDb:db
+    });
+  }
   return deps;
 }
 
@@ -11835,6 +11841,22 @@ app.get("/appointments/operations", (req, res) => {
     return res.json({ ok: true, ...listAppointmentOperations(req.query) });
   } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "appointments_failed", message: error.statusCode ? error.message : "Appointment access failed" } }); }
 });
+app.get("/ministry-overview/operations", (req,res) => {
+  try {
+    require("./lib/ministry-overview-model").actor(getIntakeDependencies({taskAccess:buildTaskAccessFromRequest(req)}));
+    return res.json({ok:true,...listMinistryOverviewOperations(req.query)});
+  } catch(error) { return res.status(error.statusCode||500).json({ok:false,error:{code:error.code||"ministry_overview_failed",message:error.statusCode?error.message:"Ministry catalog unavailable"}}); }
+});
+for (const mode of ["query","command"]) {
+  app.post(`/ministry-overview/${mode}`,async(req,res)=>{
+    const requestId=randomUUID();
+    try { return res.json({ok:true,requestId,...await runMinistryOverviewOperation({...req.body,mode},getIntakeDependencies({taskAccess:buildTaskAccessFromRequest(req)}))}); }
+    catch(error) {
+      console.error(JSON.stringify({event:"ministry_overview_failed",requestId,code:error.code||"ministry_overview_failed"}));
+      return res.status(error.statusCode||500).json({ok:false,requestId,error:{code:error.code||"ministry_overview_failed",message:error.statusCode?error.message:"Ministry operation failed"}});
+    }
+  });
+}
 for (const mode of ["query", "command"]) {
   app.post(`/appointments/${mode}`, async (req, res) => {
     const requestId = randomUUID();
