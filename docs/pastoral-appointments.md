@@ -134,3 +134,51 @@ See [family approval decision](decisions/appointments-family-approval.md) for th
 October 1 extension: versioned normal hours, wife approval for the full
 arrangement, and pending confirmation/change/cancellation notices. Read live
 `getAppointmentFamilyPolicy` for setup status and current windows/contact.
+
+## Calendar proposal input
+
+Read `appointments_list_operations` for `proposeAppointmentAction` before
+constructing a proposal. Its `examples` contain complete operation arguments.
+The discriminator is `proposal.kind`, and all calendar fields belong inside
+`proposal.calendar`. For an update, the argument structure is:
+
+```json
+{
+  "appointmentId": "<freshly read appointment ID>",
+  "expectedVersion": 1,
+  "proposal": {
+    "kind": "calendar",
+    "phase": "arrangement",
+    "calendar": {
+      "role": "meeting",
+      "operation": "update",
+      "eventId": "<freshly read Outlook event ID>",
+      "start": "2026-10-02T14:00:00-07:00",
+      "end": "2026-10-02T14:45:00-07:00",
+      "timezone": "America/Los_Angeles",
+      "subject": "Pastoral appointment",
+      "location": "Church office",
+      "attendees": [],
+      "body": ""
+    }
+  }
+}
+```
+
+Replace the example version, times and event details with current selected
+values. `type` and `actionType` are not aliases for `kind`. Creation uses the
+same nesting with `operation: "create"` and no event ID. Cancellation requires
+`role`, `operation: "cancel"` and `eventId` in `calendar`. `calendarId` is optional.
+Proposing an action does not approve or dispatch it; existing exact approval,
+family approval, fresh conflict checks and read-back requirements still apply.
+
+The October 2 report did not include the original failing payload. A flattened
+calendar update reproduces `appointments_invalid_input: Unsupported fields`;
+the documented nested update succeeds. Catalog 1.0.1 adds explicit nesting and
+examples, and validation now explains malformed proposal structure without
+including user content in the error.
+
+Local verification for the contract repair: all 789 tests pass, including
+published update/cancel examples exercised through the command boundary and
+malformed proposals rejected without record/history changes. `npm run check`
+also passes. These are local results; production rollout is recorded separately.

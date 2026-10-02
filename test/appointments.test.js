@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { fakeFirestore } = require("./helpers/maintenance-firestore");
-const { runAppointmentOperation } = require("../lib/appointments-operation-registry");
+const { listAppointmentOperations, runAppointmentOperation } = require("../lib/appointments-operation-registry");
 const { runAppointmentCommand } = require("../lib/appointments-service");
 const { assessSlots, sequence } = require("../lib/appointments-policy");
 
@@ -33,6 +33,44 @@ async function booked(f) {
   return f.command("recordAppointmentActionResult", { ...fields(r), actionId, outcome: "read_back", observedAt: at,
     event: { eventId: "event-one", start, end, location: "Church office", subject: "Pastoral appointment", attendees: [] } });
 }
+
+test("published calendar examples execute through the operation boundary without approving or dispatching", async () => {
+  const catalog = listAppointmentOperations({ mode: "command", query: "proposeAppointmentAction" });
+  for (const example of catalog.operations[0].examples) {
+    const f = fixture(), r = await create(f);
+    const result = await f.command("proposeAppointmentAction", { ...structuredClone(example.arguments), ...fields(r) });
+    const saved = (await f.query("getAppointment", { appointmentId: r.appointmentId })).appointment;
+    assert.equal(saved.version, result.version);
+    assert.equal(saved.actions[0].status, "proposed");
+    assert.equal(saved.actions[0].proposal.calendar.operation, example.arguments.proposal.calendar.operation);
+    assert.equal(saved.actions[0].proposal.calendar.eventId, example.arguments.proposal.calendar.eventId);
+    await assert.rejects(f.command("beginAppointmentAction", { ...fields(result), actionId: saved.actions[0].actionId }));
+  }
+});
+
+test("malformed calendar proposal gives structural guidance without writing or exposing source content", async () => {
+  const f = fixture(), r = await create(f);
+  const before = await f.query("getAppointment", { appointmentId: r.appointmentId });
+  const historyBefore = await f.query("getAppointmentHistory", { appointmentId: r.appointmentId });
+  const c = cal({ operation: "update", eventId: "event-one" }).calendar;
+  for (const p of [
+    { kind: "calendar", ...c, subject: "sensitive-source-marker" },
+    { type: "calendar", calendar: c },
+    { actionType: "calendar", calendar: c },
+    { calendar: c },
+    { kind: "calendar" },
+    { kind: "calendar", calendar: { ...c, unexpected: "sensitive-source-marker" } }
+  ]) {
+    await assert.rejects(propose(f, r, p), err => {
+      assert.equal(err.code, "appointments_invalid_input");
+      assert.match(err.message, /proposal\.(kind|calendar)/);
+      assert.equal(err.message.includes("sensitive-source-marker"), false);
+      return true;
+    });
+  }
+  assert.deepEqual(await f.query("getAppointment", { appointmentId: r.appointmentId }), before);
+  assert.deepEqual(await f.query("getAppointmentHistory", { appointmentId: r.appointmentId }), historyBefore);
+});
 
 test("private access, delegation attribution, neutral initial capture and content-free audit", async () => {
   const f = fixture();
