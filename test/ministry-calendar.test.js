@@ -104,3 +104,9 @@ test("private appointment linkage reads its actual family safeguards without exp
  const history=await s.call("getMinistryHistory",{ministryId:"youth"},undefined,leader);assert.ok(!JSON.stringify(history).includes(appointment.appointmentId));
  await assert.rejects(s.call("linkMinistryAppointment",{ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.ministry.calendarActions[0].actionId,appointmentId:appointment.appointmentId},undefined,leader),/Dan must/);
 });
+test("missing provider all-day metadata cannot become a verified timed event",async()=>{
+ const s=setup();let result=await approve(s,await propose(s,await create(s),proposed));
+ const add=s.deps.ministryBreeze.add;s.deps.ministryBreeze.add=async args=>{const e=await add(args);delete e.details.input_all_day;return e;};
+ result=await s.call("executeChurchCalendarAction",{ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.action.actionId,conflictCheck:s.check});
+ assert.equal(result.verificationPending,true);assert.equal(result.action.status,"verification_pending");assert.equal(result.action.result.instanceId,"new1");
+});
