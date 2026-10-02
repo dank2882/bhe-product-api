@@ -164,3 +164,28 @@ for the existing core runtime and independently read back. No new credential,
 service, OAuth app, database or autonomous process was created. Pilot selection,
 selected-leader live acceptance, final revision promotion and fresh-client
 usability acceptance remain open.
+
+## Release checkpoint
+
+Committed core `3200bb1` is live on `bhe-product-api-00331-cuy`; gateway code from
+`1675de7` (image built at `36ada5f`) is live on `dan-life-os-mcp-00038-buc` and
+`fbc-staff-tools-mcp-entra-prod-00069-pep`. Independent Cloud Run reads confirm
+Ready and 100 percent normal traffic on all three. Core environment differences
+from `00327-cog` are only BREEZE_SUBDOMAIN and the existing BREEZE_API_KEY secret
+reference. Gateway environments and all runtime service accounts are unchanged.
+Both gateways still return OAuth metadata and reject unauthenticated MCP access.
+Rollback is traffic-only to core `00327-cog`, Life OS `00036-waw`, and Staff
+`00067-did`; preserve all unrelated traffic tags.
+
+All 787 core tests and 214 gateway tests pass. The fresh MCP SDK acceptance
+script (`bhe-agent-platform:scripts/verify-ministry-mcp-live.mjs`) passed against
+normal production: two fresh client/server instances discover the new tools,
+read the same exact concern and task identity, and leave the fixture archived.
+This proves MCP contract continuity with authenticated backend access. It does
+not prove ChatGPT's OAuth tool rediscovery, mobile interaction, or Dan's experience.
+
+Maintained instructions and both distribution trees are prepared in Git. No new
+marketplace or app registration was created. In-place publication of the current
+ChatGPT instruction package and fresh ChatGPT discovery still need verification.
+Three actual ministries, their selected editors and the real shared-event pilot
+remain unselected. These remaining gates prevent full decision verification.
