@@ -110,3 +110,24 @@ test("missing provider all-day metadata cannot become a verified timed event",as
  result=await s.call("executeChurchCalendarAction",{ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.action.actionId,conflictCheck:s.check});
  assert.equal(result.verificationPending,true);assert.equal(result.action.status,"verification_pending");assert.equal(result.action.result.instanceId,"new1");
 });
+test("a shared event grants only its exact occurrence and later cancellation supersedes old work",async()=>{
+ const s=setup();let r=await create(s),other=(await s.call("createMinistry",{ministryId:"children",name:"Children",profile:{calendarAreaIds:["0"]}})).ministry;
+ await s.deps.staffAuthorizationProfilesCollection.doc(getStaffAuthorizationProfileId("leader")).set({status:"active"});
+ await s.call("setMinistryAccess",{ministryId:"children",expectedVersion:other.version,grants:[{subject:"leader",role:"viewer"}]});
+ let result=await approve(s,await propose(s,r,{...proposed,participatingMinistryIds:["children"]}));
+ result=await s.call("executeChurchCalendarAction",{ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.action.actionId,conflictCheck:s.check});
+ const leader={...s.deps,taskAccess:{subject:"leader",role:"member"}};
+ const allowed=await s.call("getChurchEvent",{instanceId:"new1"},undefined,leader);assert.equal(allowed.event.instanceId,"new1");
+ assert.deepEqual((await s.call("listChurchCalendarAreas",{},undefined,leader)).areas.map(a=>a.calendarAreaId),["0"]);
+ const pic=(await s.call("getMinistryPicture",{ministryId:"children"},undefined,leader)).picture;
+ assert.equal(pic.sharedEvents[0].eventInstanceId,"new1");assert.equal(pic.sharedEvents[0].coordinatingMinistryId,"");assert.equal(pic.calendarActions.length,0);
+ const before={instanceId:"new1",seriesId:"series1",calendarAreaId:"10",title:"Training",start:"2026-10-05 10:00:00",end:"2026-10-05 11:00:00",allDay:false};
+ result=await approve(s,await propose(s,result.ministry,{operation:"cancel",instanceId:"new1",calendarAreaId:"10"},{beforeEvents:[before]}));
+ assert.deepEqual(result.action.proposal.participatingMinistryIds,["children"]);
+ result=await s.call("beginChurchCalendarAction",{ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.action.actionId,userConfirmedDestructive:true,conflictCheck:{...s.check,currentEvent:before}});
+ result=await s.call("recordChurchCalendarResult",{ministryId:"youth",expectedVersion:result.ministry.version,actionId:result.action.actionId,outcome:"browser_read_back",observedAt:s.check.observedAt,events:[{instanceId:"new1",calendarAreaId:"10",cancelled:true}]});
+ const current=(await s.call("getMinistryPicture",{ministryId:"youth"})).picture;
+ assert.equal(current.calendarActions.length,1);assert.equal(current.calendarActions[0].operation,"cancel");assert.deepEqual(current.calendarActions[0].gaps,[]);
+ await assert.rejects(s.call("getChurchEvent",{instanceId:"new1"},undefined,leader),/not available/);
+ const child=(await s.call("getMinistryPicture",{ministryId:"children"},undefined,leader)).picture;assert.equal(child.sharedEvents[0].operation,"cancel");
+});

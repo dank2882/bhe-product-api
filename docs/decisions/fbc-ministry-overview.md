@@ -124,3 +124,43 @@ explicit area access, source redaction, changed event approval, ambiguous-create
 recovery, deferred decisions, owner/grant boundaries, API and browser readback,
 event-relative returns and 23/25-hour all-day ranges. These are test evidence,
 not live acceptance.
+
+## Live candidate acceptance, October 2
+
+Candidate core `bhe-product-api-00329-zex` read all seven Breeze areas and all 73
+October events. The Staff-only October 3 check also returned an event spanning
+into the window from September, demonstrating overlap inclusion rather than
+start-date-only filtering. The live synthetic ministry preserved its original
+concern, reused one decision task through pending/deferred/declined, and did not
+resolve the broader matter on decision completion. An unrelated authenticated
+administrator was denied access. The fixture ministry was archived and its task
+verified done.
+
+One temporary Staff calendar event, instance `434292165`, series `5508465`, was
+created for October 3, 06:00–06:05 Pacific, without attendees. Its title was edited
+through Breeze's normal settings UI; an independent reload confirmed the same
+instance, time, calendar, non-repeating schedule, unchecked All Day, empty
+location/description. Breeze required a valid check-in eligibility setting to
+save this API-created fixture; it was set to No One. Do not silently change a
+real event's eligibility merely to bypass that validation.
+
+The single API deletion returned a non-JSON response. The workflow retained an
+unknown outcome, did not repeat the deletion, and was reconciled using the
+normal authenticated Breeze UI: reloading the exact event URL redirected to
+Event Not Found. All three durable actions were then independently reread as
+verified; edit/cancel evidence remains explicitly client-browser evidence.
+
+Live testing exposed missing All Day metadata on newly API-created events.
+The adapter now preserves event_description and requires an explicit all-day
+value before API-only verification; otherwise the bound event waits for browser
+readback. This correction and source-text fallback were added after the first
+candidate. Cross-ministry participation now grants only the exact shared event,
+not its whole calendar area; verified later edits/cancellations supersede older
+calendar actions in the current picture while retaining history.
+
+Normal core and Life OS traffic stayed on their recorded prior revisions during
+these candidate checks. The narrower Breeze-secret accessor binding was added
+for the existing core runtime and independently read back. No new credential,
+service, OAuth app, database or autonomous process was created. Pilot selection,
+selected-leader live acceptance, final revision promotion and fresh-client
+usability acceptance remain open.
