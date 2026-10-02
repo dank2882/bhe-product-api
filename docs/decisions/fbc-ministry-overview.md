@@ -229,3 +229,58 @@ conversation and download receipts. FBC tool rediscovery was subsequently
 confirmed by closing and reopening its catalog: all four ministry tools enabled,
 114/116 overall, preserving the two previously disabled tools. Real
 ministry/editor selection and the shared-event/usability pilot remain open.
+
+## Portfolio scope clarification and Breeze inventory, October 2
+
+Dan directed us to pull all ministries listed in Breeze as the starting inventory,
+using Chrome when the API is limited. He also stated that BHE and GO Missions
+are each 501(c)(3) organizations with future ministry work. Their legal status
+is user-reported here; this was not a legal-status verification. Preserve the
+constitution's separate `fbc`, `bhe`, and `gom` ownership boundaries.
+
+Authenticated Chrome inspection found 13 folders and 110 tags (66 root and 44
+nested); the separate Groups page displayed zero groups. Names, source IDs,
+folder paths and membership counts were extracted without person rosters.
+The local source artifact is `output/ministry-inventory/breeze-source-2026-10-02.json`;
+it is a setup extract, not operational truth or an active-profile import.
+Empty folders and overlapping roster names remain explicit. Tags alone do not
+establish current activity, leadership, reporting lines or application access.
+
+The deployed model still hardcodes `owner: fbc` and `serves: [fbc]` in
+`lib/ministry-overview-service.js`. Multi-organization ministry support is a
+required follow-up, not a live capability. Recommend extending the existing
+module with explicit ownership and organization-aware authorization, preserving
+existing FBC identities and permissions. BHE Contacts must not become an FBC
+ministry. A trip's ownership must not be inferred from geography or participants.
+Provenance and provisional inventory state should be explicit before bulk
+promotion, so importing source lists does not create artificial daily work.
+The user has authorized the inventory; detailed extension design, implementation,
+deployment and acceptance are still distinct steps.
+
+### Accepted organization extension
+
+Dan accepted the above recommendation with “agreed go ahead”. Registry decision:
+`ministry-portfolio-inventory-20261002`. Extend the existing records, API and
+gateways; retain the legacy collection names as stable storage identities.
+`owner` identifies `fbc`, `bhe` or `gom`; `unassigned` is permitted only for
+provisional source groups whose organization is unknown. Existing organization
+ownership cannot be transferred by ordinary profile edits. Existing records
+without the new metadata retain FBC/ministry defaults. Explicit per-record grants
+remain the only staff access mechanism, with no organizational or parent cascade.
+Hierarchy stays within one organization. Unassigned groups cannot grant access
+or plan calendar commitments; ownership must be established before these actions.
+
+Imported `provisional` records retain exact `sourceEntries` (tenant, tag/folder
+identity, original name/path, URL, observation time and membership count). Source
+evidence is immutable and cannot be claimed by two records. Grouping similar
+source tags is provisional and establishes neither leaders nor workers.
+`recordKind: source_group` distinguishes administrative/contact/project lists from
+candidate ministry profiles and cannot activate without reclassification.
+No source extract is put into runtime build artifacts or Git as operational data.
+
+Provisional inventory is searchable and counted separately in the combined or
+organization-filtered review, without generating artificial review requests.
+Real unresolved matters captured against provisional profiles still surface at
+their agreed return. BHE/GO Missions calendar coverage is not configured unless
+explicitly linked; Breeze's FBC calendar is not treated as their calendar by
+default. Existing task and appointment ownership and safeguards remain in place.

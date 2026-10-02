@@ -12,6 +12,46 @@ function setup() {
 }
 async function create(s,id="nursery",profile={}){return (await s.call("createMinistry",{ministryId:id,name:id,profile})).ministry;}
 async function capture(s,r,args={}){return (await s.call("captureMinistryMatter",{ministryId:r.ministryId,expectedVersion:r.version,title:"Coverage",exactText:"I'm concerned about nursery coverage.",sensitivity:"general",...args})).ministry;}
+const sourceEntry = (id="folder_1") => ({system:"breeze",tenant:"faithbaptistapp",sourceId:id,sourceType:"folder",name:"Original source name",path:"All Tags",url:"https://faithbaptistapp.breezechms.com/r/tags",observedAt:"2026-10-01T12:00:00Z",listedPeople:null});
+test("portfolio ownership preserves old records and does not inherit access or cross organization hierarchy",async()=>{
+  const s=setup();let f=await create(s,"fbc"),b=await create(s,"bhe",{owner:"bhe"}),g=await create(s,"gom",{owner:"gom"});
+  assert.equal(f.owner,"fbc");assert.deepEqual(b.serves,["bhe"]);assert.deepEqual(g.serves,["gom"]);
+  assert.deepEqual((await s.call("listMinistries",{owner:"bhe"})).items.map(r=>r.ministryId),["bhe"]);
+  await assert.rejects(s.call("updateMinistry",{ministryId:"fbc",expectedVersion:f.version,changes:{owner:"bhe"}}),/cannot be transferred/);
+  await assert.rejects(create(s,"child",{owner:"gom",parentMinistryId:"bhe"}),/hierarchy/);
+  await s.deps.staffAuthorizationProfilesCollection.doc(getStaffAuthorizationProfileId("editor")).set({status:"active"});
+  b=(await s.call("setMinistryAccess",{ministryId:"bhe",expectedVersion:b.version,grants:[{subject:"editor",role:"editor"}]})).ministry;
+  const editor={...s.deps,taskAccess:{subject:"editor",role:"member"}};
+  assert.deepEqual((await s.call("listMinistries",{},editor)).items.map(r=>r.ministryId),["bhe"]);
+  await assert.rejects(s.call("getMinistry",{ministryId:"gom"},editor),/not available/);
+  await assert.rejects(s.call("updateMinistry",{ministryId:"bhe",expectedVersion:b.version,changes:{sourceEntries:[sourceEntry()]}},editor),/require Dan/);
+  const legacy={...f};delete legacy.owner;delete legacy.recordKind;delete legacy.sourceEntries;
+  await s.db.collection("fbcMinistryRecords").doc("fbc").set(legacy);
+  const reread=(await s.call("getMinistry",{ministryId:"fbc"})).ministry;
+  assert.equal(reread.owner,"fbc");assert.equal(reread.recordKind,"ministry");assert.deepEqual(reread.sourceEntries,[]);
+});
+test("provisional source inventory is quiet but real concerns still resurface with their context",async()=>{
+  const s=setup();let r=await create(s,"inventory",{owner:"gom",status:"provisional",sourceEntries:[sourceEntry()]});
+  const before=(await s.call("buildMinistryReview",{owner:"gom"}));
+  assert.equal(before.totalCount,0);assert.equal(before.inventory.provisionalCount,1);assert.equal(before.coverage.events,"not_configured");
+  assert.equal((await s.call("listMinistries",{query:"Original source"})).totalCount,1);
+  r=await capture(s,r,{exactText:"We need a driver for the next trip."});
+  const review=await s.call("buildMinistryReview",{owner:"gom",asOfDate:"2026-11-02"});
+  assert.equal(review.totalCount,1);assert.equal(review.items[0].owner,"gom");assert.equal(review.items[0].reason,"next_ministry_review");
+  assert.equal(review.summaries[0].status,"provisional");assert.equal((await s.deps.tasksCollection.get()).docs.length,0);
+  const p=(await s.call("getMinistryPicture",{ministryId:r.ministryId})).picture;
+  assert.equal(p.sourceEntries[0].name,"Original source name");assert.ok(p.informationGaps.includes("imported_profile_unconfirmed"));
+  assert.equal(p.openMatters[0].currentSituation,"We need a driver for the next trip.");
+});
+test("source evidence cannot be overwritten or duplicated, and unresolved ownership cannot activate or grant access",async()=>{
+  const s=setup();let r=await create(s,"unknown",{owner:"unassigned",recordKind:"source_group",status:"provisional",sourceEntries:[sourceEntry()]});
+  await assert.rejects(create(s,"duplicate",{sourceEntries:[sourceEntry()]}),/already belongs/);
+  await assert.rejects(s.call("updateMinistry",{ministryId:r.ministryId,expectedVersion:r.version,changes:{sourceEntries:[]}}),/preserved/);
+  await assert.rejects(s.call("updateMinistry",{ministryId:r.ministryId,expectedVersion:r.version,changes:{status:"active"}}),/before activation/);
+  await assert.rejects(s.call("setMinistryAccess",{ministryId:r.ministryId,expectedVersion:r.version,grants:[]}),/Confirm organization/);
+  r=(await s.call("updateMinistry",{ministryId:r.ministryId,expectedVersion:r.version,changes:{owner:"gom",recordKind:"ministry",status:"active"}})).ministry;
+  assert.equal(r.owner,"gom");assert.equal(r.status,"active");assert.equal(r.sourceEntries.length,1);
+});
 test("concern survives a fresh session; reads never create tasks or change review state",async()=>{
   const s=setup();let r=await create(s);r=await capture(s,r);
   const before=JSON.stringify([...s.db.rows]);
