@@ -218,3 +218,14 @@ was disabled to prevent reintroducing the superseded connection. Packages were
 prepared from retained baselines with exact app bindings, but require current
 rollback downloads and independent post-upload comparison before publication can
 be claimed. Pilot selections were requested; none were inferred.
+
+Subsequent client check: workspace administration recovered. Life OS 1.0.7 and
+FBC 1.0.2 were published into their existing listings; downloaded contents matched
+the submissions byte-for-byte. Life OS refresh exposed all four ministry tools.
+A fresh ordinary Chat retrieved the exact archived synthetic concern, decision,
+task identity and 27-entry history and loaded the new reference instructions.
+See platform `docs/ministry-chatgpt-publication-2026-10-02.md` for the acceptance
+conversation and download receipts. FBC tool rediscovery was subsequently
+confirmed by closing and reopening its catalog: all four ministry tools enabled,
+114/116 overall, preserving the two previously disabled tools. Real
+ministry/editor selection and the shared-event/usability pilot remain open.
