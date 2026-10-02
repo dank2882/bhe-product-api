@@ -284,3 +284,38 @@ Real unresolved matters captured against provisional profiles still surface at
 their agreed return. BHE/GO Missions calendar coverage is not configured unless
 explicitly linked; Breeze's FBC calendar is not treated as their calendar by
 default. Existing task and appointment ownership and safeguards remain in place.
+
+### Organization extension release and import verification
+
+Code `ee65c4f` is deployed on `bhe-product-api-00337-yap`, independently verified
+Ready and serving 100 percent normal traffic. Rollback is traffic-only to
+`00335-nug`; preserve all existing tags. Environment and runtime service account
+are unchanged. Its source archive was compared with the previous checkout:
+207 tracked runtime files matched, preserving the other recent releases despite
+the older inherited source-commit label on the previous revision.
+
+All 793 tests and required configuration checks pass. Candidate acceptance script
+`scripts/accept-ministry-portfolio-live.mjs` (commit `8f509b6`) verified distinct
+BHE/GO Missions ownership, an ungranted identity denial, quiet provisional
+inventory, unconfigured non-FBC calendar coverage, fresh reads and the preserved
+legacy FBC fixture. Both new synthetic records were archived without tasks,
+calendar actions or grants. These are technical acceptance checks, not real
+ministry activity.
+
+The existing Life OS connector discovered catalog 1.1.0 and imported 36 provisional
+records with stable IDs and idempotency keys. Independent exact-record reads
+matched all 123 source entries field by field. The import comprises 30 candidate
+ministry profiles and six administrative/contact/trip source groups: 33 FBC,
+one BHE contact-source group, two organization-unconfirmed trip groups. GO Missions
+is supported but no actual GO Missions ministry was invented from this source.
+No leader, worker, oversight, parent hierarchy, grant, task or calendar commitment
+was inferred. FBC Staff Tools independently read the Family Foundations record
+and both original source identities.
+
+The connected daily ministry review reported 36 provisional records separately,
+zero attention items from the import, and checked coverage of all seven church
+calendar areas. Actual concerns captured on provisional records retain their
+return behavior, covered by focused tests. Operational records now live in the
+owning backend; local extracts and receipts are secondary evidence only.
+This verifies the organization extension and starter import, not the remaining
+selected-editor, real shared-event/appointment and human-usability pilot.
