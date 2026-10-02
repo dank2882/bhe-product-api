@@ -182,3 +182,15 @@ Local verification for the contract repair: all 789 tests pass, including
 published update/cancel examples exercised through the command boundary and
 malformed proposals rejected without record/history changes. `npm run check`
 also passes. These are local results; production rollout is recorded separately.
+
+Production verification: commit `85824e7` is deployed on
+`bhe-product-api-00333-xis`, Ready with 100 percent normal traffic. The candidate
+catalog was checked with authentication before promotion; the production Dan
+Life OS tool independently returned catalog 1.0.1 and both nested examples.
+Runtime environment/service account and existing traffic tags were unchanged.
+Rollback is traffic-only to `bhe-product-api-00331-cuy`. No appointment or
+calendar record was changed during this repair.
+
+Developer Tools receipts:
+`appointment-contract-85824e7-local-tests-20261002` and
+`appointment-contract-85824e7-production-20261002`.
