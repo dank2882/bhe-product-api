@@ -189,3 +189,32 @@ marketplace or app registration was created. In-place publication of the current
 ChatGPT instruction package and fresh ChatGPT discovery still need verification.
 Three actual ministries, their selected editors and the real shared-event pilot
 remain unselected. These remaining gates prevent full decision verification.
+
+## Requirement audit and publication follow-up, October 2
+
+Current source and test assertions were inspected, rather than treating the test
+count as proof of every requirement. Cloud Run was independently reread: the
+three release revisions above still serve 100 percent normal traffic. This
+audit does not declare the full goal achieved.
+
+| Requirement | Evidence and its scope | Remaining acceptance |
+| --- | --- | --- |
+| Ministry purpose, goals, leaders, workers, oversight, hierarchy and needs | Model/profile validation and protected updates exist; hierarchy-cycle and owner-only update tests pass. Estimates remain distinct from accounting. | Dan-selected real profiles and confirmation of their current picture. |
+| Durable matters, original wording, source history, next move and return | Service and tests preserve exact capture across fresh reads, create no implicit task, and keep immutable command history. Production synthetic concern was reread through fresh MCP clients. | Ordinary Chat capture/retrieval and human usability. |
+| Unresolved matters return; stale/unknown stays explicit | Date, next-review, change-condition and event returns exist; tests cover deferred dates, event-relative return, missing ownership and old reports after review. | Real review with a leader-owned unresolved matter. |
+| Decisions and actions use owning tasks | Deterministic decision task sync and version/idempotency handling exist; tests check one task and manual completion without approval. Live pending/deferred/declined reused one task and left the matter open. Ordinary action links retain Task Management ownership. | Real decision and follow-through in Dan's task list. |
+| Explicit selected-editor access and private boundaries | Tests cover no roster/hierarchy inheritance, revocation/replay denial, protected leadership, foreign calendar-area denial and private appointment redaction. Unrelated live administrator was denied. | Actual selected editor allow/deny with the editor's identity. |
+| All Breeze areas and source limitations | Seven live areas and October events read explicitly; overlap event verified. Tests cover partial areas, source field checks, DST and exact event sharing. | Real ministry/calendar mappings and shared-event pilot. |
+| Full create/edit/cancel workflow and recovery | Live temporary create, same-identity browser edit and uncertain-delete reconciliation verified. Tests cover no repeated ambiguous create, changed source snapshots, approval and finite recurrence completeness. | Real event workflow and browser/series usability; synthetic evidence does not establish every real arrangement. |
+| Outlook, preparation/travel and family safeguards | Existing appointment workflow is linked, not duplicated. Integration test reads actual family-approval state and excludes private references from leader views/history. Maintained instructions require Outlook source checks and exact approval. | Real, explicitly authorized personal arrangement; no appointment inferred for testing. |
+| Daily/weekly/monthly reviews | Review code uses 14/90/365-day windows, defaults to five items with pagination/counts, returns changes/gaps/encouragements and excludes handed-off ministries. Daily and planning review retrieval requests exist. Task/event grouping is part of the maintained client instructions. | Published instructions and fresh Chat brief, including grouping across sources. |
+| Release, rollback, simple conversation and three-ministry pilot | Backend/gateways deployed and rollback revisions retained. Fresh SDK contract acceptance passed. New in-place packages prepared and package validation passes. | ChatGPT publication/tool discovery, three ministries, editor identities, shared event and Dan's usability check. |
+
+Publication evidence and exact archive hashes are in platform
+`docs/ministry-chatgpt-publication-2026-10-02.md`. The current ChatGPT download
+controls did not yield a new archive; Life OS workspace management returned
+Internal Server Error. No package was uploaded. The retired marketplace builder
+was disabled to prevent reintroducing the superseded connection. Packages were
+prepared from retained baselines with exact app bindings, but require current
+rollback downloads and independent post-upload comparison before publication can
+be claimed. Pilot selections were requested; none were inferred.
