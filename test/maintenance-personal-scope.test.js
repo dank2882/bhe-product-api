@@ -79,3 +79,23 @@ test("Shawna and explicit shared board lookups retain complete Maintenance acces
   assert((await service.listProjects({}, shawna)).projects.some(p => p.projectId === "proj-fbc-maintenance"));
   await assert.rejects(maintenance.listMaintenanceBoard({}, { ...deps, taskAccess: { subject: "outsider", role: "admin" } }), { statusCode: 403 });
 });
+
+test("live Dan review refresh excludes completed and dropped work in every task section and scopes guidance to Dan", async () => {
+  const { db, deps } = await fixture();
+  const before = await service.buildDailyReview({ today: "2026-10-01" }, deps);
+  assert.equal(before.guidance.audience, "dan");
+  assert.deepEqual(before.guidance.connectedSources, ["Outlook Calendar", "Outlook Email", "Messages", "Dropbox"]);
+  assert(before.activeNext.some(t => t.taskId === "personal"));
+  await service.updateTask({ taskId: "personal", expectedVersion: 1, changes: { status: "done" } }, deps);
+  await service.updateTask({ taskId: "delegated", expectedVersion: 1, changes: { status: "dropped" } }, deps);
+  const saved = structuredClone([...db.rows]);
+  const after = await service.buildDailyReview({ today: "2026-10-01" }, deps);
+  for (const key of ["activeNext", "highPriorityNext", "overdue", "needsReview", "dueToday", "scheduledToday", "scheduledOverdue", "followUpDue", "waiting", "scheduled"]) {
+    assert(!after[key].some(t => ["personal", "delegated"].includes(t.taskId)), key);
+  }
+  assert.equal(after.summary.activeNextCount, 0);
+  assert.equal((await service.getTask({ taskId: "personal" }, deps)).task.status, "done");
+  assert.deepEqual([...db.rows], saved, "review remains read-only");
+  const other = await service.buildDailyReview({ today: "2026-10-01" }, { ...deps, taskAccess: { subject: "shawna", role: "member" } });
+  assert.equal(other.guidance, undefined, "Dan source policy must not leak into another person's review");
+});
