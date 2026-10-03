@@ -24,11 +24,11 @@ Dispatcher request shape:
 }
 ```
 
-Catalog version: `1-36045c7ceddc`
+Catalog version: `1-74976fe3ac3e`
 
-Catalog hash: `36045c7ceddc1c5a02a60b1be6bc1676c6c2c8ea314588b49fd5dec86015da0b`
+Catalog hash: `74976fe3ac3ec8e2cc469ea310712736c8983ca65b19fc21278e45935acfc8c0`
 
-The registry currently exposes 97 operations. Adding registry operations does not add OpenAPI operations.
+The registry currently exposes 98 operations. Adding registry operations does not add OpenAPI operations.
 
 ## Query Operations
 
@@ -1811,6 +1811,28 @@ Optional: `title`, `summary`, `strengths`, `improvements`, `deliveryNotes`, `str
 }
 ```
 
+### removeDuplicatePreachingAnalysis
+
+Remove one confirmed identical reflection duplicate from normal results while retaining its recoverable content and provenance.
+
+Required: `sermonId`, `analysisId`, `keepAnalysisId`, `expectedUpdatedAt`, `expectedKeepUpdatedAt`, `confirmed`
+
+Optional: none
+
+```json
+{
+  "operation": "removeDuplicatePreachingAnalysis",
+  "arguments": {
+    "sermonId": "sermon-id",
+    "analysisId": "duplicate-id",
+    "keepAnalysisId": "retained-id",
+    "expectedUpdatedAt": "timestamp-from-read",
+    "expectedKeepUpdatedAt": "timestamp-from-read",
+    "confirmed": true
+  }
+}
+```
+
 ### applySermonPostPreachingReflection
 
 After confirmation, save a reviewed post-sermon analysis, exact live lines, Scripture notes, and optional profile observations from an unchanged proposal.
@@ -1818,6 +1840,8 @@ After confirmation, save a reviewed post-sermon analysis, exact live lines, Scri
 Required: `sermonId`, `proposalId`, `sourceFingerprint`, `transcriptSourceId`, `reflection`, `confirmed`
 
 Optional: `manuscriptSourceId`, `profileId`, `saveLiveLanguage`, `saveScriptureNotes`, `applyProfileCandidates`, `rebuildChunks`
+
+Argument guidance: The reflection and selected learning commit atomically. Retry identical arguments with the original key; the proposal receipt also prevents duplicate saves across keys. Changed selections are rejected. Approved transcript excerpts may be saved while a development session is active. indexingPending means the save succeeded and only rebuildSermonChunks needs retrying. Existing legacy analyses require review, not a new apply.
 
 ```json
 {

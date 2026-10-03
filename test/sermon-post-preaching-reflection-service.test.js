@@ -39,6 +39,24 @@ class FakeCollection {
   }
 }
 
+function fakeFirestore() {
+  let queue = Promise.resolve();
+  return { runTransaction(callback) {
+    const run = queue.then(async () => {
+      const writes = [];
+      const result = await callback({
+        get: ref => ref.get(),
+        create: (ref, data) => writes.push(() => ref.create(data)),
+        set: (ref, data) => writes.push(() => ref.set(data))
+      });
+      for (const write of writes) await write();
+      return result;
+    });
+    queue = run.catch(() => {});
+    return run;
+  }};
+}
+
 function createDeps() {
   const exactLiveLine = "The same grace that saved you on Monday will hold you when Friday comes.";
   const commentaryLine = "God is not only present before the season; He is our refuge inside it.";
@@ -52,6 +70,8 @@ function createDeps() {
     "Take a breath. You do not have to carry what only God can carry."
   ].join("\n\n");
   return {
+    firestoreDb: fakeFirestore(),
+    sermonOperationExecutionsCollection: new FakeCollection(),
     sermonsCollection: new FakeCollection({
       "sermon-times": {
         sermonId: "sermon-times",
@@ -273,4 +293,104 @@ test("rejects a reflection after the transcript changes", async () => {
     (error) => error.code === "stale_post_preaching_reflection"
   );
   assert.equal(deps.preachingAnalysesCollection.store.size, 0);
+});
+
+test("an active development session does not block approved transcript excerpts", async () => {
+  const deps = createDeps();
+  deps.sermonDevelopmentSessionsCollection = new FakeCollection({ active: { sermonId: "sermon-times", status: "active" } });
+  deps.saveReviewedPostPreachingScriptureNotes = saveReviewedPostPreachingScriptureNotes;
+  const proposal = await proposeSermonPostPreachingReflection({ sermonId: "sermon-times" }, deps);
+  const result = await applySermonPostPreachingReflection(proposal.applyInstructions.arguments, deps);
+  assert.equal(result.liveLanguage.savedCount, 1);
+  assert.equal(deps.sermonDevelopmentSessionsCollection.store.get("active").status, "active");
+});
+
+test("failure after staging analysis, profile, and phrases commits nothing; retry saves once", async () => {
+  const deps = createDeps();
+  const before = clone([...deps.sermonDevelopmentCheckpointsCollection.store]);
+  deps.saveReviewedPostPreachingScriptureNotes = async () => { throw new Error("injected note failure"); };
+  const proposal = await proposeSermonPostPreachingReflection({ sermonId: "sermon-times" }, deps);
+  const args = { ...proposal.applyInstructions.arguments, applyProfileCandidates: true, rebuildChunks: false };
+  await assert.rejects(applySermonPostPreachingReflection(args, deps), /injected note failure/);
+  assert.equal(deps.preachingAnalysesCollection.store.size, 0);
+  assert.equal(deps.preachingProfilesCollection.store.size, 0);
+  assert.equal(deps.sermonOperationExecutionsCollection.store.size, 0);
+  assert.deepEqual([...deps.sermonDevelopmentCheckpointsCollection.store], before);
+  deps.saveReviewedPostPreachingScriptureNotes = saveReviewedPostPreachingScriptureNotes;
+  const first = await applySermonPostPreachingReflection(args, deps);
+  const second = await applySermonPostPreachingReflection(args, deps);
+  assert.equal(second.reflectionReplayed, true);
+  assert.equal(second.analysis.analysisId, first.analysis.analysisId);
+  assert.equal(deps.preachingAnalysesCollection.store.size, 1);
+  assert.equal(deps.preachingProfilesCollection.store.values().next().value.version, 1);
+  assert.equal(deps.scriptureNotesCollection.store.size, 2);
+  assert.equal(deps.sermonDevelopmentCheckpointsCollection.store.size, 2);
+});
+
+test("simultaneous application of a proposal creates one reflection and one receipt", async () => {
+  const deps = createDeps();
+  deps.saveReviewedPostPreachingScriptureNotes = saveReviewedPostPreachingScriptureNotes;
+  const proposal = await proposeSermonPostPreachingReflection({ sermonId: "sermon-times" }, deps);
+  const args = { ...proposal.applyInstructions.arguments, rebuildChunks: false };
+  const results = await Promise.all([applySermonPostPreachingReflection(args, deps), applySermonPostPreachingReflection(args, deps)]);
+  assert.deepEqual(results.map(r => r.reflectionReplayed), [false, true]);
+  assert.equal(deps.preachingAnalysesCollection.store.size, 1);
+  assert.equal(deps.sermonOperationExecutionsCollection.store.size, 1);
+  await assert.rejects(applySermonPostPreachingReflection({ ...args, saveLiveLanguage: false }, deps), { code: "post_preaching_reflection_selection_conflict" });
+});
+
+test("indexing failure reports a saved reflection with indexing pending", async () => {
+  const deps = createDeps();
+  deps.saveReviewedPostPreachingScriptureNotes = saveReviewedPostPreachingScriptureNotes;
+  const proposal = await proposeSermonPostPreachingReflection({ sermonId: "sermon-times" }, deps);
+  delete deps.sermonChunksCollection;
+  const result = await applySermonPostPreachingReflection(proposal.applyInstructions.arguments, deps);
+  assert.equal(result.status, "applied");
+  assert.equal(result.indexingPending, true);
+  assert.equal(deps.preachingAnalysesCollection.store.size, 1);
+});
+
+test("legacy proposal records cannot be silently duplicated", async () => {
+  const deps = createDeps();
+  const proposal = await proposeSermonPostPreachingReflection({ sermonId: "sermon-times" }, deps);
+  deps.preachingAnalysesCollection.store.set("legacy", { analysisId: "legacy", sermonId: "sermon-times", reflectionProposalId: proposal.proposal.proposalId });
+  await assert.rejects(applySermonPostPreachingReflection(proposal.applyInstructions.arguments, deps), { code: "post_preaching_reflection_already_saved" });
+  assert.equal(deps.preachingAnalysesCollection.store.size, 1);
+});
+
+test("duplicate removal is guarded, recoverable, and repeatable", async () => {
+  const { removeDuplicatePreachingAnalysis, listPreachingAnalyses } = require("../lib/sermon-workspace-service");
+  const deps = createDeps();
+  const record = { sermonId: "sermon-times", reflectionProposalId: "reviewed-proposal", summary: "Exact approved wording", updatedAt: "before" };
+  deps.preachingAnalysesCollection.store.set("keep", { ...record, analysisId: "keep" });
+  deps.preachingAnalysesCollection.store.set("duplicate", { ...record, analysisId: "duplicate" });
+  const args = { sermonId: "sermon-times", analysisId: "duplicate", keepAnalysisId: "keep", expectedUpdatedAt: "before", expectedKeepUpdatedAt: "before", confirmed: true };
+  await assert.rejects(removeDuplicatePreachingAnalysis({ ...args, confirmed: false }, deps));
+  await assert.rejects(removeDuplicatePreachingAnalysis({ ...args, expectedUpdatedAt: "stale" }, deps));
+  deps.preachingAnalysesCollection.store.get("duplicate").summary = "Different wording";
+  await assert.rejects(removeDuplicatePreachingAnalysis(args, deps), { code: "analyses_not_duplicates" });
+  deps.preachingAnalysesCollection.store.get("duplicate").summary = record.summary;
+  const result = await removeDuplicatePreachingAnalysis(args, deps);
+  assert.equal(result.status, "removed");
+  assert.equal((await removeDuplicatePreachingAnalysis(args, deps)).replayed, true);
+  const list = await listPreachingAnalyses({ sermonId: "sermon-times" }, deps);
+  assert.deepEqual(list.analyses.map(a => a.analysisId), ["keep"]);
+  assert.equal(deps.preachingAnalysesCollection.store.get("duplicate").summary, record.summary);
+  assert.equal(deps.preachingAnalysesCollection.store.get("keep").updatedAt, "before");
+});
+
+test("dispatcher retries a failed reflection with the same key and replays across new keys", async () => {
+  const { runIdempotentSermonWorkspaceOperation } = require("../lib/sermon-workspace-operation-execution");
+  const deps = createDeps();
+  const proposal = await proposeSermonPostPreachingReflection({ sermonId: "sermon-times" }, deps);
+  const request = { mode: "command", operation: "applySermonPostPreachingReflection", idempotencyKey: "reflection-retry-same-key", arguments: { ...proposal.applyInstructions.arguments, rebuildChunks: false } };
+  deps.saveReviewedPostPreachingScriptureNotes = async () => { throw new Error("temporary failure"); };
+  await assert.rejects(runIdempotentSermonWorkspaceOperation(request, deps), /temporary failure/);
+  deps.saveReviewedPostPreachingScriptureNotes = saveReviewedPostPreachingScriptureNotes;
+  const saved = await runIdempotentSermonWorkspaceOperation(request, deps);
+  const replay = await runIdempotentSermonWorkspaceOperation({ ...request, idempotencyKey: "another-chat-retry-key" }, deps);
+  assert.equal(replay.result.reflectionReplayed, true);
+  assert.equal(replay.result.analysis.analysisId, saved.result.analysis.analysisId);
+  assert.equal(deps.preachingAnalysesCollection.store.size, 1);
+  await assert.rejects(runIdempotentSermonWorkspaceOperation({ ...request, arguments: { ...request.arguments, saveLiveLanguage: false } }, deps), { code: "idempotency_key_reused" });
 });
