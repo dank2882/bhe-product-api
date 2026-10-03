@@ -32,12 +32,19 @@ default Inward placement, and for otherwise uncategorized current requests.
 `getTodaysPrayers` continues to return the flat `prayers` array used by existing
 record-prayed workflows. Each due prayer is enriched with:
 
-- `number`: its numbered location in the current day's stable hierarchy;
+- `number`: its continuous display reference for this response: `01`, `02`,
+  `03`, etc., across all headings, without decimals or restarting. Above 99,
+  continue with `100`, `101`, etc. Resolve these references against the current
+  response to obtain durable prayer IDs before any numbered action;
 - `note`: the exact `privateContext`, without rewriting;
 - `sourceList`: the owning prayer-list heading and description;
 - `presentation`: the resolved placement.
 
-The response also includes `presentation.formatVersion` and the complete
+Dan approved this numbering correction on October 3, 2026.
+
+The response uses `presentation.formatVersion: dan-upward-inward-outward-v2`
+and live numbering/heading instructions. Headings are unnumbered; section,
+group and subheader keys and ordering remain unchanged. The response includes the complete
 section, group, and subheader template. Empty subheaders remain present so a
 client can render the same structure every day. Each subheader carries ordered
 `prayerIds` rather than duplicating private prayer content in the response.

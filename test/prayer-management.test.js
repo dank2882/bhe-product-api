@@ -145,6 +145,9 @@ test("a 200-prayer batch stays within 400 record writes and clears the full sele
   const { d, prayer, list } = await seed();
   const prayers = [prayer];
   for (let i = 1; i < 200; i += 1) prayers.push((await createPrayer({ listId: list.id, title: `Prayer ${i}`, prayerText: `Prayer ${i}` }, d)).prayer);
+  const today = await getTodaysPrayers({}, d);
+  assert.deepEqual([0, 8, 9, 98, 99, 199].map(i => today.prayers[i].number), ["01", "09", "10", "99", "100", "200"]);
+  assert.equal(new Set(today.prayers.map(p => p.number)).size, 200);
   enableBatchTransactions(d);
   const result = await recordPrayedBatch({ items: prayers.map((p) => ({ prayerId: p.id, expectedVersion: 1 })) }, d);
   assert.equal(result.recordedCount, 200);
@@ -276,20 +279,32 @@ test("today view always returns Dan's stable upward, inward, and outward prayer 
   await createPrayer({ listId: sarah.id, title: "Sarah's needs", prayerText: "Sarah's needs", schedule: { kind: "daily" } }, d);
 
   const today = await getTodaysPrayers({ at: "2026-08-21T17:00:00.000Z" }, d);
-  assert.equal(today.presentation.formatVersion, "dan-upward-inward-outward-v1");
-  assert.deepEqual(today.presentation.sections.map(({ number, key }) => ({ number, key })), [
-    { number: "1", key: "upward" }, { number: "2", key: "inward" }, { number: "3", key: "outward" }
+  assert.equal(today.presentation.formatVersion, "dan-upward-inward-outward-v2");
+  assert.deepEqual(today.presentation.sections.map(({ key }) => ({ key })), [
+    { key: "upward" }, { key: "inward" }, { key: "outward" }
   ]);
   const upward = today.presentation.sections[0].groups[0].subheaders[0];
   const inward = today.presentation.sections[1].groups[0].subheaders[0];
   const companion = today.presentation.sections[2].groups[0].subheaders[0];
-  assert.equal(today.prayers.find((prayer) => prayer.id === upward.prayerIds[0]).number, "1.1.1.1");
+  assert.equal(today.prayers.find((prayer) => prayer.id === upward.prayerIds[0]).number, "01");
   assert.equal(today.prayers.find((prayer) => prayer.id === upward.prayerIds[0]).note, "Help me listen.");
   assert.equal(today.prayers.find((prayer) => prayer.id === upward.prayerIds[0]).sourceList.title, "01. Personal");
   assert.equal(today.prayers.find((prayer) => prayer.id === inward.prayerIds[0]).title, "Physical Fitness");
   assert.equal(today.prayers.find((prayer) => prayer.id === companion.prayerIds[0]).title, "Sarah's needs");
-  assert.deepEqual(today.prayers.map((prayer) => prayer.number), ["1.1.1.1", "2.1.1.1", "3.1.1.1"]);
+  assert.deepEqual(today.prayers.map((prayer) => prayer.number), ["01", "02", "03"]);
   assert.equal(today.presentation.sections[2].groups.find((group) => group.key === "world").subheaders.length, 3);
+  for (const section of today.presentation.sections) {
+    assert.equal(section.number, undefined);
+    for (const group of section.groups) {
+      assert.equal(group.number, undefined);
+      for (const subheader of group.subheaders) assert.equal(subheader.number, undefined);
+    }
+  }
+  const first = today.prayers[0];
+  await recordPrayed({ prayerId: first.id, expectedVersion: first.version }, d);
+  const remaining = await getTodaysPrayers({ at: "2026-08-21T17:00:00.000Z" }, d);
+  assert.deepEqual(remaining.prayers.map(p => p.number), ["01", "02"]);
+  assert.deepEqual(remaining.prayers.map(p => p.id), today.prayers.slice(1).map(p => p.id));
 });
 
 test("prayer presentation validation is explicit and versioned updates preserve private prayer text", async () => {
