@@ -53,3 +53,25 @@ The schedule remains authoritative for which prayers are due. Presentation
 metadata must never change daily, interval, weekly, monthly, or one-date
 rotation behavior.
 
+
+## Release verification — October 3, 2026
+
+- Implementation commit: `7c20d08`. All 806 backend tests, `npm run check`,
+  and `git diff --check` passed. Coverage includes continuous numbering across
+  sections, renumbering after prayed items clear, unnumbered headings, and
+  the 09/10 and 99/100 boundaries through 200 prayers.
+- Cloud Build `abed8056-7591-4e3b-87d3-c57dc6e7cdf5` completed. Revision
+  `bhe-product-api-00321-952` is independently verified at 100% traffic.
+  Rollback: `bhe-product-api-00339-tef`. Runtime configuration excluding the
+  container image matched the prior revision; existing traffic tags remain.
+- Life OS request `180eb47f-0328-42be-9a1d-9482a727bce1` and FBC request
+  `b4fe0704-d88d-4202-b661-53ffb70ae3d5` both returned v2, continuous `01`
+  through `52`, and no numeric fields on section/group/subheader headings.
+- The 50 prayers captured before the release matched after release in every
+  returned record field except display number. Two newly created records
+  appeared during the work; no prayer mutations were issued by this repair.
+- Maintained Life OS and FBC skills and their installed copies were checked:
+  they contain no competing prayer-numbering rule. Rendering guidance is
+  supplied by the owning backend with each response, requiring no plugin or
+  gateway release. This verifies connected tool responses, not a separate
+  fresh ChatGPT conversation's final rendering.
