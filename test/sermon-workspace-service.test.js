@@ -4838,3 +4838,25 @@ test("series creation rejects fractional message numbers and missing sermon link
   await assert.rejects(createSermonSeries({ seriesTitle: "Invalid number", messageMap: [{ seriesNumber: "1.5", title: "Invalid" }] }, deps), { code: "invalid_sermon_series_message_number" });
   await assert.rejects(createSermonSeries({ seriesTitle: "Invalid link", messageMap: [{ seriesNumber: 1, sermonId: "missing-sermon" }] }, deps), { code: "sermon_series_message_sermon_not_found" });
 });
+
+test("readiness distinguishes preserved development from unfinished preparation fields without promoting drafts", async () => {
+  const deps = createDeps({
+    sermons: { developing: { sermonId: "developing", title: "Preserved message", status: "idea", scriptureText: "", outline: "", notes: "" } },
+    sermonDevelopmentTurns: {
+      user: { sermonId: "developing", sessionId: "session", speaker: "dan", transcript: "I am considering two passages; keep these five points.", createdAt: "2026-10-01T12:00:00Z" },
+      assistant: { sermonId: "developing", sessionId: "session", speaker: "assistant", transcript: "Suggested outline", createdAt: "2026-10-01T12:01:00Z" },
+      other: { sermonId: "other", sessionId: "elsewhere", speaker: "dan", transcript: "Unrelated message" }
+    }
+  });
+  const before = JSON.stringify([...deps.sermonsCollection.store]);
+  const evaluation = await evaluateSermonReadiness({ sermonId: "developing" }, deps);
+  assert.equal(evaluation.preservedDevelopment.turnCount, 2);
+  assert.equal(evaluation.preservedDevelopment.danTurnCount, 1);
+  assert.equal(evaluation.readiness.scoreMeaning, "saved_preparation_fields");
+  assert.equal(evaluation.recommendedNextStep.code, "assemble_preserved_development");
+  assert(!evaluation.nextSteps.some(s=>s.code === "attach_source_material"));
+  assert.equal(evaluation.readiness.dimensions.biblicalText.ready, false);
+  assert.equal(evaluation.readiness.dimensions.structure.ready, false);
+  assert.equal(evaluation.stage, "idea");
+  assert.equal(JSON.stringify([...deps.sermonsCollection.store]), before);
+});

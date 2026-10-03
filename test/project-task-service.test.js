@@ -1905,3 +1905,30 @@ test("archive-only team members see archive attribution, restore peers' items, a
   deps.taskAccess={role:"admin",subject:"dan"};
   assert.equal((await restoreTaskRecord({recordType:"project",recordId:"maintenance",expectedVersion:2},deps)).project.status,"active");
 });
+
+test("Dan daily-brief fallback retains personal ownership; explicit staff inventories stay available", async () => {
+  const deps = createDeps({ tasks: {
+    own: { taskId: "own", title: "Dan work", status: "next", ownerSub: "dan", assignedToSub: "dan", visibility: "private" },
+    delegated: { taskId: "delegated", title: "Dan delegated work", status: "next", ownerSub: "dan", assignedToSub: "smith", visibility: "staff" },
+    staff: { taskId: "staff", title: "Pastor Smith work", status: "next", ownerSub: "smith", assignedToSub: "smith", dueDate: "2026-09-22", visibility: "staff" }
+  }});
+  deps.taskAccess = { subject: "dan", role: "admin", name: "Dan" };
+  deps.danOwnerSubjects = ["dan"];
+  const before = JSON.stringify([...deps.tasksCollection.store]);
+  const review = await buildDailyReview({ today: "2026-10-03" }, deps);
+  const fallback = await listTasks({ status: "next", view: "personal", limit: 100 }, deps);
+  const unqualified = await listTasks({ status: "next", limit: 100 }, deps);
+  assert.deepEqual(fallback.tasks.map(t=>t.taskId), review.activeNext.map(t=>t.taskId));
+  assert.deepEqual(unqualified.tasks.map(t=>t.taskId), fallback.tasks.map(t=>t.taskId));
+  assert.equal(fallback.ownershipScope, "personal");
+  assert.equal(review.summary.overdueCount, 0);
+  const staff = await listTasks({ status: "next", view: "authorized", limit: 100 }, deps);
+  assert.equal(staff.count, 3);
+  assert.equal(staff.ownershipScope, "authorized");
+  assert.match(staff.guidance, /other staff/);
+  const selected = await listTasks({ assignedToSub: "smith" }, deps);
+  assert.equal(selected.count, 2);
+  assert.equal(review.guidance.sharedMailboxes[1], "orders@biblicalheritageexhibit.com");
+  assert.equal(review.guidance.fallbackTaskQuery.arguments.view, "personal");
+  assert.equal(JSON.stringify([...deps.tasksCollection.store]), before);
+});

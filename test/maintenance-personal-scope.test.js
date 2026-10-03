@@ -32,7 +32,7 @@ async function fixture() {
 test("Dan personal lists and every review exclude the handed-off branch, preserve delegation and never mutate records", async () => {
   const { db, deps } = await fixture(), before = structuredClone([...db.rows]);
   const listed = await service.listTasks({ limit: 2 }, deps);
-  assert.equal(listed.scope, "dan_personal_excludes_maintenance");
+  assert.equal(listed.scope, "personal");
   assert.equal(listed.hasMore, true);
   const second = await service.listTasks({ limit: 2, cursor: listed.nextCursor }, deps);
   assert.equal(second.hasMore, false);
