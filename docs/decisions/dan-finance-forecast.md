@@ -105,3 +105,36 @@ is tested synthetically until an actual shared pool is confirmed.
 Pre-release rollback: core `bhe-product-api-00337-yap`; Life OS
 `dan-life-os-mcp-00040-xam`. Preserve every existing traffic tag, runtime identity,
 secret reference and environment. No staff gateway rollout is needed.
+
+## Release evidence — October 2, 2026 Pacific
+
+Implementation commits: core `1b9e51d`, platform `d0b2d1f`. Production revisions
+`bhe-product-api-00339-tef` and `dan-life-os-mcp-00042-raf` independently observed
+Ready and serving 100% traffic. Existing environment, secret references, runtime
+identities and traffic tags retained. Full suites: 806 core and 218 platform tests
+passed; both repository checks passed.
+
+Authenticated live verification allowed the exact owner and denied an unrelated
+admin with an injected owner alias on catalog, query and command. Three selected
+pilot plans, three funds and five items plus a cash checkpoint were independently
+read back at workspace version 12. A delayed-income what-if retained the saved
+date and workspace version. Unknown costs, cash sources and schedules remain
+explicit. Private source figures and receipts are excluded from Git.
+
+Two fresh SDK clients discovered the finance tools and independently read the
+same live fund. The existing ChatGPT connection was refreshed and a fresh normal
+chat retrieved all three plans through live finance tools on October 2. Its
+read-only answer separated cash, possible income and vendor principal. A later
+API read confirmed version 12 unchanged. This verifies current authenticated
+client access, not a new OAuth lifecycle claim or human usability acceptance.
+
+Maintained/local Life OS instructions are version 1.0.11. Existing ChatGPT listing
+retains its original app binding and is version 1.0.9. ChatGPT Refresh tools reset
+listing metadata to defaults; the exact verified package was uploaded again
+after refresh, and the restored listing independently showed 1.0.9. Source package
+SHA256: `aced629c5a005472d9085d344d930eed1a2ddf13a17df5af004292de92ac46b5`.
+
+Implementation and technical verification are complete. Dan's real decision and
+roughly five-minute weekly-update acceptance remain open. Do not mark the pilot
+accepted from automated tests or the agent-operated fresh chat. Continue with
+the missing pilot facts and Dan's normal workflow; do not enlarge scope yet.
