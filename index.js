@@ -161,6 +161,7 @@ const { listNotebookOperations, runNotebookOperation } = require("./lib/notebook
 const { listIntakeOperations, runIntakeOperation } = require("./lib/intake-operation-registry");
 const { listAppointmentOperations, runAppointmentOperation } = require("./lib/appointments-operation-registry");
 const { listMinistryOverviewOperations, runMinistryOverviewOperation } = require("./lib/ministry-overview-operation-registry");
+const { listFinanceOperations, runFinanceOperation } = require("./lib/finance-forecast-operation-registry");
 const { runAppointmentCommand } = require("./lib/appointments-service");
 const { runIntakeCommand } = require("./lib/intake-service");
 const { createIntakeDestinations } = require("./lib/intake-destinations");
@@ -11841,6 +11842,22 @@ app.get("/appointments/operations", (req, res) => {
     return res.json({ ok: true, ...listAppointmentOperations(req.query) });
   } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "appointments_failed", message: error.statusCode ? error.message : "Appointment access failed" } }); }
 });
+app.get("/finance-forecast/operations", (req, res) => {
+  try {
+    require("./lib/finance-forecast-model").access(getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) }));
+    return res.json({ ok: true, ...listFinanceOperations(req.query) });
+  } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "finance_failed", message: error.statusCode ? error.message : "Finance unavailable" } }); }
+});
+for (const mode of ["query", "command"]) {
+  app.post(`/finance-forecast/${mode}`, async (req, res) => {
+    const requestId = randomUUID();
+    try { return res.json({ ok: true, requestId, ...await runFinanceOperation({ ...req.body, mode }, getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) })) }); }
+    catch (error) {
+      console.error(JSON.stringify({ event: "finance_operation_failed", requestId, code: error.code || "finance_failed" }));
+      return res.status(error.statusCode || 500).json({ ok: false, requestId, error: { code: error.code || "finance_failed", message: error.statusCode ? error.message : "Finance operation failed" } });
+    }
+  });
+}
 app.get("/ministry-overview/operations", (req,res) => {
   try {
     require("./lib/ministry-overview-model").actor(getIntakeDependencies({taskAccess:buildTaskAccessFromRequest(req)}));
