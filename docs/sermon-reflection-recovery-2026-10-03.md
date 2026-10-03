@@ -44,3 +44,27 @@ The disposable Firestore fixture was independently verified removed.
 Deployment and live cleanup verification are recorded separately below after
 release. Prior production rollback revisions: bhe-product-api-00321-952 and
 dan-life-os-mcp-00042-raf.
+
+## Live verification
+
+- Backend revision `bhe-product-api-00343-xac` (`fb8516a`) and Life OS gateway
+  `dan-life-os-mcp-00044-ven` (`a097730`) are Ready and each serve 100% traffic.
+  Existing configuration, endpoints and credentials were retained.
+- Candidate checks and fresh MCP SDK discovery verified the cleanup operation,
+  destructive annotation and refusal without confirmation. Connected Life OS
+  OAuth catalog retrieval independently reports catalog `1-74976fe3ac3e` and the
+  new operation. The SDK test is distinct from a new ChatGPT conversation.
+- Approved cleanup receipt:
+  `sermon-operation-88c355a67d9b268fbaac75276dc4c976b109ce46`.
+  The duplicate ending `57c2771d` is recoverably removed; retained analysis
+  ending `2a3f2879` is unchanged. Connected Life OS query independently returns
+  exactly one analysis for the sermon.
+- Before/after content hashes match for the retained reflection, sermon, source
+  records, all nine checkpoints, four Scripture notes, note import and preaching
+  profiles. No new reflections, learning or profile observations were generated
+  for the user's sermon during acceptance.
+- Scripts: `scripts/verify-sermon-reflection-transaction.cjs` uses disposable,
+  isolated Firestore records and verifies their cleanup;
+  `scripts/verify-sermon-duplicate-cleanup.cjs` is limited to this exact incident,
+  and requires `--apply` for removal. Gateway SDK acceptance is in
+  `bhe-agent-platform/scripts/verify-sermon-recovery-mcp-live.mjs`.
