@@ -124,3 +124,20 @@ test("decision task sync verifies one destination; manual task completion is not
   const p=(await s.call("getMinistryPicture",{ministryId:r.ministryId})).picture;
   assert.ok(p.openMatters[0].gaps.includes("decision_not_recorded"));assert.equal(p.openMatters[0].decision.outcome,"pending");
 });
+
+test("shared ministry matter stays single and source access remains independent",async()=>{
+ const s=setup();let women=await capture(s,await create(s,"women")),care=await create(s,"member-care");
+ const id=women.matters[0].matterId;
+ care=(await s.call("linkMinistryMatter",{ministryId:care.ministryId,expectedVersion:care.version,sourceMinistryId:women.ministryId,sourceMatterId:id,userConfirmed:true})).ministry;
+ assert.equal(care.matters.length,0);assert.equal(care.sharedMatters[0].matter.exactText,women.matters[0].exactText);
+ women=(await s.call("updateMinistryMatter",{ministryId:women.ministryId,expectedVersion:women.version,matterId:id,changes:{currentSituation:"New shared situation"}})).ministry;
+ assert.equal((await s.call("getMinistry",{ministryId:care.ministryId})).ministry.sharedMatters[0].matter.currentSituation,"New shared situation");
+ await s.deps.staffAuthorizationProfilesCollection.doc(getStaffAuthorizationProfileId("leader")).set({status:"active"});
+ care=(await s.call("setMinistryAccess",{ministryId:care.ministryId,expectedVersion:care.version,grants:[{subject:"leader",role:"editor"}]})).ministry;
+ const leader={...s.deps,taskAccess:{subject:"leader",subjects:["leader"],role:"member"}};
+ assert.deepEqual((await s.call("getMinistry",{ministryId:care.ministryId},leader)).ministry.sharedMatters,[{state:"unavailable"}]);
+ await assert.rejects(s.call("linkMinistryMatter",{ministryId:care.ministryId,expectedVersion:care.version,sourceMinistryId:women.ministryId,sourceMatterId:id,userConfirmed:true},leader),/Dan/);
+ const review=await s.call("buildMinistryReview",{asOfDate:"2026-11-02",limit:100});
+ assert.equal(review.items.filter(x=>x.matterId===id).length,1);
+ assert.equal(review.sharedMatters.filter(x=>x.matterId===id).length,1);
+});
