@@ -141,3 +141,24 @@ test("shared ministry matter stays single and source access remains independent"
  assert.equal(review.items.filter(x=>x.matterId===id).length,1);
  assert.equal(review.sharedMatters.filter(x=>x.matterId===id).length,1);
 });
+
+test("stable matter capture supports retry, linked action review IDs and deferral without resolution",async()=>{
+ const s=setup();let r=await create(s,"women");
+ const args={ministryId:r.ministryId,expectedVersion:r.version,matterId:"widows-need",title:"Ongoing fellowship",exactText:"Keep checking in",kind:"need",sensitivity:"general",nextMove:{kind:"dan",action:"Discuss the first activity"}};
+ r=(await s.call("captureMinistryMatter",args,s.deps,"stable-widows-capture")).ministry;
+ assert.equal((await s.call("captureMinistryMatter",args,s.deps,"stable-widows-capture")).ministry.matters.length,1);
+ const {createTask}=require("../lib/project-task-service");
+ const {task}=await createTask({title:"Plan first activity",status:"next",visibility:"private"},s.deps);
+ r=(await s.call("linkMinistryTask",{ministryId:r.ministryId,expectedVersion:r.version,matterId:"widows-need",taskId:task.taskId,userAuthorized:true})).ministry;
+ const review=await s.call("buildMinistryReview",{period:"weekly",limit:100});
+ assert.deepEqual(review.items.find(x=>x.matterId==="widows-need").taskIds,[task.taskId]);
+ r=(await s.call("updateMinistryMatter",{ministryId:r.ministryId,expectedVersion:r.version,matterId:"widows-need",changes:{returnCondition:{kind:"date",date:"2026-10-15"}}})).ministry;
+ assert.equal((await s.call("buildMinistryReview",{period:"daily",asOfDate:"2026-10-14",limit:100})).items.some(x=>x.matterId==="widows-need"),false);
+ assert.equal((await s.call("buildMinistryReview",{period:"daily",asOfDate:"2026-10-15",limit:100})).items.some(x=>x.matterId==="widows-need"),true);
+ await s.deps.tasksCollection.doc(task.taskId).update({status:"done"});
+ let p=(await s.call("getMinistryPicture",{ministryId:r.ministryId})).picture;
+ assert.equal(p.openMatters[0].status,"open");assert.ok(p.openMatters[0].gaps.includes("task_done_matter_unresolved"));
+ await s.deps.tasksCollection.doc(task.taskId).delete();
+ p=(await s.call("getMinistryPicture",{ministryId:r.ministryId})).picture;
+ assert.equal(p.coverage.linkedTasks,"partial");
+});
