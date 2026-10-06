@@ -372,10 +372,14 @@ test("in-hours progress handles stale availability, conflicts, interruption and 
   await assert.rejects(f.command("beginAppointmentAction", { ...fields(r), actionId }), { code: "appointments_calendar_read_required" });
   f.setTime(at);
   const args = { ...fields(r), actionId };
+  // Records approved before this release can retain the old waiting flag.
+  await f.db.collection("danAppointmentRecords").doc(r.appointmentId).update({ waitingOn: "dan" });
   r = await f.command("beginAppointmentAction", args, "resumed-booking-once");
   const resumed = await f.command("beginAppointmentAction", args, "resumed-booking-once");
   assert.equal(resumed.dispatchInstruction, "reconcile_only");
   assert.equal(resumed.appointment.booking.nextAction, "reconcile_calendar");
+  assert.equal(resumed.appointment.waitingOn, "none");
+  assert.equal(resumed.appointment.attentionReasons.includes("awaiting_dan"), false);
   await assert.rejects(f.command("beginAppointmentAction", { ...fields(r), actionId }), { code: "appointments_action_locked" });
   r = await f.command("recordAppointmentActionResult", { ...fields(r), actionId, outcome: "read_back", observedAt: at,
     event: { eventId: "already-created", start, end, location: "Church office", subject: "Pastoral appointment", attendees: [] } });
