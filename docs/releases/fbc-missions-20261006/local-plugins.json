@@ -1,0 +1,19 @@
+{
+  "status": "installed_and_verified",
+  "records": [
+    {
+      "plugin": "dan-life-os",
+      "version": "1.0.16",
+      "sourceFileCount": 13,
+      "allSourceFilesByteEqual": true,
+      "mcpConfigurationByteEqual": true
+    },
+    {
+      "plugin": "fbc-staff-tools",
+      "version": "0.1.0+codex.20261006155500",
+      "sourceFileCount": 38,
+      "allSourceFilesByteEqual": true,
+      "mcpConfigurationByteEqual": true
+    }
+  ]
+}

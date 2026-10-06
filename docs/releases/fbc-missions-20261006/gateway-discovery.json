@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "records": [
+    {
+      "endpoint": "https://dan-life.foundedonfaith.com/mcp",
+      "missionsQueryAdvertised": true,
+      "unauthenticatedReadStatus": 401
+    },
+    {
+      "endpoint": "https://staff-tools-api.foundedonfaith.com/mcp",
+      "missionsQueryAdvertised": true,
+      "unauthenticatedReadStatus": 401
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "status": "published_and_saved_bytes_verified",
+  "records": [
+    {
+      "plugin": "dan-life-os",
+      "version": "1.0.13",
+      "readback": "/Users/danielkirchner/Downloads/plugin (25).zip",
+      "fileCount": 13,
+      "allFilesByteEqual": true,
+      "appBindingPreserved": true,
+      "submittedSha256": "ee2f3c85caf08a69386a4023706757c48bac1c74375fb3afec4984b5410d4411",
+      "readbackSha256": "c5b624ae639e4c63c83fc7967c34bfeb4a3cb010a8255e6d17e10bf4fa61123c"
+    },
+    {
+      "plugin": "fbc-staff-tools",
+      "version": "1.0.3",
+      "readback": "/Users/danielkirchner/Downloads/plugin (24).zip",
+      "fileCount": 38,
+      "allFilesByteEqual": true,
+      "appBindingPreserved": true,
+      "submittedSha256": "c24c2c3adb3a7083e2f48af92cef5bae7257db4bb181ecfe9db11b162eb1b3b9",
+      "readbackSha256": "4843af04273b1ba6305ea4df864db60ada5c16d70048199261bd87ad1e14b51c"
+    }
+  ],
+  "refreshSideEffect": "Tool refresh replaced package with a 1.0.0 two-file shell; complete packages were restored and independently byte-verified after refresh."
+}

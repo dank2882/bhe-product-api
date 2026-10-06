@@ -1,0 +1,35 @@
+{
+  "observedAt": "2026-10-06T22:49:42.164317+00:00",
+  "records": [
+    {
+      "service": "bhe-product-api",
+      "revision": "bhe-product-api-missions-1006a",
+      "trafficPercent": 100,
+      "ready": true,
+      "rollbackRevision": "bhe-product-api-00353-qob",
+      "environmentUnchanged": true,
+      "runtimeIdentityUnchanged": true,
+      "unrelatedTrafficTagsPreserved": true
+    },
+    {
+      "service": "fbc-staff-tools-mcp-entra-prod",
+      "revision": "fbc-staff-tools-mcp-entra-prod-missions-1006a",
+      "trafficPercent": 100,
+      "ready": true,
+      "rollbackRevision": "fbc-staff-tools-mcp-entra-prod-00071-foy",
+      "environmentUnchanged": true,
+      "runtimeIdentityUnchanged": true,
+      "unrelatedTrafficTagsPreserved": true
+    },
+    {
+      "service": "dan-life-os-mcp",
+      "revision": "dan-life-os-mcp-missions-1006a",
+      "trafficPercent": 100,
+      "ready": true,
+      "rollbackRevision": "dan-life-os-mcp-00048-coj",
+      "environmentUnchanged": true,
+      "runtimeIdentityUnchanged": true,
+      "unrelatedTrafficTagsPreserved": true
+    }
+  ]
+}
