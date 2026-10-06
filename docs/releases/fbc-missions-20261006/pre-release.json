@@ -1,0 +1,212 @@
+[
+  {
+    "service": "bhe-product-api",
+    "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app",
+    "traffic": [
+      {
+        "revisionName": "bhe-product-api-00284-mon",
+        "tag": "notebooks-candidate",
+        "url": "https://notebooks-candidate---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00286-nov",
+        "tag": "repository-images",
+        "url": "https://repository-images---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00288-zis",
+        "tag": "repo-gallery",
+        "url": "https://repo-gallery---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00304-yug",
+        "tag": "dropbox-review",
+        "url": "https://dropbox-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00311-niy",
+        "tag": "travel-advisor-review",
+        "url": "https://travel-advisor-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00319-jug",
+        "tag": "intake-review",
+        "url": "https://intake-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00321-vev",
+        "tag": "maintenance-handoff",
+        "url": "https://maintenance-handoff---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00323-mov",
+        "tag": "appointments-review",
+        "url": "https://appointments-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00327-cog",
+        "tag": "family-review",
+        "url": "https://family-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00331-cuy",
+        "tag": "ministry-review",
+        "url": "https://ministry-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00333-xis",
+        "tag": "appointment-contract-review",
+        "url": "https://appointment-contract-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00335-nug",
+        "tag": "instruction-review",
+        "url": "https://instruction-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00337-yap",
+        "tag": "ministry-portfolio-review",
+        "url": "https://ministry-portfolio-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00339-tef",
+        "tag": "finance-review",
+        "url": "https://finance-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00343-xac",
+        "tag": "sermon-review",
+        "url": "https://sermon-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00345-gas",
+        "tag": "brief-review",
+        "url": "https://brief-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00349-qaf",
+        "tag": "church-people-review",
+        "url": "https://church-people-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "percent": 100,
+        "revisionName": "bhe-product-api-00353-qob",
+        "tag": "booking-review",
+        "url": "https://booking-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      }
+    ],
+    "latestReadyRevision": "bhe-product-api-00353-qob",
+    "runtimeServiceAccount": "gpt-firestore-api@location-map-985.iam.gserviceaccount.com",
+    "environmentHash": "cf6b396351ae710d7883f67724f9e2192bb5b736cda063418eb0dc0b07024b37"
+  },
+  {
+    "service": "fbc-staff-tools-mcp-entra-prod",
+    "url": "https://fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app",
+    "traffic": [
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00044-rud",
+        "tag": "repo-img",
+        "url": "https://repo-img---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00047-kal",
+        "tag": "gallery",
+        "url": "https://gallery---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00062-how",
+        "tag": "dropbox-review",
+        "url": "https://dropbox-review---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00067-did",
+        "tag": "travel-review",
+        "url": "https://travel-review---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00069-pep",
+        "tag": "ministry-review",
+        "url": "https://ministry-review---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "percent": 100,
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00071-foy",
+        "tag": "people-review",
+        "url": "https://people-review---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      }
+    ],
+    "latestReadyRevision": "fbc-staff-tools-mcp-entra-prod-00071-foy",
+    "runtimeServiceAccount": "bhe-mcp-runtime@location-map-985.iam.gserviceaccount.com",
+    "environmentHash": "2993b102d619ba56e360ec9c8ea4a262e4e69636e72a45012178f4fad6251489"
+  },
+  {
+    "service": "dan-life-os-mcp",
+    "url": "https://dan-life-os-mcp-mwhc25pkra-uw.a.run.app",
+    "traffic": [
+      {
+        "revisionName": "dan-life-os-mcp-00019-hay",
+        "tag": "notebooks-candidate",
+        "url": "https://notebooks-candidate---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00021-mar",
+        "tag": "desk-candidate",
+        "url": "https://desk-candidate---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00028-veq",
+        "tag": "oauth-refresh-candidate",
+        "url": "https://oauth-refresh-candidate---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00032-zol",
+        "tag": "intake-review",
+        "url": "https://intake-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00034-ruv",
+        "tag": "appointments-review",
+        "url": "https://appointments-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00036-waw",
+        "tag": "family-review",
+        "url": "https://family-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00038-buc",
+        "tag": "ministry-review",
+        "url": "https://ministry-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00040-xam",
+        "tag": "instruction-review",
+        "url": "https://instruction-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00042-raf",
+        "tag": "finance-review",
+        "url": "https://finance-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00044-ven",
+        "tag": "sermon-review",
+        "url": "https://sermon-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00046-teh",
+        "tag": "church-people-review",
+        "url": "https://church-people-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "percent": 100,
+        "revisionName": "dan-life-os-mcp-00048-coj",
+        "tag": "booking-review",
+        "url": "https://booking-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      }
+    ],
+    "latestReadyRevision": "dan-life-os-mcp-00048-coj",
+    "runtimeServiceAccount": "bhe-mcp-runtime@location-map-985.iam.gserviceaccount.com",
+    "environmentHash": "71a7b753014d12babbd2e250f8f52a8a1b2e7e0d474cd7cc81d3d4e703c26ce0"
+  }
+]
