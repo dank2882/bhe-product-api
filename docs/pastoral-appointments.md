@@ -42,8 +42,8 @@ Check the entire sequence, then recheck each action immediately before writing.
 Default Pacific time, original-channel confirmations, no invitation unless
 approved; private preparation/travel blocks never have attendees.
 
-Calendar presence means held, not confirmed. Record agreement to actual current
-time and location separately. Waiting and holds have explicit review times;
+Calendar presence means booked/held, not participant agreement. Record agreement to actual current
+time and location separately. Waiting and holds may have explicit review times; missing reminders never block booking and unresolved replies remain in reviews.
 review is manual through daily/weekly workflows, never background expiration.
 Dan brings replies back. Read current Outlook events before preparation, changes
 and communication; direct changes trigger reconciliation, never silently move

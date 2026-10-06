@@ -170,7 +170,7 @@ test("owning references require trusted verification and partial follow-up block
 
 test("review pagination is read-only and explicit hold review dates surface", async () => {
   const f = fixture(); let r = await create(f);
-  await assert.rejects(f.command("setAppointmentDecision", { ...fields(r), recommendation: "meeting", waitingOn: "requester" }));
+  r = await f.command("setAppointmentDecision", { ...fields(r), recommendation: "meeting", waitingOn: "requester" });
   r = await f.command("setAppointmentDecision", { ...fields(r), recommendation: "meeting", waitingOn: "requester", nextReviewAt: at });
   await create(f);
   const first = await f.query("listAppointments", { limit: 1 });
@@ -323,4 +323,90 @@ test("cancelled arrangements cannot reacquire wife approval or send stale confir
   await assert.rejects(wifeApprove(f, r), { code: "appointments_family_arrangement_changed" });
   await assert.rejects(f.command("beginAppointmentAction", { ...fields(r), actionId: aid }), { code: "appointments_family_notice_changed" });
   assert.equal(r.appointment.pendingFamilyNotices[0].kind, "cancelled");
+});
+
+test("approval in either order resumes across actors without reminders or another approval", async () => {
+  for (const wifeFirst of [true, false]) {
+    const f = fixture(); await familyConfig(f);
+    let r = await propose(f, await create(f), cal({ start: "2026-10-03T00:00:00Z", end: "2026-10-03T00:45:00Z" }));
+    assert.deepEqual(r.appointment.booking.blockers, ["wife_approval_required", "action_approval_required"]);
+    r = wifeFirst ? await wifeApprove(f, r) : await approve(f, r);
+    assert.deepEqual(r.appointment.booking.blockers, [wifeFirst ? "action_approval_required" : "wife_approval_required"]);
+    r = wifeFirst ? await approve(f, r) : await wifeApprove(f, r);
+    const saved = (await f.query("getAppointment", { appointmentId: r.appointmentId })).appointment;
+    assert.equal(saved.booking.state, "ready_to_book");
+    assert.equal(saved.booking.nextAction, "check_calendar");
+    assert.equal(saved.booking.connectorAccess, "check_in_active_client");
+    assert.equal(saved.attentionReasons.includes("awaiting_dan"), false);
+    assert.equal(saved.nextReviewAt, "");
+    assert.equal(saved.booking.calendarBooked, false);
+    const a = saved.actions[0], c = a.proposal.calendar;
+    r = await f.command("recordAppointmentObservation", { ...fields(r), actionId: a.actionId, observedAt: at, availability: { start: c.start, end: c.end, conflictCount: 0 } });
+    assert.equal(r.appointment.booking.nextAction, "begin_calendar_action");
+    r = await f.command("beginAppointmentAction", { ...fields(r), actionId: a.actionId });
+    assert.equal(r.appointment.booking.state, "reconciliation_needed");
+    r = await f.command("recordAppointmentActionResult", { ...fields(r), actionId: a.actionId, outcome: "read_back", observedAt: at,
+      event: { eventId: "evening-once", start: c.start, end: c.end, location: c.location, subject: c.subject, attendees: [] } });
+    assert.equal(r.appointment.booking.state, "booked");
+    assert.equal(r.appointment.booking.calendarBooked, true);
+    assert.equal(r.appointment.booking.participantAgreed, false);
+    assert.equal(r.appointment.nextReviewAt, "");
+    assert.equal(r.appointment.agreement, null);
+    assert.equal(r.appointment.status, "held");
+    const attention = await f.query("listAppointments", { view: "attention" });
+    assert.equal(attention.appointments[0].attentionReasons.includes("participant_agreement_pending"), true);
+  }
+});
+
+test("in-hours progress handles stale availability, conflicts, interruption and changed arrangements", async () => {
+  const f = fixture(); await familyConfig(f);
+  let r = await approve(f, await propose(f, await create(f)));
+  assert.equal(r.appointment.family.required, false);
+  assert.equal(r.appointment.booking.state, "ready_to_book");
+  const actionId = r.appointment.actions[0].actionId;
+  await assert.rejects(f.command("recordAppointmentObservation", { ...fields(r), actionId, observedAt: at, availability: { start, end, conflictCount: 1 } }));
+  await assert.rejects(f.command("beginAppointmentAction", { ...fields(r), actionId }), { code: "appointments_calendar_read_required" });
+  r = await f.command("recordAppointmentObservation", { ...fields(r), actionId, observedAt: at, availability: { start, end, conflictCount: 0 } });
+  f.setTime("2026-10-01T17:06:00.000Z");
+  assert.equal((await f.query("getAppointment", { appointmentId: r.appointmentId })).appointment.booking.nextAction, "check_calendar");
+  await assert.rejects(f.command("beginAppointmentAction", { ...fields(r), actionId }), { code: "appointments_calendar_read_required" });
+  f.setTime(at);
+  const args = { ...fields(r), actionId };
+  r = await f.command("beginAppointmentAction", args, "resumed-booking-once");
+  const resumed = await f.command("beginAppointmentAction", args, "resumed-booking-once");
+  assert.equal(resumed.dispatchInstruction, "reconcile_only");
+  assert.equal(resumed.appointment.booking.nextAction, "reconcile_calendar");
+  await assert.rejects(f.command("beginAppointmentAction", { ...fields(r), actionId }), { code: "appointments_action_locked" });
+  r = await f.command("recordAppointmentActionResult", { ...fields(r), actionId, outcome: "read_back", observedAt: at,
+    event: { eventId: "already-created", start, end, location: "Church office", subject: "Pastoral appointment", attendees: [] } });
+  r = await propose(f, r, cal({ operation: "update", eventId: "already-created", start: "2026-10-02T22:00:00Z", end: "2026-10-02T22:45:00Z" }));
+  assert.equal(r.appointment.booking.state, "approvals_needed");
+  assert.equal(r.appointment.booking.calendarBooked, true);
+});
+
+test("reminder-free waiting and message approvals remain separate from booked calendar", async () => {
+  const f = fixture(); let r = await create(f);
+  r = await f.command("setAppointmentDecision", { ...fields(r), recommendation: "meeting", waitingOn: "requester" });
+  assert.equal(r.appointment.attentionReasons.includes("response_pending"), true);
+  r = await booked(f);
+  r = await propose(f, r, { kind: "message", channel: "email", recipients: ["example@example.invalid"], reference: { system: "correspondence", recordId: "message", expectedVersion: 1 } });
+  assert.equal(r.appointment.booking.state, "booked");
+  assert.equal(r.appointment.booking.pendingMessageCount, 1);
+  assert.equal(r.appointment.booking.participantAgreed, false);
+  r = await familyBooked(f);
+  assert.equal(r.appointment.booking.state, "booked");
+  assert.equal(r.appointment.booking.participantAgreed, true);
+  assert.equal(r.appointment.booking.pendingFamilyNoticeCount, 1);
+});
+
+test("booking progress exposes dependency and competing-proposal blockers", async () => {
+  const f = fixture(); let r = await create(f);
+  r = await propose(f, r, { kind: "domain_reference", reference: { system: "notebooks", recordId: "agenda" } });
+  const dependency = r.appointment.actions[0].actionId;
+  r = await propose(f, r, { ...cal(), dependsOn: [dependency] });
+  r = await approve(f, r);
+  assert.equal(r.appointment.booking.state, "blocked");
+  assert.deepEqual(r.appointment.booking.blockers, ["dependencies_unverified"]);
+  r = await propose(f, r, cal());
+  assert.deepEqual(r.appointment.booking.blockers, ["competing_calendar_actions"]);
 });
