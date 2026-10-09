@@ -84,7 +84,7 @@ test("live Dan review refresh excludes completed and dropped work in every task 
   const { db, deps } = await fixture();
   const before = await service.buildDailyReview({ today: "2026-10-01" }, deps);
   assert.equal(before.guidance.audience, "dan");
-  assert.deepEqual(before.guidance.connectedSources, ["Outlook Calendar", "Outlook Email", "Messages", "Dropbox"]);
+  assert.deepEqual(before.guidance.connectedSources, ["Outlook Calendar", "Outlook Email", "Messages", "WhatsApp", "Dropbox"]);
   assert(before.activeNext.some(t => t.taskId === "personal"));
   await service.updateTask({ taskId: "personal", expectedVersion: 1, changes: { status: "done" } }, deps);
   await service.updateTask({ taskId: "delegated", expectedVersion: 1, changes: { status: "dropped" } }, deps);
