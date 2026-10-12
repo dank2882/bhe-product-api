@@ -1,0 +1,89 @@
+[
+  {
+    "collectionGroup": "repositorySources",
+    "fields": [
+      {
+        "field-path": "tokens",
+        "array-config": "contains"
+      },
+      {
+        "field-path": "sourceId",
+        "order": "ascending"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "repositorySourceChunks",
+    "fields": [
+      {
+        "field-path": "active",
+        "order": "ascending"
+      },
+      {
+        "field-path": "tokens",
+        "array-config": "contains"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "repositorySourceChunks",
+    "fields": [
+      {
+        "field-path": "active",
+        "order": "ascending"
+      },
+      {
+        "field-path": "embeddingModel",
+        "order": "ascending"
+      },
+      {
+        "field-path": "embeddingVector",
+        "vector-config": {
+          "dimension": 768,
+          "flat": {}
+        }
+      }
+    ]
+  },
+  {
+    "collectionGroup": "repositorySourceChunks",
+    "fields": [
+      {
+        "field-path": "active",
+        "order": "ascending"
+      },
+      {
+        "field-path": "sourceId",
+        "order": "ascending"
+      },
+      {
+        "field-path": "tokens",
+        "array-config": "contains"
+      }
+    ]
+  },
+  {
+    "collectionGroup": "repositorySourceChunks",
+    "fields": [
+      {
+        "field-path": "active",
+        "order": "ascending"
+      },
+      {
+        "field-path": "sourceId",
+        "order": "ascending"
+      },
+      {
+        "field-path": "embeddingModel",
+        "order": "ascending"
+      },
+      {
+        "field-path": "embeddingVector",
+        "vector-config": {
+          "dimension": 768,
+          "flat": {}
+        }
+      }
+    ]
+  }
+]

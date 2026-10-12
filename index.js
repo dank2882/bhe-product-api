@@ -12601,6 +12601,49 @@ app.post("/products/:slug/assets/attach", async (req, res) => {
 });
 
 // Repository files remain staff-authorized; media capabilities recheck identity.
+const repositorySources = require("./lib/repository-source-service");
+function repositorySourceDeps() {
+  return { ...repositoryLibraryDeps(), embeddingModel: VERTEX_TEXT_EMBEDDING_MODEL,
+    embedText: embedTextWithVertexAi, toVectorValue: values => FieldValue.vector(values),
+    enqueueIndexingJob: async ({ jobId, retryGeneration = 0 }) => {
+      const queue = process.env.NOTEBOOK_INDEXING_QUEUE_NAME || "dan-notebook-indexing";
+      const parent = `projects/${GCP_PROJECT_ID}/locations/${SERMON_TRANSCRIPTION_QUEUE_LOCATION}/queues/${queue}`;
+      const client = await vertexAuth.getClient();
+      try {
+        await client.request({ url: `https://cloudtasks.googleapis.com/v2/${parent}/tasks`, method: "POST",
+          data: { task: { name: `${parent}/tasks/repository-${jobId}-r${retryGeneration}`, dispatchDeadline: "900s",
+            httpRequest: { httpMethod: "POST", url: `${GPT_ACTION_BASE_URL}/internal/repository-source-jobs/${encodeURIComponent(jobId)}/run`,
+              headers: { "Content-Type": "application/json", "x-api-key": BHE_API_KEY },
+              body: Buffer.from(JSON.stringify({ jobId })).toString("base64") } } } });
+      } catch (error) { if (Number(error?.response?.status) !== 409) throw error; }
+    } };
+}
+async function refreshRepositorySource(req, origin, record) {
+  if (!req.header("x-bhe-actor-sub")) return { status: "requires_individual_import" };
+  try {
+    return await repositorySources.run({ mode: "command", operation: "importSource", arguments: {
+      ...origin, idempotencyKey: "auto-source-" + createHash("sha256").update(JSON.stringify(record)).digest("hex")
+    } }, req.header("x-bhe-actor-sub"), repositorySourceDeps());
+  } catch { return { status: "pending_import", next: "Use repository_source_command importSource to retry indexing; the original is saved." }; }
+}
+for (const mode of ["query", "command"]) {
+  app.post(`/repository/sources/${mode}`, async (req, res) => {
+    const requestId = randomUUID();
+    try {
+      const result = await repositorySources.run({ ...req.body, mode }, req.header("x-bhe-actor-sub"), repositorySourceDeps());
+      if (req.body?.operation === "searchPassages") console.log(JSON.stringify({ event: "repository_source_search", requestId, ...result.metrics }));
+      res.json({ ok: true, requestId, ...result });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ ok: false, requestId,
+        error: { code: error.code || "repository_source_failed", message: error.statusCode ? error.message : "Repository source operation failed" } });
+    }
+  });
+}
+app.post("/internal/repository-source-jobs/:jobId/run", async (req, res) => {
+  try { res.json({ ok: true, ...await repositorySources.processIndexingJob(req.params.jobId, repositorySourceDeps()) }); }
+  catch (error) { res.status(error.statusCode || 500).json({ ok: false, error: { code: "repository_source_indexing_failed" } }); }
+});
+
 const repositoryLibrary = require("./lib/repository-library-service");
 const { DropboxStorage } = require("./lib/repository-dropbox-storage");
 const repositoryDropbox = process.env.REPOSITORY_DROPBOX_REFRESH_TOKEN
@@ -12631,7 +12674,9 @@ for (const mode of ["save", "query"]) {
         catch { syncState = { status: "temporarily_unavailable", more: true }; }
       }
       const result = await repositoryLibrary[mode](req.body || {}, subject, deps);
-      res.json({ ok: true, ...result, ...(syncState ? { sync: syncState } : {}) });
+      const sourceIndexing = mode === "save" && result.entry?.kind === "note"
+        ? await refreshRepositorySource(req, { entryId: result.entry.entryId }, result.entry) : null;
+      res.json({ ok: true, ...result, ...(sourceIndexing ? { sourceIndexing } : {}), ...(syncState ? { sync: syncState } : {}) });
     } catch (error) {
       res.status(Number(error.statusCode) || 500).json({ ok: false, error: error.statusCode ? error.message : "Repository library operation failed" });
     }
@@ -12904,7 +12949,9 @@ app.post("/repository/documents/:documentId/ocr/start", async (req, res) => {
       getRepositoryWorkflowDependencies()
     );
 
+    const sourceIndexing = await refreshRepositorySource(req, { documentId: req.params.documentId }, result);
     return res.status(200).json({
+      sourceIndexing,
       ok: true,
       message: "Repository document OCR completed",
       documentId: result.documentId,
@@ -12925,7 +12972,9 @@ app.post("/repository/documents/:documentId/ocr/cleanup", async (req, res) => {
       getRepositoryWorkflowDependencies()
     );
 
+    const sourceIndexing = await refreshRepositorySource(req, { documentId: req.params.documentId }, result);
     return res.status(200).json({
+      sourceIndexing,
       ok: true,
       message: "Repository OCR cleanup completed",
       documentId: result.documentId,
@@ -12946,7 +12995,9 @@ app.post("/repository/documents/:documentId/ocr/normalize", async (req, res) => 
       getRepositoryWorkflowDependencies()
     );
 
+    const sourceIndexing = await refreshRepositorySource(req, { documentId: req.params.documentId }, result);
     return res.status(200).json({
+      sourceIndexing,
       ok: true,
       message: "Repository OCR normalization completed",
       documentId: result.documentId,
@@ -12967,7 +13018,9 @@ app.post("/repository/documents/:documentId/ocr/ai-correct", async (req, res) =>
       getRepositoryWorkflowDependencies()
     );
 
+    const sourceIndexing = await refreshRepositorySource(req, { documentId: req.params.documentId }, result);
     return res.status(200).json({
+      sourceIndexing,
       ok: true,
       message: "Repository OCR AI correction completed",
       documentId: result.documentId,
@@ -12991,7 +13044,9 @@ app.post("/repository/documents/:documentId/ocr/human-review", async (req, res) 
       getRepositoryWorkflowDependencies()
     );
 
+    const sourceIndexing = await refreshRepositorySource(req, { documentId: req.params.documentId }, result);
     return res.status(200).json({
+      sourceIndexing,
       ok: true,
       message: "Repository human-reviewed OCR text saved",
       documentId: result.documentId,
