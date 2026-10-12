@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {repositoryLiveClient} from './lib/repository-live-client.mjs';
 const {db,request,service,subject}=repositoryLiveClient();
-const prefix='Repository verification '+Date.now(),ids=[],revisions=[],cacheIds=new Set(),checks=[];
+const prefix='Repository verification '+Date.now(),ids=[],libraryIds=[],revisions=[],cacheIds=new Set(),checks=[];
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const model=service.spec.template.spec.containers[0].env.find(e=>e.name==='VERTEX_TEXT_EMBEDDING_MODEL')?.value||'text-embedding-005';
 async function call(mode,op,args){const r=await request(mode,op,args);assert.equal(r.body.ok,true,JSON.stringify({op,status:r.status,error:r.body.error}));return r.body;}
@@ -10,6 +10,12 @@ async function indexed(sourceId){for(let i=0;i<90;i++){const s=await call('query
 try{
  assert.equal((await request('query','searchSources',{query:prefix},'unregistered-source-test')).status,403);
  const noKey=await request('query','searchSources',{query:prefix},subject,false);assert([401,403].includes(noKey.status));checks.push('unknown actor and missing backend credential denied');
+ const noteText='Exact synthetic note for automatic source indexing.  Preserve spacing.';
+ const note=await request('save','',{kind:'note',title:prefix+' automatic note',content:noteText,idempotencyKey:prefix+'-note'},subject,true,'library');
+ assert(note.body.ok);libraryIds.push(note.body.entry.entryId);
+ assert(note.body.sourceIndexing?.sourceId);ids.push(note.body.sourceIndexing.sourceId);
+ assert.equal((await call('query','getSource',{sourceId:note.body.sourceIndexing.sourceId,includeText:true})).text,noteText);
+ checks.push('library note automatically indexed with exact source text');
  const articleText='Fixture only, not historical evidence.\n\n# Captivity\n  Tyndale imprisonment appears in this synthetic article.  ';
  const lessonText='Fixture only, not historical evidence.\n\n# Faithfulness\nTyndale imprisonment appears in these synthetic teaching notes.';
  const a=await call('command','saveSource',{title:prefix+' Tyndale article',sourceType:'article',contentKind:'exact_text',text:articleText,idempotencyKey:prefix+'-article'});ids.push(a.sourceId);
@@ -48,4 +54,5 @@ try{
   await ref.delete();assert.equal((await ref.get()).exists,false);
  }
  for(const cacheId of cacheIds)await db.collection('repositorySourceEmbeddingCache').doc(cacheId).delete();
+ for(const entryId of libraryIds){const ref=db.collection('repositoryLibraryEntries').doc(entryId),snap=await ref.get();if(snap.exists&&snap.data().title.startsWith(prefix))await ref.delete();}
 }

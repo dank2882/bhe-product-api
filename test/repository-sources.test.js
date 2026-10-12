@@ -106,3 +106,14 @@ test('global research returns distinct sources before repeated passages from one
  const {save,call}=setup();await save({text:'Tyndale imprisonment. '.repeat(500)});const b=await save({sourceType:'lesson',contentKind:'transcript',text:'Tyndale imprisonment in this separate lesson.'});
  const r=await call('searchPassages',{query:'imprisonment',mode:'words',limit:2});assert.equal(new Set(r.results.map(x=>x.citation.sourceId)).size,2);assert(r.results.some(x=>x.citation.sourceId===b.sourceId));
 });
+test('existing documents can be identified as articles or lessons without copying ownership; refresh retains supplied metadata',async()=>{
+ const {db,call}=setup();const ref=db.collection('repositoryDocuments').doc('article-pdf');
+ await ref.set({title:'file-name',ocr:{bestText:'Original article text',bestTextSource:'extractedText'}});
+ const a=await call('importSource',{documentId:'article-pdf',sourceType:'article',contentKind:'exact_text',title:'Life of Tyndale',authors:['Author supplied by user'],idempotencyKey:'classify-article-1'});
+ assert.equal((await call('searchSources',{query:'Tyndale',sourceType:'article'})).results[0].sourceId,a.sourceId);
+ assert((await call('importSource',{documentId:'article-pdf',sourceType:'article',contentKind:'exact_text',title:'Life of Tyndale',authors:['Author supplied by user'],idempotencyKey:'classify-article-1'})).replayed);
+ await assert.rejects(call('importSource',{documentId:'article-pdf',title:'Changed title',idempotencyKey:'stale-metadata-key'}),{statusCode:409});
+ await ref.update({ocr:{bestText:'Updated article text',bestTextSource:'humanReviewedText'}});
+ await call('importSource',{documentId:'article-pdf',idempotencyKey:'refresh-article-2'});
+ const got=await call('getSource',{sourceId:a.sourceId,includeText:true});assert.equal(got.source.sourceType,'article');assert.equal(got.source.title,'Life of Tyndale');assert.equal(got.text,'Updated article text');assert.deepEqual(got.source.authors,['Author supplied by user']);
+});
