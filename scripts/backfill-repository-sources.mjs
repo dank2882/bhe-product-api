@@ -9,6 +9,7 @@ for(const [name,field] of [['repositoryDocuments','documentId'],['repositoryLibr
   const docs=(await q.get()).docs;
   for(const doc of docs){
    const r=doc.data();if(field==='entryId'&&(r.kind!=='note'||r.availability==='unavailable'))continue;
+   if(r.originalFolderLabel==='debug-test'){result.skipped.push({recordId:doc.id,reason:'labeled_debug_test'});continue;}
    const text=field==='documentId'?r.ocr?.bestText:r.content;
    if(!text?.trim()||text.length>100000){result.skipped.push({recordId:doc.id,reason:!text?.trim()?'no_text':'over_100000_characters'});continue;}
    result.eligible++;

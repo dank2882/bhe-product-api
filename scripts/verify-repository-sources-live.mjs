@@ -16,6 +16,12 @@ try{
  assert(note.body.sourceIndexing?.sourceId);ids.push(note.body.sourceIndexing.sourceId);
  assert.equal((await call('query','getSource',{sourceId:note.body.sourceIndexing.sourceId,includeText:true})).text,noteText);
  checks.push('library note automatically indexed with exact source text');
+ await indexed(note.body.sourceIndexing.sourceId);
+ const classified=await call('command','importSource',{entryId:note.body.entry.entryId,sourceType:'article',contentKind:'exact_text',expectedVersion:1,idempotencyKey:prefix+'-classify'});
+ const classifiedRead=await call('query','getSource',{sourceId:classified.sourceId,includeText:true});
+ assert.equal(classifiedRead.source.sourceType,'article');assert.equal(classifiedRead.source.origin.recordId,note.body.entry.entryId);assert.equal(classifiedRead.text,noteText);
+ checks.push('existing source classification preserves owning record and original text');
+
  const articleText='Fixture only, not historical evidence.\n\n# Captivity\n  Tyndale imprisonment appears in this synthetic article.  ';
  const lessonText='Fixture only, not historical evidence.\n\n# Faithfulness\nTyndale imprisonment appears in these synthetic teaching notes.';
  const a=await call('command','saveSource',{title:prefix+' Tyndale article',sourceType:'article',contentKind:'exact_text',text:articleText,idempotencyKey:prefix+'-article'});ids.push(a.sourceId);
