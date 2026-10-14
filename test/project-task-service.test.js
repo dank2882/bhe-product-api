@@ -532,6 +532,29 @@ test("daily review surfaces overdue, high-priority, waiting, and project gaps", 
   assert.equal(review.projectsWithoutNextAction[0].projectId, "proj-without-next");
 });
 
+test("old waiting reminders retain source age and person without becoming deadlines", async () => {
+  const base = { ownerSub: "dan", assignedToSub: "dan", visibility: "private", priority: "medium", followUpDate: "2026-10-14", waitingOn: "Colleague", sourceReceivedAt: "2026-10-06T16:35:40Z", updatedAt: "2026-10-14T02:08:24Z" };
+  const deps = createDeps({ tasks: {
+    waiting: { ...base, taskId: "waiting", title: "Confirm older work", status: "waiting" },
+    done: { ...base, taskId: "done", title: "Completed older work", status: "done" },
+    dropped: { ...base, taskId: "dropped", title: "Dropped older work", status: "dropped" }
+  }});
+  deps.taskAccess = { subject: "dan", role: "admin", name: "Dan" };
+  deps.danOwnerSubjects = ["dan"];
+  const before = JSON.stringify([...deps.tasksCollection.store]);
+  for (const detailLevel of ["compact", "full"]) {
+    const review = await buildDailyReview({ today: "2026-10-14", detailLevel }, deps);
+    assert.deepEqual(review.followUpDue.map(t => t.taskId), ["waiting"]);
+    assert.equal(review.followUpDue[0].waitingOn, "Colleague");
+    assert.equal(review.followUpDue[0].sourceReceivedAt, base.sourceReceivedAt);
+    assert.equal(review.dueToday.length, 0);
+    assert.equal(review.overdue.length, 0);
+    assert.equal(review.activeNext.length, 0);
+    assert.match(review.guidance.followUpInstruction, /not a completion deadline/);
+  }
+  assert.equal(JSON.stringify([...deps.tasksCollection.store]), before);
+});
+
 test("daily review keeps every next task active regardless of priority", async () => {
   const deps = createDeps({
     tasks: {
