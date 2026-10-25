@@ -17,11 +17,11 @@ function fakeFirestore() {
   }
   function collection(path, filters = [], after = "", max = 10001) {
     return { path, firestore: db, doc: id => ref(`${path}/${id}`),
-      where: (field, op, value) => collection(path, [...filters, [field, value]], after, max),
+      where: (field, op, value) => collection(path, [...filters, [field, op, value]], after, max),
       orderBy: () => collection(path, filters, after, max),
       startAfter: value => collection(path, filters, typeof value === "string" ? value : value.id, max),
       limit: value => collection(path, filters, after, value),
-      get: async () => ({ docs: await Promise.all([...rows.keys()].filter(key => key.startsWith(`${path}/`) && !key.slice(path.length + 1).includes("/") && key.split("/").at(-1) > after && filters.every(([k,v]) => rows.get(key).data[k] === v)).sort().slice(0, max).map(key => ref(key).get())) })
+      get: async () => ({ docs: await Promise.all([...rows.keys()].filter(key => key.startsWith(`${path}/`) && !key.slice(path.length + 1).includes("/") && key.split("/").at(-1) > after && filters.every(([k,op,v]) => op === "array-contains" ? rows.get(key).data[k]?.includes(v) : rows.get(key).data[k] === v)).sort().slice(0, max).map(key => ref(key).get())) })
     };
   }
   const db = { collection, rows, runTransaction: fn => {

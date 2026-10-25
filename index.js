@@ -2627,6 +2627,7 @@ const maintenanceMessagingRequest = require("./lib/maintenance-messaging-client"
 
 function getProjectTaskDependencies(overrides = {}) {
   return {
+    firestoreDb: db,
     danOwnerSubjects: DAN_TRAVEL_OWNER_SUBJECTS,
     maintenanceMessagingRequest,
     projectsCollection,
