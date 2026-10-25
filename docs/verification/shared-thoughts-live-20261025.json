@@ -1,0 +1,18 @@
+{
+  "runId": "shared-thoughts-verification-000dd001-1bb5-45f6-9935-113aa2ab3daa",
+  "base": "https://shared-thoughts-review---bhe-product-api-mwhc25pkra-uw.a.run.app",
+  "boundary": "Authenticated internal service actor tests, not independent ChatGPT/OAuth client acceptance",
+  "checks": [
+    "private draft exact readback; Sarah cannot read or discover it",
+    "Dan approval gate; Sarah reads and discovers explicitly shared record",
+    "Sarah contributes; Dan independently retrieves and replies; wording, authorship and sequence preserved",
+    "replay deduplicates; stale writes and unrelated admin identity denied",
+    "revocation blocks Sarah read/search/replay; Dan retains exact history"
+  ],
+  "records": [
+    "shared-thought-a10f9a1fb67c410ef13064fbd859882f8382e59d"
+  ],
+  "startedAt": "2026-10-25T15:54:10.795Z",
+  "status": "passed",
+  "finishedAt": "2026-10-25T15:54:17.331Z"
+}
