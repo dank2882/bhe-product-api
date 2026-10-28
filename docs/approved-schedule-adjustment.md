@@ -73,7 +73,11 @@ two-system transaction. Calendar evidence remains client-attested and
 `calendarBackendVerified:false`.
 
 Never repeat a calendar write after dispatch or interruption. Read the saved
-workflow and exact event first. A confirmed approved calendar after-state may
+workflow and exact event first. `getScheduleAdjustment` accepts `taskId` to
+discover saved workflow IDs after a lost response or a fresh chat; it never
+advances state. Lookup is complete up to 100 workflows per task and fails
+explicitly beyond that budget rather than hiding unfinished work.
+A confirmed approved calendar after-state may
 finish the still-unattempted task leg. An attempted task is observation-only on
 recovery; independent reads can confirm success despite a lost response.
 Unexpected task edits, conflicting events or mismatched readback preserve

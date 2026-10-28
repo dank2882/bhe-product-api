@@ -172,3 +172,15 @@ test("final verification rejects an Outlook observation made before the task leg
   Object.assign(old.event, block("15:00", "15:45"));
   await assert.rejects(s.command("verifyScheduleAdjustment", { adjustmentId: r.adjustment.adjustmentId, expectedVersion: r.adjustment.version, observation: old }), { code: "schedule_adjustment_stale" });
 });
+test("a fresh chat can recover saved approval and uncertain attempt by owning task ID without changing state", async () => {
+  const s = await setup(), a = await s.approve();
+  s.advance(301000); // Original preview observations are stale; lookup still works.
+  const before = structuredClone([...s.db.rows]);
+  const found = await s.query("getScheduleAdjustment", { taskId: s.task.taskId });
+  assert.equal(found.complete, true); assert.equal(found.adjustments.length, 1);
+  assert.equal(found.adjustments[0].adjustmentId, a.adjustment.adjustmentId);
+  assert.equal(found.adjustments[0].state, "approved");
+  const exact = await s.query("getScheduleAdjustment", { adjustmentId: found.adjustments[0].adjustmentId });
+  assert.equal(exact.dispatchInstruction, "reconcile_only"); assert.deepEqual([...s.db.rows], before);
+  await assert.rejects(s.query("getScheduleAdjustment", {}));
+});
