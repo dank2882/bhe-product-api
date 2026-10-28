@@ -1,8 +1,70 @@
 # Capacity planning release validation — 2026-10-28
 
-Status: **partial deployment; fresh-client acceptance blocked**. No task or Outlook
+Current status: **core and gateway deployed; fresh-client acceptance blocked**.
+No task or Outlook
 mutation was performed. No planner implementation was changed. Approval-and-apply
 remains outside this release and unimplemented.
+
+## Approved gateway deployment and revised-window validation
+
+Dan approved adding the existing Life OS gateway to the existing release helper,
+and supplied a provisional acceptance configuration: discretionary capacity only
+13:00–16:00 Pacific on remaining weekdays through October 30, with Outlook busy
+time subtracted. Sermon preparation 09:00–12:00, lunch 12:00–13:00 and the
+16:00–16:30 departure buffer remain excluded. This does not change any permanent
+schedule or calendar record.
+
+Platform commit `f259ade7dcc45577ba789d8df84b5a75e3a8f9ee` adds one release target
+and its documentation. It was pushed to GitHub main and deployed from a clean
+detached checkout using `scripts/release-service.mjs`; checks and 237 tests passed.
+`dan-life-os-mcp-00042-fbl` serves 100% traffic, observed at
+`2026-10-28T20:40:25.511Z`. Independent comparison confirmed unchanged environment,
+runtime service account and volumes. Workflow evidence was recorded/read back:
+`release-task-management-dan-life-os-mcp-00042-fbl-1793220025511`.
+
+A new signed-in Life OS chat attempted all three scenarios after deployment:
+[post-deployment attempt](https://chatgpt.com/c/6ae25dd0-29a4-83e8-b0f3-b521345ba005).
+The response again displayed “This response couldn't load.” The existing
+connection's **Refresh tools** control was invoked, then another fresh chat made
+a focused incomplete-calendar invocation test:
+[post-refresh attempt](https://chatgpt.com/c/6ae25e77-a49c-83e8-bb68-337113b7bed0).
+Its final response also could not load, including through Copy. The tool-refresh
+control returned from disabled to enabled without a visible success receipt.
+No successful schema refresh or fresh-client query result is asserted. Console
+network/listener errors were observed but do not establish the failure's cause.
+
+Supplementary local-MCP/live-core diagnostics were repeated using Dan's approved
+test windows. They remain distinct from intended-client acceptance. A fresh
+six-page inventory again contained 581 records and 45 open responsibilities;
+all 45 IDs and versions matched the returned accounting. Horizon started at
+13:45 Pacific (future at invocation) on October 28, ending October 30 at 16:30.
+Primary Outlook returned 17 overlapping occurrences and Birthdays zero, with no
+remaining event pages. Calendar discovery still had an unsupported continuation,
+so coverage was labeled limited. Observations at `20:42:37.205Z` were only about
+39–40 seconds old when current/proposal queries ran.
+
+| Scenario | Revised-window backend result | Request ID |
+| --- | --- | --- |
+| Current workload | `not_feasible`; 45 accounted; 90 free minutes; no changes | `bbb26787-ecc0-4edf-b7da-78e7511ac8d1` |
+| New 120-minute high-priority task due Friday | Unplaced; deadline risk; 46 accounting rows; no changes | `d82b12d7-2cbf-41cd-9187-55ca9e62bec5` |
+| Additional 90 minutes on an existing task | Unsupported, HTTP 400 `capacity_plan_invalid_input` | `01b41b3f-8dee-4992-97b9-8df5d42ee3b1` |
+| Deliberately stale observation | Coverage rejected; no all-clear | `c58b9f3b-2c28-4f90-a740-1e248e9cd82e` |
+
+Remaining windows were Thursday **13:30–14:00 and 15:00–16:00 Pacific**. All 17
+observed events were protected; no existing work moved, so displaced-work recovery
+was not exercised. Missing effort (2), current deadline risk (2), shared-link
+reconciliation (12) and reported conflicts (34) remained. Outside-window flags
+rose to 8: two already-started tasks crossing the horizon boundary and six morning
+follow-up rows. These flags expose a distinction the first increment does not
+handle well: discretionary placement windows versus preserved existing work.
+The feasibility label is not proof that Dan's actual schedule is impossible.
+
+Release approval is now fulfilled. Remaining gates: readable fresh-client
+invocation/results, complete relevant-calendar coverage, review of shared blocks
+and discretionary-window flags, and the unsupported additional-effort scenario.
+Stop for review before any planner implementation change or approval-and-apply.
+
+## Earlier partial-deployment observation (superseded where noted above)
 
 ## Deployment evidence
 
