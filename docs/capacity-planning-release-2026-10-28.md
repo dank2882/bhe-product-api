@@ -1,6 +1,11 @@
 # Capacity planning release validation — 2026-10-28
 
-Current status: **deployed; discovery/callability passed; complete-primary-calendar
+Follow-up: Dan approved the narrow shared-block correction. Its implementation,
+deployment and post-fix verification are recorded in
+[the shared-block correction report](capacity-planning-shared-block-fix-2026-10-28.md).
+The findings below describe the original pre-fix acceptance.
+
+Pre-fix status: **deployed; discovery/callability passed; complete-primary-calendar
 test executed; planner correctness acceptance withheld pending review**.
 No task or Outlook
 mutation was performed. No planner implementation was changed. Approval-and-apply
