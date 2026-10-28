@@ -1,5 +1,13 @@
 # Shared-work-block correction — 2026-10-28
 
+Follow-up: Dan confirmed live desktop-app acceptance `2a75f329`, and a new Chrome
+Work chat subsequently displayed and retained receipt `d26a1b89` with exact
+provider IDs, 45 tasks, zero conflicts, 90 minutes and `not_feasible`. The earlier
+fresh-display gate below is superseded for Work mode by the
+[presentation investigation and next-workflow prerequisites](https://github.com/dank2882/bhe-agent-platform/blob/414bd56/docs/capacity-planning-presentation-investigation-2026-10-28.md).
+Ordinary Chat-mode rendering remains a separate issue. No approval-and-apply
+implementation is authorized by this verification.
+
 Dan approved the narrow correctness repair after acceptance request
 `4bfd5b59-5fcc-450d-a3d3-4159a6fd3ea5`. No approval-and-apply, optimization,
 new data model, task mutation or Outlook mutation is included.
