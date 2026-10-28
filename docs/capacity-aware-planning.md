@@ -1,8 +1,8 @@
 # Capacity-aware planning: first increment
 
-Implemented locally October 28, 2026. Deployment, fresh-client discovery and
-Dan's real-calendar acceptance are **not verified**. This is the bounded first
-increment requested by Dan, not approval for subsequent phases.
+Implemented October 28, 2026. See [release evidence](capacity-planning-release-2026-10-28.md)
+for separate deployment, client and correctness results. The shared-block
+correction below is approved; subsequent phases remain outside this increment.
 
 ## Ownership and reuse
 
@@ -78,8 +78,23 @@ reshuffling is suppressed. This bounds disruption rather than searching arbitrar
 multi-task rearrangements. Priorities and deadlines never change.
 
 A linked Outlook event can be released hypothetically only when its calendar ID,
-event ID and exact times match a unique synced task block. Stale, missing or
-shared links require reconciliation. A matching task/event occupies time once.
+event ID and exact times match a unique synced task block. Stale or missing
+links require reconciliation. A verified shared event remains one protected
+reservation even when several task rows reference it. Those rows do not conflict
+with their own event or each other. Different overlapping events still conflict;
+unverified task links are never silently deduplicated. Shared blocks cannot be
+selected for movement, even when all estimates are known.
+
+For shared tasks, `plannedMinutes` comes only from that task's explicit estimate;
+zero means unknown, not no work. `sharedBlockMinutes` is the common reservation
+duration, not independently allocated effort for each task. Missing estimates
+produce `shared_block_effort_unknown` and prevent an all-clear. Known Dan-work
+and timed waiting-follow-up estimates that together exceed the verified block
+produce `shared_block_effort_exceeds_capacity`; delegated execution effort does
+not consume Dan's budget. All individual task rows, states, deadlines and other
+risks remain visible. Reserving the group block never proves task completion.
+
+A matching task/event occupies time once.
 All other busy, tentative, out-of-office or unknown events remain protected;
 only explicitly free or cancelled events are nonblocking. Overlaps are half-open
 intervals; busy intervals are unioned before subtracting them from work windows.
@@ -120,7 +135,7 @@ Next recommended increment, after review: a small version-bound approval and
 application workflow for one selected alternative. Reuse existing command,
 idempotency and calendar handoff patterns; detect intervening task/calendar
 changes and reconcile interrupted writes before retry. That workflow, broader
-replanning, persistent capacity preferences and deployment are outside this slice.
+replanning and persistent capacity preferences are outside this slice.
 
 ## Verification
 

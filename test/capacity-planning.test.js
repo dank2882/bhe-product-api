@@ -111,6 +111,120 @@ test("stale, shared and mismatched Outlook links cannot be moved", () => {
   assert.throws(() => result([planned("a"), planned("b", { outlookEventId: "event-a" })], { calendar, flexibleTaskIds: ["a"] }), { code: "capacity_plan_task_not_movable" });
 });
 
+// Sanitized shapes from acceptance 4bfd5b59-5fcc-450d-a3d3-4159a6fd3ea5.
+// Keep the real group sizes, durations, dates and work/waiting dispositions.
+function sharedAcceptanceFixture() {
+  const definitions = [
+    { id: "funding", count: 2, day: "2026-10-28", start: "13:30", end: "16:00", disposition: "work" },
+    { id: "contacts", count: 4, day: "2026-10-30", start: "14:30", end: "15:15", disposition: "work" },
+    { id: "followups", count: 6, day: "2026-10-30", start: "08:30", end: "09:00", disposition: "waiting" }
+  ];
+  const events = definitions.map(g => ({ calendarId: "main", eventId: g.id,
+    start: `${g.day}T${g.start}:00-07:00`, end: `${g.day}T${g.end}:00-07:00`, showAs: "busy" }));
+  const tasks = definitions.flatMap(g => Array.from({ length: g.count }, (_, i) => planned(`${g.id}-${i}`, {
+    estimatedMinutes: 0, disposition: g.disposition, status: g.disposition === "waiting" ? "waiting" : "scheduled",
+    workOnDate: g.day, workOnStartTime: g.start, workOnEndTime: g.end, outlookEventId: g.id,
+    priority: i ? "medium" : "high", version: i + 1
+  })));
+  const horizon = { start: stamp("13"), end: "2026-10-30T16:30:00-07:00" };
+  // Include the morning follow-up reservation to isolate grouped accounting
+  // from the separate outside-discretionary-window risk.
+  const workWindows = [block("13", "16"),
+    { start: "2026-10-29T13:00:00-07:00", end: "2026-10-29T16:00:00-07:00" },
+    { start: "2026-10-30T08:30:00-07:00", end: "2026-10-30T09:00:00-07:00" },
+    { start: "2026-10-30T13:00:00-07:00", end: "2026-10-30T16:00:00-07:00" }];
+  return { tasks, input: { horizon, timezone: "America/Los_Angeles", workWindows,
+    calendar: { status: "checked", observedAt: new Date(now).toISOString(), ...horizon, events } } };
+}
+
+test("three acceptance groups reserve each event once, preserve every task and expose unknown effort", () => {
+  const f = sharedAcceptanceFixture(), before = structuredClone(f);
+  const p = buildPlan(f.input, f.tasks, now), a = p.alternatives[0];
+  assert.equal(a.conflictCount, 0); // Previously 3 + 10 + 21 artificial conflicts.
+  assert.equal(a.remainingCapacityMinutes, 345);
+  assert.equal(a.feasibility, "undetermined");
+  assert.equal(a.accounting.length, 12);
+  assert.equal(a.accounting.filter(t => t.state === "waiting").length, 6);
+  assert.equal(a.accounting.filter(t => t.state === "needs_information").length, 6);
+  for (const t of a.accounting) {
+    const original = f.tasks.find(x => x.taskId === t.taskId);
+    assert.equal(t.version, original.version);
+    assert.equal(t.priority, original.priority);
+    assert.equal(t.status, original.status);
+    assert.equal(t.estimatedMinutes, 0);
+    assert.equal(t.plannedMinutes, 0);
+    assert.equal(t.sharedBlockMinutes, (Date.parse(t.block.end) - Date.parse(t.block.start)) / 60000);
+    assert(t.issues.includes("shared_block_effort_unknown"));
+  }
+  assert(p.calendarClassification.every(e => e.classification === "protected"));
+  assert.deepEqual(a.changes, []);
+  assert.deepEqual(f, before);
+});
+
+test("different events, calendars and recurrence occurrences still conflict once per reservation pair", () => {
+  const f = sharedAcceptanceFixture();
+  const original = f.input.calendar.events[0];
+  f.input.calendar.events.push({ ...original, eventId: "next-occurrence" }, { ...original, calendarId: "another-calendar" });
+  const a = buildPlan(f.input, f.tasks, now).alternatives[0];
+  assert.equal(a.conflictCount, 3);
+  assert(a.conflicts.every(c => c.event?.eventId && c.with?.eventId));
+  assert.equal(a.feasibility, "not_feasible");
+  assert.equal(a.remainingCapacityMinutes, 345);
+});
+
+test("grouped explicit effort remains individual and overflow cannot yield an all-clear", () => {
+  const f = sharedAcceptanceFixture();
+  f.tasks = f.tasks.slice(0, 2).map(t => ({ ...t, estimatedMinutes: 100 }));
+  let a = buildPlan(f.input, f.tasks, now).alternatives[0];
+  assert.equal(a.conflictCount, 0);
+  assert.equal(a.feasibility, "not_feasible");
+  assert(a.accounting.every(t => t.estimatedMinutes === 100 && t.plannedMinutes === 100 && t.issues.includes("shared_block_effort_exceeds_capacity")));
+  f.tasks.forEach(t => { t.estimatedMinutes = 60; });
+  a = buildPlan(f.input, f.tasks, now).alternatives[0];
+  assert.equal(a.feasibility, "fits_supplied_constraints");
+  assert.throws(() => buildPlan({ ...f.input, flexibleTaskIds: [f.tasks[0].taskId] }, f.tasks, now), { code: "capacity_plan_task_not_movable" });
+  assert.throws(() => buildPlan({ ...f.input, proposal: { kind: "reschedule", taskId: f.tasks[0].taskId, expectedVersion: f.tasks[0].version, start: stamp("13") } }, f.tasks, now), { code: "capacity_plan_task_not_movable" });
+  f.tasks[1].estimatedMinutes = 0;
+  a = buildPlan(f.input, f.tasks, now).alternatives[0];
+  assert.equal(a.feasibility, "undetermined");
+  assert.equal(a.accounting[0].plannedMinutes, 60);
+  assert.equal(a.accounting[1].plannedMinutes, 0);
+});
+
+test("waiting effort, deadlines and delegated assignment states survive grouped accounting", () => {
+  const f = sharedAcceptanceFixture();
+  f.tasks = f.tasks.filter(t => t.disposition === "waiting").map(t => ({ ...t, estimatedMinutes: 10, dueDate: "2026-10-29" }));
+  let a = buildPlan(f.input, f.tasks, now).alternatives[0];
+  assert(a.accounting.every(t => t.state === "waiting" && t.dueDate === "2026-10-29" && t.issues.includes("shared_block_effort_exceeds_capacity") && t.issues.includes("deadline_requires_owner_follow_up")));
+  f.tasks = f.tasks.slice(0, 2).map((t, i) => ({ ...t, estimatedMinutes: i ? 200 : 10, disposition: i ? "delegated" : "work", assignedToSub: i ? "other" : "dan", assignmentStatus: "accepted", dueDate: "" }));
+  a = buildPlan(f.input, f.tasks, now).alternatives[0];
+  assert.equal(a.accounting[1].state, "delegated");
+  assert(!a.risks.some(r => r.reason === "shared_block_effort_exceeds_capacity"));
+  assert.deepEqual(a.changes, []);
+});
+
+test("incomplete or stale coverage never clears a known-effort shared plan", () => {
+  const f = sharedAcceptanceFixture();
+  f.tasks = f.tasks.slice(0, 2).map(t => ({ ...t, estimatedMinutes: 30 }));
+  for (const change of [{ status: "limited" }, { status: "unavailable" }, { observedAt: new Date(now - 6 * 60000).toISOString() }]) {
+    const p = buildPlan({ ...f.input, calendar: { ...f.input.calendar, ...change } }, f.tasks, now);
+    assert.equal(p.sourceCoverage.calendar, "unavailable_incomplete_or_stale");
+    assert.equal(p.sourceCoverage.calendarBackendVerified, false);
+    assert.equal(p.alternatives[0].feasibility, "undetermined");
+  }
+});
+
+test("shared references do not suppress unverified links or independent task overlaps", () => {
+  const f = sharedAcceptanceFixture();
+  f.tasks[0].outlookSyncStatus = "error";
+  f.tasks.push(planned("independent", { workOnStartTime: "14:00", workOnEndTime: "15:00", outlookEventId: "", outlookCalendarId: "" }));
+  const a = buildPlan(f.input, f.tasks, now).alternatives[0];
+  assert(a.accounting[0].issues.includes("outlook_link_needs_reconciliation"));
+  assert(a.conflicts.some(c => c.taskId === f.tasks[0].taskId && c.with.eventId === "funding"));
+  assert(a.conflicts.some(c => c.taskId === "independent" && c.with.eventId === "funding"));
+  assert.equal(a.feasibility, "not_feasible");
+});
+
 test("existing task conflicts and underallocation prevent a feasible result", () => {
   const calendar = input().calendar; calendar.events = [event("meeting")];
   const r = first([planned("a", { outlookEventId: "", estimatedMinutes: 120 })], { calendar });
