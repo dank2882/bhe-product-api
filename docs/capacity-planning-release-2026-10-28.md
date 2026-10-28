@@ -1,9 +1,82 @@
 # Capacity planning release validation — 2026-10-28
 
-Current status: **core and gateway deployed; fresh-client acceptance blocked**.
+Current status: **deployed; discovery/callability passed; complete-primary-calendar
+test executed; planner correctness acceptance withheld pending review**.
 No task or Outlook
 mutation was performed. No planner implementation was changed. Approval-and-apply
 remains outside this release and unimplemented.
+
+## Complete primary-calendar acceptance test
+
+Dan reported a successful fresh ChatGPT Life OS invocation, request
+`b13ef1ce-693c-43e0-95ff-254c345cb6f8`: complete task coverage, unavailable calendar,
+`calendarBackendVerified:false`, `not_feasible`, 21 reported conflicts, no applied
+changes. This passes **discovery and callability only**, based on Dan's direct
+report; it does not pass real-calendar feasibility acceptance. Developer Tools
+evidence: `capacity-discovery-dan-confirmed-b13ef1ce-20261028`.
+
+Dan then explicitly confirmed **Primary Calendar only; my commitments are there**
+as the complete calendar scope for this test. Directory pagination is therefore
+not required to establish this bounded scope; no claim is made about all calendars
+in the mailbox. One real-calendar `buildCapacityPlan` invocation was performed
+through the connected Life OS tool, not the local SDK harness:
+
+- Request: `4bfd5b59-5fcc-450d-a3d3-4159a6fd3ea5`.
+- Horizon: October 28 14:03 through October 30 16:30 Pacific; horizon start was
+  future at invocation. Eligible windows: today 14:03–16:00, Thursday and Friday
+  13:00–16:00. Sermon/lunch/buffer excluded from discretionary placement.
+- Primary Outlook calendar-view read: **17 events**, consisting of 13 single
+  instances and four expanded recurrence occurrences; `next_link:null`.
+- Observation: `2026-10-28T21:00:56.014Z`; planner generation:
+  `2026-10-28T21:00:57.986Z` (**1.972 seconds old**).
+- Coverage returned: `complete_authorized_personal_inventory` and
+  `fresh_client_observation`; `calendarBackendVerified:false` remains accurate
+  because provider reads are client-attested.
+- All **45 open task IDs and versions** matched the independently paginated
+  581-record/six-page inventory. All 17 events were protected. Zero changes or
+  moved blocks; `applySupported:false`.
+- One explainable preserve-existing-blocks alternative returned `not_feasible`.
+  Available capacity was **90 minutes**, Thursday **13:30–14:00 and 15:00–16:00
+  Pacific**. An independent interval sweep over the observed Outlook events and
+  approved windows produced exactly the same availability.
+
+### Grouped-block correctness finding
+
+All **34 reported conflicts** were within existing shared reservations: 12
+task-to-own-event comparisons and 22 task-to-task comparisons within the same
+linked event. The three groups (2, 4 and 6 task rows) generated 3, 10 and 21
+conflict entries respectively. There were **zero overlapping pairs of distinct
+Outlook events** in this observation. This does not prove all tasks are feasible;
+it proves the returned 34 are not 34 independent calendar collisions.
+
+The policy clears a shared task's `linked` reference to prevent unsafe movement
+(`lib/capacity-planning-policy.js:147`). The later conflict loop then treats that
+task as a separate reservation, comparing it with its own event and adding it to
+the busy list. Union arithmetic still counts occupied time once, so free capacity
+is correct, but conflict reporting and the feasibility verdict are affected.
+A local isolated reproduction with one event and one versus two linked tasks
+kept free capacity at 120 minutes while reported conflicts changed from zero to
+three and the verdict changed to `not_feasible`. No source fix was made.
+
+The narrow correction to review is separating shared-reservation identity from
+permission to move a task: retain one protected reservation, preserve all task
+accounting rows, and keep unknown per-task effort unresolved. Do not infer that
+every task sharing a block has independently reserved its entire duration, or
+that shared tasks are automatically movable. No new data model is proposed.
+
+Other result limitations remain visible: two tasks lack effort; eight rows are
+outside the discretionary windows; one past block is not proof of completion;
+one estimate exceeds its saved block. The two `deadline_at_risk` entries refer
+to **one distinct task**, correcting the earlier report's wording of two tasks.
+One other delegated deadline needs owner follow-up. Existing Outlook commitments
+already occupy the 16:00–16:30 buffer on Wednesday and Friday; they were preserved,
+not silently removed or treated as available time.
+
+**Acceptance disposition:** callability, complete agreed-scope coverage,
+freshness, task accounting, protected commitments and free-minute arithmetic
+verified. Overall planner correctness is **not accepted** due to grouped-block
+conflict/feasibility behavior. No false all-clear was returned. No displaced work
+was exercised. Stop for Dan's review; no implementation or approval-and-apply.
 
 ## Approved gateway deployment and revised-window validation
 
