@@ -133,7 +133,9 @@ test("Vertex adapter uses fixed bounded JSON generation, no tools or automatic p
   const auth={getClient:async()=>({request:async r=>{request=r;return {data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify(f.output)}]}}],usageMetadata:{totalTokenCount:100,secret:"ignored"}}};}})};
   const args={auth,projectId:"synthetic-project",at:"2026-10-29T15:00:00Z"};
   const result=await generateContextWithVertex(f.input,args);
-  assert.equal(request.retry,false);assert.equal(request.timeout,45000);assert.equal(request.data.generationConfig.maxOutputTokens,4096);assert.equal(request.data.tools,undefined);
+  assert.equal(request.retry,false);assert.equal(request.timeout,45000);assert.equal(request.data.generationConfig.maxOutputTokens,8192);assert.equal(request.data.tools,undefined);
+  assert.equal(request.data.generationConfig.thinkingConfig.thinkingLevel,"LOW");
+  assert.equal(request.data.generationConfig.temperature,undefined);assert.equal(request.data.generationConfig.candidateCount,undefined);
   assert.match(request.data.systemInstruction.parts[0].text,/untrusted data/);assert.deepEqual(result.usage,{totalTokenCount:100});
   await assert.rejects(generateContextWithVertex(f.input,{...args,at:"2026-11-30T00:00:00Z"}),/pricing/);
   await assert.rejects(generateContextWithVertex(f.input,{...args,auth:{getClient:async()=>({request:async()=>({data:{candidates:[{finishReason:"MAX_TOKENS"}]}})})}}),/Incomplete/);

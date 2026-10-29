@@ -1,0 +1,23 @@
+{
+  "description":"Fictional, human-authored regression evidence. Expected output is a reference, not a live model result.",
+  "entries":[
+    {"id":"speaker-question","text":"Mira (received): Confirming: you are giving the morning talk on Sunday, right?"},
+    {"id":"speaker-answer","text":"Dan (sent): Yes, I am giving the morning talk on Sunday."},
+    {"id":"reverse-question","text":"Dan (sent): Can you lead the Thursday workshop, Jules?"},
+    {"id":"reverse-answer","text":"Jules (received): Yes, I can lead Thursday's workshop."},
+    {"id":"identity-request","text":"Dan (sent): Noah, please review the packing list. We are targeting pickup November 8 or 9."},
+    {"id":"identity-reply","text":"App sender displayed as ~Noah Blake (received; suggested identity not independently confirmed): I will check the list. The pickup date is not confirmed yet."},
+    {"id":"visit-question","text":"Dan (sent): Is Dr. Rowan visiting next week? When would we need to be available?"},
+    {"id":"visit-answer","text":"Mira (received): I do not know. It was only mentioned as an idea; no date has been set."},
+    {"id":"personal","text":"Dan (sent): Tomorrow is the memorial anniversary. I feel uncertain about how I will handle it and may want a quieter afternoon."},
+    {"id":"chatter","text":"Jules (received): Those muffins were tasty, thank you!"}
+  ],
+  "expected":{"observations":[
+    {"text":"Dan confirmed that he will give Sunday's morning talk in reply to Mira's question.","purposes":["brief","planning"],"sourceIds":["speaker-question","speaker-answer"],"support":[{"sourceId":"speaker-question","quote":"Confirming: you are giving the morning talk on Sunday, right?"},{"sourceId":"speaker-answer","quote":"Yes, I am giving the morning talk on Sunday."}],"certainty":"resolved_in_source"},
+    {"text":"Jules agreed to lead Thursday's workshop in reply to Dan's request; completion is not established.","purposes":["brief","planning"],"sourceIds":["reverse-question","reverse-answer"],"support":[{"sourceId":"reverse-question","quote":"Can you lead the Thursday workshop, Jules?"},{"sourceId":"reverse-answer","quote":"Yes, I can lead Thursday's workshop."}],"certainty":"resolved_in_source"},
+    {"text":"Dan asked Noah to review the packing list, targeting November 8 or 9 pickup; a participant with an unverified app identity replied that the date remains unconfirmed and they will check the list.","purposes":["brief","planning","correspondence"],"sourceIds":["identity-request","identity-reply"],"support":[{"sourceId":"identity-request","quote":"Noah, please review the packing list. We are targeting pickup November 8 or 9."},{"sourceId":"identity-reply","quote":"App sender displayed as ~Noah Blake (received; suggested identity not independently confirmed): I will check the list. The pickup date is not confirmed yet."}],"certainty":"tentative"},
+    {"text":"Dan asked about Dr. Rowan visiting next week; Mira says she does not know and no date has been set.","purposes":["brief","planning","correspondence"],"sourceIds":["visit-question","visit-answer"],"support":[{"sourceId":"visit-question","quote":"Is Dr. Rowan visiting next week? When would we need to be available?"},{"sourceId":"visit-answer","quote":"I do not know. It was only mentioned as an idea; no date has been set."}],"certainty":"tentative"},
+    {"text":"Dan expressed uncertainty about tomorrow's memorial anniversary and said he may want a quieter afternoon.","purposes":["brief","counseling"],"sourceIds":["personal"],"support":[{"sourceId":"personal","quote":"Tomorrow is the memorial anniversary. I feel uncertain about how I will handle it and may want a quieter afternoon."}],"certainty":"reported"}
+  ]},
+  "reviewRubric":["Confirmation belongs to Dan, not Mira, in the morning-talk exchange.","In the reversed exchange Jules, not Dan, agrees to lead the workshop.","Noah is not silently expanded to a verified Noah Blake; pickup and review remain unconfirmed/unperformed.","The visit summary explicitly retains Mira's limited knowledge and unset date; a reply is not resolution.","The upcoming commitments, unresolved arrangements and explicit personal circumstances are retrievable for brief; routine muffin chatter is not promoted.","No invented dates, relationships, capacity estimates, personality traits or completion claims; every clause is supported."]
+}
