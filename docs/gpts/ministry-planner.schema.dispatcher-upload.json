@@ -130,7 +130,9 @@
               "listPianists",
               "getPianoServicePlan",
               "getPianistWorkload",
-              "getServiceMinistryAssignments"
+              "getServiceMinistryAssignments",
+              "getServicePlan",
+              "buildServiceForecast"
             ],
             "description": "Exact read-only operation name from listMinistryPlanningOperations."
           },
@@ -162,6 +164,9 @@
               "saveServicePianoAssignments",
               "saveServiceCongregationalPlan",
               "saveServiceMinistryAssignments",
+              "saveServicePlan",
+              "saveServicePlanItem",
+              "recordServiceFeedback",
               "syncServiceAssignmentsToSpreadsheet",
               "restoreGoogleSheetBackup",
               "restoreGoogleSheetRange"
@@ -248,6 +253,10 @@
         "additionalProperties": false,
         "description": "Arguments for the selected command operation.",
         "properties": {
+          "plan": {"type": "object", "additionalProperties": true},
+          "itemId": {"type": "string"},
+          "item": {"type": "object", "additionalProperties": true},
+          "impact": {"type": "string", "enum": ["positive", "mixed", "needs_improvement", "neutral"]},
           "availabilityWindows": {"type": "array", "maxItems": 200, "items": {"type": "object", "required": ["startDate", "endDate", "available"], "additionalProperties": false, "properties": {"startDate": {"type": "string", "format": "date"}, "endDate": {"type": "string", "format": "date"}, "available": {"type": "boolean"}, "reason": {"type": "string", "maxLength": 1000}}}},
           "accompanists": {"type": "array", "description": "Standing pianist assignments; empty means unassigned. Use IDs from listPianists.", "items": {"type": "object", "required": ["pianistId"], "properties": {"pianistId": {"type": "string"}, "displayName": {"type": "string"}}}},
           "groupName": {"type": "string", "description": "Optional formal group name; empty string clears it."},

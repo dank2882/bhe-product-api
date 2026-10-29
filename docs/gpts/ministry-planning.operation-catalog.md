@@ -12,15 +12,49 @@ This generated file is a local review artifact. The Custom GPT reads the live ca
 6. Send one stable `idempotencyKey` per command intent and reuse it only to retry that intent.
 7. Never ask Dan to read back a generated `sourceImportId`; `syncMusicPlanningSpreadsheet` resolves it internally.
 
-Catalog version: `1-12cfd9a6faca`
+Catalog version: `1-325655b00687`
 
-Catalog hash: `12cfd9a6faca14b64376b952640a47a5e05778369bbf9eecd2ed8e6eb1e6b507`
+Catalog hash: `325655b0068776ca73c3f932aa7256ae27738218f4772c0761cec29530de587b`
 
-The registry currently exposes 30 operations.
+The registry currently exposes 35 operations.
 
 ## Query Operations
 
 Use `runMinistryPlanningQuery` for every operation in this section.
+
+### getServicePlan
+
+Read the complete service agenda, preparation, timing, feedback and unresolved issues.
+
+Required: `serviceId`
+
+Optional: none
+
+Confirmation policy: `none`
+
+```json
+{
+  "operation": "getServicePlan",
+  "arguments": {}
+}
+```
+
+### buildServiceForecast
+
+Look ahead at saved services, speakers, missions updates, graduations and readiness gaps.
+
+Required: `dateFrom`, `dateTo`
+
+Optional: `serviceType`
+
+Confirmation policy: `none`
+
+```json
+{
+  "operation": "buildServiceForecast",
+  "arguments": {}
+}
+```
 
 ### listSpecialMusicProfiles
 
@@ -378,6 +412,63 @@ Argument guidance: The response includes stable serviceSongEventId values for ea
 ## Command Operations
 
 Use `runMinistryPlanningCommand` for every operation in this section.
+
+### saveServicePlan
+
+Save a versioned service plan change with atomic audit and idempotency.
+
+Required: `serviceId`, `expectedVersion`, `plan`
+
+Optional: none
+
+Confirmation policy: `none`
+
+Argument guidance: Read getServicePlan first. Use a stable top-level idempotencyKey and returned version. Plan: emphasis, targetMinutes, notes. Item patch: title, itemType, sequence, durationMinutes, status, assignedPeople [{displayName, personId?, role, status}], preparation [{title, responsible?, dueDate?, ready}], notes, format, missionRecipientId, linkedServiceSongEventId. Status: open/proposed/invited/confirmed/completed/cancelled. Impact: positive/mixed/needs_improvement/neutral. No sheet writes or notifications. Existing music events remain authoritative; link them instead of duplicating music. Read back after writes.
+
+```json
+{
+  "operation": "saveServicePlan",
+  "arguments": {}
+}
+```
+
+### saveServicePlanItem
+
+Save a versioned service plan change with atomic audit and idempotency.
+
+Required: `serviceId`, `expectedVersion`, `itemId`, `item`
+
+Optional: none
+
+Confirmation policy: `none`
+
+Argument guidance: Read getServicePlan first. Use a stable top-level idempotencyKey and returned version. Plan: emphasis, targetMinutes, notes. Item patch: title, itemType, sequence, durationMinutes, status, assignedPeople [{displayName, personId?, role, status}], preparation [{title, responsible?, dueDate?, ready}], notes, format, missionRecipientId, linkedServiceSongEventId. Status: open/proposed/invited/confirmed/completed/cancelled. Impact: positive/mixed/needs_improvement/neutral. No sheet writes or notifications. Existing music events remain authoritative; link them instead of duplicating music. Read back after writes.
+
+```json
+{
+  "operation": "saveServicePlanItem",
+  "arguments": {}
+}
+```
+
+### recordServiceFeedback
+
+Save a versioned service plan change with atomic audit and idempotency.
+
+Required: `serviceId`, `expectedVersion`, `feedback`, `impact`
+
+Optional: none
+
+Confirmation policy: `none`
+
+Argument guidance: Read getServicePlan first. Use a stable top-level idempotencyKey and returned version. Plan: emphasis, targetMinutes, notes. Item patch: title, itemType, sequence, durationMinutes, status, assignedPeople [{displayName, personId?, role, status}], preparation [{title, responsible?, dueDate?, ready}], notes, format, missionRecipientId, linkedServiceSongEventId. Status: open/proposed/invited/confirmed/completed/cancelled. Impact: positive/mixed/needs_improvement/neutral. No sheet writes or notifications. Existing music events remain authoritative; link them instead of duplicating music. Read back after writes.
+
+```json
+{
+  "operation": "recordServiceFeedback",
+  "arguments": {}
+}
+```
 
 ### saveSpecialMusicProfile
 
