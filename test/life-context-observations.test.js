@@ -85,6 +85,23 @@ test("empty partial snapshots preserve coverage and do not infer resolution or c
   const f=fixture();await collect({...f.input,entries:[]},f.deps);
   const r=await get({purposes:["brief"]},f.deps);assert.equal(r.observations.length,0);assert.equal(r.sources[0].status,"partial");assert.equal(f.calls(),0);
 });
+test("complete source windows persist across partial/failing runs and never move backward",async()=>{
+  const f=fixture();
+  const full={...f.input,entries:[],sources:[{...f.input.sources[0],status:"complete",hasMore:false}]};
+  await collect(full,f.deps);
+  const first=(await get({purposes:["brief"]},f.deps)).lastCompleteSources.messages;
+  assert.equal(first.windowEnd,"2026-10-29T15:00:00.000Z");assert.equal(first.runId,full.runId);
+  await collect({...f.input,runId:"partial-followup",expectedVersion:1,entries:[]},f.deps);
+  assert.deepEqual((await get({purposes:["brief"]},f.deps)).lastCompleteSources.messages,first);
+  await collect({...full,runId:"older-window",expectedVersion:2,sources:[{...full.sources[0],windowEnd:"2026-10-29T14:00:00Z"}]},f.deps);
+  assert.deepEqual((await get({purposes:["brief"]},f.deps)).lastCompleteSources.messages,first);
+  f.deps.generateContext=async()=>{throw Error("offline");};
+  const failed={...full,entries:f.input.entries,expectedVersion:3,runId:"failed-checkpoint"};
+  await assert.rejects(collect(failed,f.deps));
+  assert.deepEqual((await get({purposes:["brief"]},f.deps)).lastCompleteSources.messages,first);
+  const attempt=await run({runId:failed.runId},f.deps);assert.equal(attempt.status,"failed");assert.equal(attempt.sources[0].status,"complete");
+  assert(!JSON.stringify(attempt).includes(f.input.entries[0].text));
+});
 test("a lease timeout is explicit; late model output cannot overwrite a newer run",async()=>{
   const f=fixture();let release,entered;const waiting=new Promise(r=>entered=r),old=new Promise(r=>release=r);
   f.deps.generateContext=async()=>{entered();await old;return {output:f.output};};
