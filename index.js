@@ -11853,6 +11853,7 @@ for (const [path, operation] of [["query", "getCurrentContext"], ["collect", "co
         firestoreDb:db, danOwnerSubjects:DAN_TRAVEL_OWNER_SUBJECTS, taskAccess:buildTaskAccessFromRequest(req),
         contextEnabled:process.env.LIFE_CONTEXT_COLLECTION_ENABLED === "true",
         contextMonthlyLimitMicros:Number(process.env.LIFE_CONTEXT_MONTHLY_LIMIT_MICROS || 0),
+        contextDailyLimit:Number(process.env.LIFE_CONTEXT_DAILY_LIMIT || 2),
         generateContext:packet => require("./lib/life-context-vertex").generateContextWithVertex(packet, { auth:vertexAuth, projectId:GCP_PROJECT_ID })
       });
       return res.json({ ok:true, requestId, result });

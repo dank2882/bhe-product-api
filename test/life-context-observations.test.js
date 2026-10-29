@@ -77,6 +77,22 @@ test("invalid citations and malformed output cannot be published; model instruct
   assert.equal((await get({purposes:["brief"]},f.deps)).version,0);
   assert.equal((await run({runId:f.input.runId},f.deps)).status,"failed");
 });
+test("explicit daily allowance permits reviewed extra attempts without resetting counters or bypassing monthly budget",async()=>{
+  const f=fixture();f.deps.contextDailyLimit=3;
+  f.deps.generateContext=async()=>{throw Error("bounded failure");};
+  for(let i=0;i<3;i++) await assert.rejects(collect({...f.input,runId:`reviewed-${i}`},f.deps),e=>e.code==="context_processing_failed");
+  assert.equal((await collect({...f.input,runId:"fourth-denied"},f.deps)).code,"context_budget_exhausted");
+  assert.equal((await f.db.collection("danLifeContext").doc("observations").collection("days").doc("2026-10-29").get()).data().calls,3);
+  const g=fixture();g.deps.contextDailyLimit=3;g.deps.contextMonthlyLimitMicros=100000;
+  g.deps.generateContext=async()=>{throw Error("bounded failure");};
+  await assert.rejects(collect(g.input,g.deps));
+  assert.equal((await collect({...g.input,runId:"monthly-denied"},g.deps)).code,"context_budget_exhausted");
+});
+test("invalid daily allowances fail before writing receipts or calling a provider",async()=>{
+  for(const value of [0,-1,1.5,11,NaN,"3"]){const f=fixture();f.deps.contextDailyLimit=value;
+    await assert.rejects(collect(f.input,f.deps),e=>e.code==="context_budget_unconfigured");assert.equal(f.calls(),0);assert.equal(f.db.rows.size,0);
+  }
+});
 test("packet validation rejects unknown owners, oversized sources, ambiguous timestamps, false completeness and unavailable evidence",async()=>{
   const f=fixture();
   for(const change of [{owner:"dan"},{expectedVersion:-1},{entries:Array(81).fill(f.input.entries[0])},{sources:[{...f.input.sources[0],status:"complete"}]},{sources:[{...f.input.sources[0],status:"unavailable"}]},{entries:[{...f.input.entries[0],sourceTime:"2026-10-29"}]},{entries:[{...f.input.entries[0],sourceTime:"2027-01-01T00:00:00Z"}]}]) await assert.rejects(collect({...f.input,...change},f.deps),e=>e.code==="context_invalid_input");
