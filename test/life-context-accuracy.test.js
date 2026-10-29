@@ -71,3 +71,10 @@ test("exact excerpts alone are not a semantic verifier: faithful event/date asso
   // output demonstrates that v3 has solved semantic generation errors.
   assert.equal(normalizeOutput({observations:[conflated]},f.packet,at).length,1);
 });
+test("backend rejects oversized model arrays independently of provider schema bounds",()=>{
+  const f=fixture();
+  assert.throws(()=>normalizeOutput({observations:Array.from({length:21},()=>structuredClone(f.output.observations[0]))},f.packet,at),e=>e.code==="context_invalid_output");
+  const entries=Array.from({length:7},(_,i)=>({...f.packet.entries[0],id:`extra-${i}`}));
+  const observation={...f.output.observations[0],sourceIds:entries.map(e=>e.id),support:entries.map(e=>({sourceId:e.id,quote:e.text}))};
+  assert.throws(()=>normalizeOutput({observations:[observation]},{...f.packet,entries},at),e=>e.code==="context_invalid_output");
+});
