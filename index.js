@@ -11843,6 +11843,23 @@ app.get("/appointments/operations", (req, res) => {
     return res.json({ ok: true, ...listAppointmentOperations(req.query) });
   } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "appointments_failed", message: error.statusCode ? error.message : "Appointment access failed" } }); }
 });
+for (const [path, operation] of [["query", "getCurrentContext"], ["collect", "collectContext"], ["run", "getContextRun"]]) {
+  app.post(`/life-context/current/${path}`, async (req, res) => {
+    const requestId = randomUUID();
+    try {
+      const result = await require("./lib/life-context-observations")[operation](req.body, {
+        firestoreDb:db, danOwnerSubjects:DAN_TRAVEL_OWNER_SUBJECTS, taskAccess:buildTaskAccessFromRequest(req),
+        contextEnabled:process.env.LIFE_CONTEXT_COLLECTION_ENABLED === "true",
+        contextMonthlyLimitMicros:Number(process.env.LIFE_CONTEXT_MONTHLY_LIMIT_MICROS || 0),
+        generateContext:packet => require("./lib/life-context-vertex").generateContextWithVertex(packet, { auth:vertexAuth, projectId:GCP_PROJECT_ID })
+      });
+      return res.json({ ok:true, requestId, result });
+    } catch (error) {
+      console.error(JSON.stringify({ event:"life_context_current_failed", requestId, code:error.code || "context_failed" }));
+      return res.status(error.statusCode || 500).json({ ok:false, requestId, error:{ code:error.code || "context_failed", message:error.statusCode ? error.message : "Current context unavailable" } });
+    }
+  });
+}
 for (const [path, operation] of [["query", "getLifeContext"], ["command", "saveLifeContext"]]) {
   app.post(`/life-context/${path}`, async (req, res) => {
     const requestId = randomUUID();
