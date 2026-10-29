@@ -6,7 +6,7 @@ const { generateContextWithVertex } = require("../lib/life-context-vertex");
 function fixture() {
   let calls = 0, time = "2026-10-29T15:00:00.000Z";
   const db = fakeFirestore(), input = { runId:"synthetic-20261029",expectedVersion:0,reason:"Fictional bounded source trial",sources:[{ source:"messages",status:"partial",windowStart:"2026-10-28T07:00:00Z",windowEnd:"2026-10-29T15:00:00Z",checkedAt:time,hasMore:true }],entries:[{ id:"sample",source:"messages",sourceReference:"synthetic:conversation:1",sourceTime:"2026-10-29T14:00:00Z",identity:"provisional",text:"Fictional colleague: I may work remotely Friday. Reply: That works." }] };
-  const output = { observations:[{ text:"Fictional remote-work arrangement was acknowledged; no unanswered reply is evident.", purposes:["brief","planning"],sourceIds:["sample"],certainty:"resolved_in_source" }] };
+  const output = { observations:[{ text:"Fictional remote-work arrangement was acknowledged; no unanswered reply is evident.", purposes:["brief","planning"],sourceIds:["sample"],support:[{sourceId:"sample",quote:input.entries[0].text}],certainty:"resolved_in_source" }] };
   const deps = { firestoreDb:db, danOwnerSubjects:["dan"],taskAccess:{subject:"dan"},contextEnabled:true,contextMonthlyLimitMicros:2000000,now:()=>time,generateContext:async()=>{ calls++; return { output,model:{id:"synthetic"},usage:{totalTokenCount:100} }; } };
   return { db,input,output,deps,calls:()=>calls,time:t=>{time=t;} };
 }
@@ -67,6 +67,7 @@ test("budget reservations persist on failures, daily limits and monthly hard sto
   assert.equal((await collect({...f.input,runId:"another"},f.deps)).code,"context_budget_exhausted");
   const g=fixture();await collect(g.input,g.deps);
   const change=n=>({...g.input,runId:`change-${n}`,expectedVersion:n,entries:[{...g.input.entries[0],text:`changed-${n}`}]});
+  g.output.observations[0].support[0].quote="changed-1";
   await collect(change(1),g.deps);assert.equal((await collect(change(2),g.deps)).code,"context_budget_exhausted");
   assert.equal((await get({purposes:["planning"]},g.deps)).observations.length,0);
 });

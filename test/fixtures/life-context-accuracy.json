@@ -1,0 +1,25 @@
+{
+  "description": "Fictional reference cases and human-authored expected outputs. These are not model-generated results or live accuracy evidence.",
+  "entries": [
+    {"id":"trip","text":"Mira: We propose a retreat June 2-4. Separately, a celebration is proposed June 9."},
+    {"id":"care","text":"Jules: She has an injured ankle and is waiting for an appointment."},
+    {"id":"workshop","text":"Mira: Tentative workshop January 12; the date is not confirmed."},
+    {"id":"budget","text":"Jules: The building budget for 2031 is tight."},
+    {"id":"request","text":"Mira: Could you review the outline Friday?"},
+    {"id":"reply","text":"Jules: Yes, Friday works."}
+  ],
+  "expected": {"observations":[
+    {"text":"Mira proposes a retreat June 2-4.","purposes":["planning"],"sourceIds":["trip"],"support":[{"sourceId":"trip","quote":"We propose a retreat June 2-4."}],"certainty":"tentative"},
+    {"text":"Mira separately proposes a celebration June 9.","purposes":["planning"],"sourceIds":["trip"],"support":[{"sourceId":"trip","quote":"Separately, a celebration is proposed June 9."}],"certainty":"tentative"},
+    {"text":"Jules reports that an unidentified person has an injured ankle and awaits an appointment.","purposes":["brief"],"sourceIds":["care"],"support":[{"sourceId":"care","quote":"She has an injured ankle and is waiting for an appointment."}],"certainty":"reported"},
+    {"text":"Mira describes a tentative January 12 workshop; its date is not confirmed and no year is specified.","purposes":["planning"],"sourceIds":["workshop"],"support":[{"sourceId":"workshop","quote":"Tentative workshop January 12; the date is not confirmed."}],"certainty":"tentative"},
+    {"text":"Jules agreed to Mira's Friday outline-review request; completion is not established.","purposes":["planning","correspondence"],"sourceIds":["request","reply"],"support":[{"sourceId":"request","quote":"Could you review the outline Friday?"},{"sourceId":"reply","quote":"Yes, Friday works."}],"certainty":"resolved_in_source"}
+  ]},
+  "reviewRubric": [
+    "The retreat and celebration retain their distinct dates; neither becomes part of the other.",
+    "The injured person's relationship and identity stay unspecified.",
+    "The workshop receives no year from the unrelated budget statement or source timestamp.",
+    "The request and reply remain together in planning retrieval; agreement is not completion.",
+    "Every output clause must be supported in meaning, not only by an exact matching quotation."
+  ]
+}
