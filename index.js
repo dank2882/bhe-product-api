@@ -2608,6 +2608,8 @@ function getMinistryPlanningDependencies(overrides = {}) {
   return {
     db,
     specialMusicProfilesCollection,
+    serviceOrderItemsCollection,
+    serviceMomentsCollection,
     ...getOperatorDataDependencies(),
     ...getSongCatalogDependencies(),
     ...getServiceHistoryDependencies(),
