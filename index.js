@@ -11845,7 +11845,7 @@ app.get("/appointments/operations", (req, res) => {
     return res.json({ ok: true, ...listAppointmentOperations(req.query) });
   } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "appointments_failed", message: error.statusCode ? error.message : "Appointment access failed" } }); }
 });
-for (const [path, operation] of [["query", "getCurrentContext"], ["collect", "collectContext"], ["run", "getContextRun"]]) {
+for (const [path, operation] of [["query", "getCurrentContext"], ["collect", "collectContext"], ["reprocess", "reprocessContext"], ["run", "getContextRun"]]) {
   app.post(`/life-context/current/${path}`, async (req, res) => {
     const requestId = randomUUID();
     try {
