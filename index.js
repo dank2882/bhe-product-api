@@ -11843,6 +11843,20 @@ app.get("/appointments/operations", (req, res) => {
     return res.json({ ok: true, ...listAppointmentOperations(req.query) });
   } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "appointments_failed", message: error.statusCode ? error.message : "Appointment access failed" } }); }
 });
+for (const [path, operation] of [["query", "getLifeContext"], ["command", "saveLifeContext"]]) {
+  app.post(`/life-context/${path}`, async (req, res) => {
+    const requestId = randomUUID();
+    try {
+      const result = await require("./lib/life-context")[operation](req.body, {
+        firestoreDb: db, danOwnerSubjects: DAN_TRAVEL_OWNER_SUBJECTS, taskAccess: buildTaskAccessFromRequest(req)
+      });
+      return res.json({ ok: true, requestId, result });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "life_context_failed", requestId, code: error.code || "life_context_failed" }));
+      return res.status(error.statusCode || 500).json({ ok: false, requestId, error: { code: error.code || "life_context_failed", message: error.statusCode ? error.message : "Life Context unavailable" } });
+    }
+  });
+}
 app.get("/finance-forecast/operations", (req, res) => {
   try {
     require("./lib/finance-forecast-model").access(getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) }));
