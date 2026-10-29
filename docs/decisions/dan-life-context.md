@@ -1,6 +1,9 @@
 # Life Context and Voice Profile MVP
 
-Date: October 28, 2026. Status: implemented locally for Dan's review; not deployed.
+Date: October 28, 2026. Current status: deployed and fresh ChatGPT read acceptance
+verified after Dan approved release. Profiles remain uninitialized; no production
+profile content was written. The discovery and local-review sections below retain
+the evidence available at that earlier review stop. See the release receipt at end.
 
 ## Authority and accepted scope
 
@@ -141,3 +144,69 @@ uninitialized reads create nothing, then uses explicitly fictional fixtures and
 shows selected retrieval at version 1 while asserting unrelated sections/tones
 are absent. This is local module/MCP verification, not live HTTP, OAuth, Firestore,
 or installed ChatGPT acceptance. No credentials or external backend calls occur.
+
+## Approved release receipt — October 28, 2026 Pacific
+
+Dan approved proceeding with the existing MVP release. This did not authorize
+profile population or implementation of the proposed 6:25 a.m. collection pipeline.
+Released from clean checkouts whose exact commits were first pushed to GitHub main:
+
+| Service | Deployed source commit | Serving revision |
+| --- | --- | --- |
+| Core API | `fb0f41692c4df4ef8fc7abfbe83d1777222833df` | `bhe-product-api-00338-72n` |
+| Correspondence | `e34a63784ec3cb04e9139490580b0ebe7046d83c` | `bhe-correspondence-api-00028-nh2` |
+| Life OS MCP | `f693143a41fabc2fedb1679efbd64af7ec94792c` | `dan-life-os-mcp-00044-vsj` |
+
+All three serve 100 percent of production traffic. Release helper records were
+independently read back. Runtime configuration hashes excluding container image
+matched before/after, including existing service identities and environment.
+Previous serving revisions for rollback are `bhe-product-api-00337-wj2`,
+`bhe-correspondence-api-00028-cuw`, and `dan-life-os-mcp-00043-s4v`. No rollback was
+performed. The earlier Correspondence branch-history concern was reconciled:
+the prior deployed source label was `4536e2a`, the immediate parent of this MVP
+commit; the ten pre-existing commits were already part of the deployed lineage.
+This is source-label evidence, not a byte-level extraction of the prior container.
+
+The clean release checks and all 1,204 tests passed again. Eleven production
+read-only backend checks passed: selected empty Life Context, missing historical
+revision, unrelated actor denial, identity-alias denial, all four empty voice
+contexts, unrelated voice-owner denial, preserved configured voice delegation,
+and Life Context denial for that delegate. These backend checks use the existing
+service credential and actor headers; they are separate from actual OAuth client
+acceptance. No production write tests or profile saves were performed.
+
+The existing ChatGPT listing was updated in place from 1.0.15 to 1.0.16, preserving
+the original app binding and package identity. The downloaded saved ZIP matched
+all 17 submitted files. Codex Life OS was updated through its existing local
+marketplace to 1.0.20; all 15 installed skill/reference files matched the source.
+Platform commit `2c114a8` is package-version metadata only, after the deployed
+runtime source commit; it does not represent another runtime deployment.
+
+Fresh intended-user ChatGPT Work acceptance succeeded in
+[Life Context Read Result](https://chatgpt.com/c/6ae2bdf2-b3e0-83e8-bdf6-c7a4802f5110).
+It used `life_context_get` with `sections:["communicationPreferences"]` and
+`voiceContext:"pastoral"`. Both profiles returned null and setupRequired:true;
+Life Context returned version 0 and exactly the selected section. ChatGPT stated
+that no approved profile content was available and inferred nothing. Independent
+Cloud Run request logs corroborated HTTP 200 reads at 03:31:28.869915Z (core) and
+03:31:29.055511Z (Correspondence) on October 29 UTC. The combined operation does
+not expose the backend request ID; ChatGPT correctly reported none returned.
+
+Developer Tools evidence, each independently read back:
+
+- `life-context-live-reads-20261028`
+- `life-context-chatgpt-acceptance-20261028`
+- `life-context-instructions-20261028`
+
+Coverage limits: populated retrieval, transactional saves, corrections, approval
+and revision behavior are proven with synthetic automated tests; production
+acceptance intentionally covers empty reads only. Existing dependency audit
+findings remain in unchanged lockfiles and need separate maintenance. GitHub
+hosted workflow status was not independently checked; the required repository
+checks and full test suites ran in the clean release checkouts and release helper.
+This release changes neither OAuth configuration nor its long-term refresh claim.
+
+Next work remains the separately reviewed desktop collection proof: a manual,
+bounded source collection and proposed GCP contextualization contract before
+scheduling 6:25 a.m. Pacific. No collector, new cloud processor, automation,
+embedding store, inferred profile, or automatic voice learning was introduced.
