@@ -48,6 +48,17 @@ test("every cited source needs its own exact quote; quotes cannot be swapped, st
     o=>{o.support[0].quote="x".repeat(401);}
   ]){const f=fixture(),o=f.output.observations[4];mutate(o);assert.throws(()=>normalizeOutput({observations:[o]},f.packet,at));}
 });
+test("failure receipts distinguish invalid quotes from provider failures without storing private exceptions",async()=>{
+  const invalid=fixture();invalid.output.observations[0].support[0].quote="x".repeat(401);
+  await assert.rejects(collectContext(invalid.packet,invalid.deps));
+  assert.deepEqual((await getContextRun({runId:invalid.packet.runId},invalid.deps)).failure,{stage:"validation",reason:"unsupported_quote"});
+  const provider=fixture(),secret="fictional-provider-body-and-credential";
+  provider.deps.generateContext=async()=>{throw Object.assign(new Error(secret),{response:{data:secret},code:secret});};
+  await assert.rejects(collectContext(provider.packet,provider.deps),e=>!e.message.includes(secret));
+  assert.deepEqual((await getContextRun({runId:provider.packet.runId},provider.deps)).failure,{stage:"generation",reason:"unclassified"});
+  assert(!JSON.stringify([...provider.db.rows]).includes(secret));
+  assert(!provider.db.rows.has("danLifeContext/observations/revisions/1"));
+});
 test("a year in timestamps or uncited adjacent evidence cannot supply a generated observation year",()=>{
   const f=fixture(),o=f.output.observations[3];
   for(const year of ["2031","2026"]){o.text=`Mira's tentative workshop is January 12, ${year}.`;assert.throws(()=>normalizeOutput({observations:[o]},f.packet,at),e=>e.code==="context_invalid_output");}
