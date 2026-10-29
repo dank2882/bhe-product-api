@@ -1,6 +1,6 @@
 # Life Context v3 release review — October 29, 2026
 
-Status: integration prepared and tested; deployment held pending useful live-model evidence.
+Status: integrated and offline-tested; simplified schema passed real-model evaluation at 18:13 UTC. Release verification follows separately.
 
 - The shared backend currently serves `bhe-product-api-00381-nuv`, source `479cf5a`, containing the separately released Service Forecaster. Deploying the previous main commit directly would remove that feature.
 - Prepared merge commit `1b69c153b223e499048f6f4158d21f508eb81a8f` in the existing release clone, combining Life Context v3 with the deployed Service Forecaster and its release documentation. No conflicts. All **930 backend tests** and configuration/catalog checks passed. The prior unchanged platform checks and 254 tests had passed separately.
@@ -11,3 +11,11 @@ Status: integration prepared and tested; deployment held pending useful live-mod
 - Independent Life OS read confirms approved Life Context remains null/version 0 and Voice Profile remains null. No production data was written by this evaluation. No deployment, collection-limit increase, or schedule activation was performed.
 
 Next: one newly authorized fictional evaluation of the simplified schema, from the `integrate-life-context-v3` release clone (the original primary checkout still has the old schema). The prior diagnostic attempt is complete and must not be silently rerun. If the revised request succeeds, review actual output against all five fictional rubric checks, then release the combined commit through the established process and independently verify Life OS reads and preserved Ministry Planning behavior. Refresh GitHub main and current serving revision before promotion. Keep the daily pilot off and existing provisional version 2 review flags visible.
+
+## Live acceptance update — 18:13 UTC
+
+Dan authorized completing verification and release without a per-attempt approval cap. The simplified-schema request returned HTTP 200 / STOP: 2,027 input tokens, 621 output tokens, 2,648 total. Six observations passed backend validation and in-memory publication; selective retrieval preserved citations. This used the existing developer Google identity, not the deployed runtime identity, and made zero production writes.
+
+Manual semantic rubric: PASS on all five checks. Retreat June 2–4 and celebration June 9 remained separate; the injured person stayed unidentified; the tentative January 12 workshop received no invented year; the Friday request and reply stayed together without a completion claim; all observation clauses were supported by their exact excerpts. The model added a supported budget observation. Proposed events were labeled reported, with proposal wording retained, not confirmed. Counseling-only evidence was correctly absent from brief/planning/correspondence retrieval.
+
+This verifies one small fictional sample, not general semantic reliability or a new end-to-end production collection. Prior production provisional version 2 remains unchanged and retains its review flags. Daily collection stays off. Earlier pending-approval text above is historical and superseded by this authorization and result.
