@@ -29,6 +29,31 @@ test("one run publishes provisional cited observations, retrieves selectively, a
   assert(![...f.db.rows.keys()].some(k=>k.startsWith("danLifeContext/profile")));
   assert.equal((await run({runId:f.input.runId},f.deps)).status,"completed");
 });
+test("pilot window rejects before start and at end without storage or inference; reads remain available",async()=>{
+  const f=fixture();
+  f.deps.contextCollectionStartsAt="2026-10-29T15:00:00Z";
+  f.deps.contextCollectionEndsAt="2026-11-07T08:00:00Z";
+  f.time("2026-10-29T14:59:59.999Z");
+  await assert.rejects(collect(f.input,f.deps),e=>e.code==="context_window_not_started");
+  assert.equal(f.db.rows.size,0);assert.equal(f.calls(),0);
+  f.time("2026-10-29T15:00:00Z");
+  await collect(f.input,f.deps);
+  const rows=JSON.stringify([...f.db.rows]);
+  f.time("2026-11-07T08:00:00Z");
+  await assert.rejects(collect({...f.input,runId:"after-pilot",expectedVersion:1},f.deps),e=>e.code==="context_window_ended");
+  await assert.rejects(require("../lib/life-context-observations").reprocessContext({runId:"after-reprocess",expectedVersion:1,reason:"Fictional"},f.deps),e=>e.code==="context_window_ended");
+  assert.equal(JSON.stringify([...f.db.rows]),rows);assert.equal(f.calls(),1);
+  assert.equal((await get({purposes:["brief"]},f.deps)).version,1);
+  assert.equal((await run({runId:f.input.runId},f.deps)).status,"completed");
+});
+test("incomplete or invalid pilot configuration fails closed before writes and does not bypass authorization",async()=>{
+  for(const [start,end] of [["bad","2026-11-07T08:00:00Z"],[undefined,"2026-11-07T08:00:00Z"],["2026-10-29T15:00:00Z",undefined],["2026-10-29T15:00:00Z","2026-10-29T15:00:00Z"],["2026-11-08T08:00:00Z","2026-11-07T08:00:00Z"]]) {
+    const f=fixture();Object.assign(f.deps,{contextCollectionStartsAt:start,contextCollectionEndsAt:end});
+    await assert.rejects(collect(f.input,f.deps),e=>e.code==="context_window_unconfigured");
+    assert.equal(f.db.rows.size,0);assert.equal(f.calls(),0);
+    await assert.rejects(collect(f.input,{...f.deps,taskAccess:{subject:"other"}}),e=>e.code==="life_context_access_denied");
+  }
+});
 test("idempotency binds actor and complete intent; same content across new runs skips generation without refreshing expiry",async()=>{
   const f=fixture();await collect(f.input,f.deps);
   assert.equal((await collect(f.input,f.deps)).replayed,true);assert.equal(f.calls(),1);
