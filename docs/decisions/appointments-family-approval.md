@@ -1,5 +1,7 @@
 # Family approval for pastoral appointments
 
+Superseded for Dan's policy by [optional Sarah contact, November 3](appointments-family-suggestion.md). The original decision and release evidence below are historical.
+
 Accepted October 1, 2026. Dan requested approval from his wife for meetings
 outside his normal schedule, then notification when confirmed. He authorized
 implementation with “ok create that please”. His normal hours are Monday–Friday,

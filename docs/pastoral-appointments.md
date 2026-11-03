@@ -128,12 +128,13 @@ corrected that statement; the durable workflow never asserted delivery. A sent
 copy's receivedDateTime is not delivery proof. These checks do not establish
 post-expiry OAuth durability or autonomous inbox monitoring.
 
-## Family scheduling approval
+## Family scheduling contact
 
 See [family approval decision](decisions/appointments-family-approval.md) for the
-October 1 extension: versioned normal hours, wife approval for the full
-arrangement, and pending confirmation/change/cancellation notices. Read live
-`getAppointmentFamilyPolicy` for setup status and current windows/contact.
+historical October 1 extension. The [November 3 advisory setting](decisions/appointments-family-suggestion.md) replaces Dan's required confirmation with an optional suggestion to contact Sarah. Read live
+`getAppointmentFamilyPolicy` for approvalMode and current windows/contact.
+Suggestion mode never blocks booking or confirmation and creates no required
+family notices; existing pending notices are optional.
 
 ## Calendar proposal input
 
@@ -170,7 +171,7 @@ values. `type` and `actionType` are not aliases for `kind`. Creation uses the
 same nesting with `operation: "create"` and no event ID. Cancellation requires
 `role`, `operation: "cancel"` and `eventId` in `calendar`. `calendarId` is optional.
 Proposing an action does not approve or dispatch it; existing exact approval,
-family approval, fresh conflict checks and read-back requirements still apply.
+the current family policy, fresh conflict checks and read-back requirements still apply.
 
 The October 2 report did not include the original failing payload. A flattened
 calendar update reproduces `appointments_invalid_input: Unsupported fields`;

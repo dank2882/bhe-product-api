@@ -248,6 +248,71 @@ async function familyBooked(f) {
     event: { eventId: "family-meeting", ...Object.fromEntries(["start", "end", "location", "subject", "attendees"].map(k => [k, a.proposal.calendar[k]])) } });
   return f.command("recordAppointmentAgreement", { ...fields(r), accepted: true, start: a.proposal.calendar.start, end: a.proposal.calendar.end, location: "Church office", source: "reply_readback", sourceId: "requester-reply" });
 }
+test("suggestion policy books and confirms outside hours without Sarah while preserving action and conflict checks", async () => {
+  const f = fixture();
+  await familyConfig(f, { approvalMode: "suggestion", channel: "", recipient: "", approverSubject: "" });
+  let r = await propose(f, await create(f), cal({ start: "2026-10-03T00:00:00Z", end: "2026-10-03T00:45:00Z" }));
+  assert.equal(r.appointment.family.contactSuggested, true);
+  assert.equal(r.appointment.family.required, false);
+  assert.equal(r.appointment.family.setupNeeded, false);
+  assert.match(r.appointment.family.suggestion, /Consider contacting Sarah/);
+  assert.deepEqual(r.appointment.booking.blockers, ["action_approval_required"]);
+  const a = r.appointment.actions[0], c = a.proposal.calendar;
+  await assert.rejects(f.command("beginAppointmentAction", { ...fields(r), actionId: a.actionId }));
+  r = await approve(f, r);
+  assert.equal(r.appointment.booking.state, "ready_to_book");
+  await assert.rejects(f.command("beginAppointmentAction", { ...fields(r), actionId: a.actionId }), { code: "appointments_calendar_read_required" });
+  await assert.rejects(f.command("recordAppointmentObservation", { ...fields(r), actionId: a.actionId, observedAt: at, availability: { start: c.start, end: c.end, conflictCount: 1 } }));
+  r = await f.command("recordAppointmentObservation", { ...fields(r), actionId: a.actionId, observedAt: at, availability: { start: c.start, end: c.end, conflictCount: 0 } });
+  r = await f.command("beginAppointmentAction", { ...fields(r), actionId: a.actionId });
+  r = await f.command("recordAppointmentActionResult", { ...fields(r), actionId: a.actionId, outcome: "read_back", observedAt: at,
+    event: { eventId: "optional-sarah", start: c.start, end: c.end, subject: c.subject, location: c.location, attendees: [] } });
+  r = await f.command("recordAppointmentAgreement", { ...fields(r), accepted: true, start: c.start, end: c.end, location: c.location, source: "reply_readback", sourceId: "participant-reply" });
+  const saved = (await f.query("getAppointment", { appointmentId: r.appointmentId })).appointment;
+  assert.equal(saved.status, "confirmed");
+  assert.equal(saved.booking.state, "booked");
+  assert.equal(saved.familyApproval, undefined);
+  assert.deepEqual(saved.pendingFamilyNotices, []);
+  assert.equal(saved.actions.length, 1);
+});
+test("advisory policy survives old-client edits and does not suggest contact during normal hours", async () => {
+  const f = fixture();
+  const args = { expectedVersion: 0, userApproved: true, policy: { enabled: true, approvalMode: "suggestion", windows: familyWindows } };
+  await f.command("configureAppointmentFamilyPolicy", args, "suggestion-once");
+  assert.equal((await f.command("configureAppointmentFamilyPolicy", args, "suggestion-once")).policy.version, 1);
+  await assert.rejects(f.command("configureAppointmentFamilyPolicy", args), { code: "appointments_version_conflict" });
+  await familyConfig(f, {}, 1);
+  assert.equal((await f.query("getAppointmentFamilyPolicy")).policy.approvalMode, "suggestion");
+  const r = await ready(f);
+  assert.equal(r.appointment.family.contactSuggested, false);
+  assert.equal(r.appointment.family.suggestion, "");
+  const { assess } = require("../lib/appointments-family");
+  const p = (await f.query("getAppointmentFamilyPolicy")).policy;
+  const a = assess({ events: { meeting: { start, end }, return_travel: { start: "2026-10-02T16:15:00-07:00", end: "2026-10-02T16:45:00-07:00" } }, actions: [] }, p);
+  assert.deepEqual(a.outsideRoles, ["return_travel"]);
+  assert.equal(a.contactSuggested, true);
+  assert.equal(a.required, false);
+});
+test("switching to suggestion releases legacy declined approval and makes pending notices optional", async () => {
+  const f = fixture(); let r = await wifeApprove(f, await familyReady(f), { decision: "declined" });
+  await familyConfig(f, { approvalMode: "suggestion" }, 1);
+  let saved = (await f.query("getAppointment", { appointmentId: r.appointmentId })).appointment;
+  assert.equal(saved.familyApproval.decision, "declined");
+  assert.equal(saved.booking.state, "ready_to_book");
+  assert.equal(saved.attentionReasons.includes("wife_approval_required"), false);
+  await f.command("beginAppointmentAction", { ...fields(r), actionId: saved.actions[0].actionId });
+
+  const g = fixture(); r = await familyBooked(g);
+  await familyConfig(g, { approvalMode: "suggestion" }, 1);
+  r = await g.command("recordAppointmentOutcome", { ...fields(r), outcome: "met", userConfirmed: true });
+  r = await g.command("finishAppointmentDebrief", { ...fields(r), result: "not_needed", userConfirmed: true });
+  saved = (await g.query("getAppointment", { appointmentId: r.appointmentId })).appointment;
+  assert.equal(saved.pendingFamilyNotices.length, 1);
+  assert.equal(saved.pendingFamilyNotices[0].optional, true);
+  assert.equal(saved.familyNotices[0].status, "pending");
+  assert.equal(saved.attentionReasons.includes("wife_notification_pending"), false);
+  assert.equal(saved.complete, true);
+});
 test("family policy is owner-only, versioned, replay-safe and incomplete setup cannot book", async () => {
   const f = fixture();
   await assert.rejects(f.command("configureAppointmentFamilyPolicy", { expectedVersion: 0, userApproved: true, policy: { enabled: true } }, undefined, { taskAccess: { subject: "sarah", role: "member" } }), { code: "appointments_family_owner_required" });
