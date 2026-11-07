@@ -1,0 +1,19 @@
+{
+  "description": "Fictional semantic evaluation; no private source material. Check action, actor, qualifiers, and negative controls, not only citation validity.",
+  "entries": [
+    {"id":"departure","text":"Morgan: I cannot help set up the award reception early. We still plan to attend, but we will not leave home until about 9:15-9:45 so I can rest first. No arrival time or reception start time has been agreed."},
+    {"id":"distinct","text":"Casey: For the volunteer workshop, we plan to depart at 7:20, arrive around 8:10, and the workshop begins at 9. The drive might take longer, so arrival is only an estimate."},
+    {"id":"arrival","text":"Taylor: For the museum visit I am arriving at 10:40, not leaving at 10:40. I have not decided my departure time."},
+    {"id":"ambiguous","text":"Robin: The gallery visit is still on; maybe 2? I have not said whether 2 means departure, arrival, or the start of the visit."},
+    {"id":"actor-request","text":"Avery to Dan: I will leave for the concert at 11:10. Are you still attending?"},
+    {"id":"actor-reply","text":"Dan to Avery: Yes, I am attending the concert. I have not decided when I will leave."}
+  ],
+  "rubric": [
+    "Morgan plans departure around 9:15-9:45; no attendance, arrival, or event start is assigned that time.",
+    "Casey departure 7:20, estimated arrival 8:10 and workshop start 9 remain distinct.",
+    "Taylor 10:40 is arrival only; departure unknown.",
+    "Robin's 2 has no confirmed time role and is omitted or explicitly ambiguous.",
+    "Avery's 11:10 departure is never assigned to Dan; Dan confirms attendance but departure remains undecided.",
+    "Every material assertion is supported by exact quotes containing the relevant action and qualifiers; plans are not completed activities."
+  ]
+}
