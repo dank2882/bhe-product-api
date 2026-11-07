@@ -2608,6 +2608,8 @@ function getMinistryPlanningDependencies(overrides = {}) {
   return {
     db,
     specialMusicProfilesCollection,
+    serviceOrderItemsCollection,
+    serviceMomentsCollection,
     ...getOperatorDataDependencies(),
     ...getSongCatalogDependencies(),
     ...getServiceHistoryDependencies(),
@@ -11843,7 +11845,7 @@ app.get("/appointments/operations", (req, res) => {
     return res.json({ ok: true, ...listAppointmentOperations(req.query) });
   } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "appointments_failed", message: error.statusCode ? error.message : "Appointment access failed" } }); }
 });
-for (const [path, operation] of [["query", "getCurrentContext"], ["collect", "collectContext"], ["run", "getContextRun"]]) {
+for (const [path, operation] of [["query", "getCurrentContext"], ["collect", "collectContext"], ["reprocess", "reprocessContext"], ["run", "getContextRun"]]) {
   app.post(`/life-context/current/${path}`, async (req, res) => {
     const requestId = randomUUID();
     try {
@@ -11851,6 +11853,9 @@ for (const [path, operation] of [["query", "getCurrentContext"], ["collect", "co
         firestoreDb:db, danOwnerSubjects:DAN_TRAVEL_OWNER_SUBJECTS, taskAccess:buildTaskAccessFromRequest(req),
         contextEnabled:process.env.LIFE_CONTEXT_COLLECTION_ENABLED === "true",
         contextMonthlyLimitMicros:Number(process.env.LIFE_CONTEXT_MONTHLY_LIMIT_MICROS || 0),
+        contextDailyLimit:Number(process.env.LIFE_CONTEXT_DAILY_LIMIT || 2),
+        contextCollectionStartsAt:process.env.LIFE_CONTEXT_COLLECTION_STARTS_AT,
+        contextCollectionEndsAt:process.env.LIFE_CONTEXT_COLLECTION_ENDS_AT,
         generateContext:packet => require("./lib/life-context-vertex").generateContextWithVertex(packet, { auth:vertexAuth, projectId:GCP_PROJECT_ID })
       });
       return res.json({ ok:true, requestId, result });
