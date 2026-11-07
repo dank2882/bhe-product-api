@@ -12,7 +12,7 @@ async function request(path, body, actor = owner, url = base) {
   return { status: r.status, body: await r.json() };
 }
 const query = async (operation, args = {}, url = base) => { const r = await request("query", { operation, arguments: args }, owner, url); assert.equal(r.status, 200); assert.equal(r.body.ok, true); return r.body.result; };
-const catalog = await request("operations"); assert.equal(catalog.status, 200); assert.equal(catalog.body.catalogVersion, "1.1.0"); assert(catalog.body.contracts.brokerage);
+const catalog = await request("operations"); assert.equal(catalog.status, 200); assert.equal(catalog.body.catalogVersion, "1.2.0"); assert(catalog.body.contracts.brokerage);
 const before = await query("getPersonalSettings");
 for (const actor of ["ungranted-brokerage-review", ...(env.DAN_PRIVATE_DELEGATE_SUBJECTS?.value || "").split(",").filter(x => x && x !== owner)]) {
   for (const path of ["operations", "query", "command"]) {
@@ -29,4 +29,4 @@ const preview = await query("previewPersonalImport", { input }); assert.equal(pr
 input.brokerageAccounts[0].includeInSpendable = true;
 assert.equal((await request("query", { operation: "previewPersonalImport", arguments: { input } })).status, 400);
 assert.deepEqual(await query("getPersonalSettings"), before);
-console.log(JSON.stringify({ passed: true, checks: ["live 1.1 catalog", "owner allow and delegate/admin denial", "brokerage preview", "spendable exclusion", "unchanged household cash projections", "no writes"] }));
+console.log(JSON.stringify({ passed: true, checks: ["live 1.2 catalog", "owner allow and delegate/admin denial", "brokerage preview", "spendable exclusion", "unchanged household cash projections", "no writes"] }));

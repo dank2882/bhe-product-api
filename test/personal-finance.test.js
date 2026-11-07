@@ -28,6 +28,27 @@ async function baseline(s) {
   await s.save("budgets", budget());
   await s.command("savePersonalSettings", { settings: { reserveCents: 10000, baselineBudgetId: "baseline", coverageConfirmedOn: "2026-11-06", coverageThrough: "2027-11-05" } });
 }
+test("noncash assets preserve unknown valuations, history and cash isolation", async () => {
+  const s = setup(); await baseline(s);
+  const before = (await s.query("buildPersonalForecast", { includeDetail: true })).baseline;
+  const asset = { id: "synthetic-car", name: "Synthetic vehicle", type: "vehicle", currency: "USD", estimatedValueCents: null, debtStatus: "paid_off", vehicle: { modelYear: 2015, makeModel: "Test model", odometerMiles: 80000 }, source };
+  await s.save("assets", asset);
+  assert.equal((await s.query("getPersonalRecord", { kind: "assets", id: asset.id })).record.estimatedValueCents, null);
+  await s.save("assets", { ...asset, estimatedValueCents: 1234500, valuationDate: "2026-11-06" });
+  assert.deepEqual((await s.query("buildPersonalForecast", { includeDetail: true })).baseline, before);
+  const history = await s.query("getPersonalHistory");
+  assert(history.items.some(h => h.changes.some(c => c.kind === "assets" && c.record.estimatedValueCents === null)));
+  await assert.rejects(s.save("schedules", schedule("sell", { accountId: asset.id, kind: "income" })), /not found/);
+  for (const bad of [{ estimatedValueCents: 100 }, { estimatedValueCents: -1, valuationDate: "2026-11-06" }, { valuationDate: "2026-11-06" }, { estimatedValueCents: 100, valuationDate: "2026-11-07" }, { includeInSpendable: true }, { currency: "CAD" }]) await assert.rejects(s.save("assets", { ...asset, ...bad }));
+  const args = { expectedVersion: await s.version(), kind: "assets", record: asset };
+  const first = await s.command("savePersonalRecord", args, "asset-stable-retry");
+  assert.equal((await s.command("savePersonalRecord", args, "asset-stable-retry")).version, first.version);
+  await assert.rejects(s.command("savePersonalRecord", args), /Workspace changed/);
+  for (const taskAccess of [{ subject: "staff", role: "admin" }, { subject: "delegate", subjects: ["dan"], role: "admin" }]) {
+    await assert.rejects(s.query("listPersonalRecords", { kind: "assets" }, { ...s.deps, taskAccess }));
+    await assert.rejects(run({ operation: "savePersonalRecord", mode: "command", arguments: args, idempotencyKey: "asset-denied-write" }, { ...s.deps, taskAccess }));
+  }
+});
 test("brokerage preview, atomic creation, independent readback and duplicate reimport", async () => {
   const s = setup(), batch = brokerageBatch(), v = await s.version();
   const preview = await s.preview(batch); assert.equal(preview.canCommit, true); assert.equal(preview.changes.length, 2); assert.equal(await s.version(), v);

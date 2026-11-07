@@ -109,3 +109,16 @@ trade/lot accounting, investment-return assumptions and brokerage cash movement
 projections remain unsupported and are rejected. Checking transfers still need
 reconciliation, never relabeling as income. This is an additive schema change,
 with no authentication, database, service or gateway changes.
+
+## Accepted noncash assets extension — November 6, 2026
+
+Dan explicitly requested asset records and continued budget preparation. Reuse
+the private workspace with an assets collection, existing catalog and record
+commands, exact-owner gate, global version checks, receipts and revision history.
+Store owner-reported estimates with valuation dates and provenance; unknown
+values remain null. Vehicle details preserve model year and observed mileage.
+Debt status describes the asset only; debts remain separate loan accounts. Assets
+never become cash accounts, collateral borrowing assumptions or forecast inflows.
+No new infrastructure, authentication or source-system writes. Earlier revisions
+ignore this additive collection; restoring them hides assets but preserves data
+and does not change cash calculations. Do not represent that as full asset support.
