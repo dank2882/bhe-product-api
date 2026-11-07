@@ -4,6 +4,46 @@ const { fakeFirestore } = require("./helpers/maintenance-firestore");
 const { run, listOperations } = require("../lib/personal-finance-operation-registry");
 const M = require("../lib/personal-finance-model");
 const source = { system: "manual", reference: "synthetic test", observedOn: "2026-11-06" };
+const reviewArtifact = (id = "review") => ({ id, name: "Synthetic review", type: "source_review", date: "2026-11-06", basedOnVersion: 0, format: "json", content: '{"held":true,"amountCents":123}', status: "provisional", source });
+test("personal artifacts persist exact content with digest, immutable identity and retry safety", async () => {
+  const s = setup(), artifact = reviewArtifact(), args = { expectedVersion: 0, artifact };
+  const first = await s.command("savePersonalArtifact", args, "artifact-stable-retry");
+  const read = (await s.query("getPersonalArtifact", { id: artifact.id })).artifact;
+  assert.equal(read.content, artifact.content);
+  assert.equal(read.contentSha256, require("node:crypto").createHash("sha256").update(artifact.content).digest("hex"));
+  assert.equal(read.contentBytes, Buffer.byteLength(artifact.content));
+  assert.equal((await s.command("savePersonalArtifact", args, "artifact-stable-retry")).version, first.version);
+  await assert.rejects(s.command("savePersonalArtifact", { artifact }), /immutable/);
+  await assert.rejects(s.command("savePersonalArtifact", { expectedVersion: 0, artifact: reviewArtifact("other") }), /Workspace changed/);
+  await assert.rejects(s.command("savePersonalArtifact", { ...args, artifact: { ...artifact, content: '{}' } }, "artifact-stable-retry"), /Idempotency/);
+  assert((await s.query("getPersonalHistory")).items[0].changes.some(c => c.kind === "artifacts" && c.record.content === artifact.content));
+});
+test("artifact metadata pages are bounded and version checked; archives never affect forecasts", async () => {
+  const s = setup(); await baseline(s);
+  const before = (await s.query("buildPersonalForecast", { includeDetail: true })).baseline;
+  for (const id of ["a", "b", "c"]) await s.command("savePersonalArtifact", { artifact: reviewArtifact(id) });
+  const page = await s.query("listPersonalArtifacts", { limit: 2 });
+  assert.deepEqual(page.items.map(x => x.id), ["a", "b"]);assert(!page.complete);assert.equal(page.nextAfterId, "b");
+  assert(page.items.every(x => !("content" in x)));
+  const last = await s.query("listPersonalArtifacts", { limit: 2, afterId: page.nextAfterId, expectedVersion: page.version });
+  assert.deepEqual(last.items.map(x => x.id), ["c"]);assert(last.complete);
+  assert.deepEqual((await s.query("buildPersonalForecast", { includeDetail: true })).baseline, before);
+  await s.command("savePersonalArtifact", { artifact: reviewArtifact("d") });
+  await assert.rejects(s.query("listPersonalArtifacts", { afterId: "b", expectedVersion: page.version }), /Workspace changed/);
+  await assert.rejects(s.query("listPersonalArtifacts", { limit: 21 }));
+  await assert.rejects(s.query("getPersonalArtifact", { id: "absent" }), /not found/);
+});
+test("artifact validation and all entry points preserve exact-owner privacy", async () => {
+  const s = setup();
+  for (const change of [{ content: "" }, { content: "{" }, { content: "é".repeat(125001) }, { type: "generic_note" }, { basedOnVersion: 1 }, { basedOnVersion: -1 }, { date: "2026-11-07" }, { format: "executable" }, { status: "approved_cash" }, { contentSha256: "forged" }]) await assert.rejects(s.command("savePersonalArtifact", { artifact: { ...reviewArtifact(), ...change } }));
+  for (const taskAccess of [{ subject: "staff", role: "admin" }, { subject: "sarah", subjects: ["dan"], role: "admin" }]) {
+    const deps = { ...s.deps, taskAccess };
+    await assert.rejects(s.query("getPersonalArtifact", { id: "review" }, deps), e => e.statusCode === 403);
+    await assert.rejects(s.query("listPersonalArtifacts", {}, deps), e => e.statusCode === 403);
+    await assert.rejects(run({ mode: "command", operation: "savePersonalArtifact", arguments: { expectedVersion: 0, artifact: reviewArtifact() }, idempotencyKey: "artifact-denied" }, deps), e => e.statusCode === 403);
+  }
+  assert.equal(s.db.rows.size, 0);
+});
 function setup() {
   const db = fakeFirestore(), original = db.runTransaction; let seq = 0;
   db.runTransaction = fn => original(tx => { let writing = false; return fn({ get: r => { assert.equal(writing, false); return tx.get(r); }, set: (...a) => { writing = true; return tx.set(...a); }, create: (...a) => { writing = true; return tx.create(...a); } }); });
