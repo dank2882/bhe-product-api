@@ -73,6 +73,9 @@ test("brokerage missing fields stay unknown; stale and absent observations are e
   await checkpoint(s, "investment", 900000, [], { date: "2026-10-01", brokerageDetails: { date: "2026-10-01" } });
   f = (await s.query("buildPersonalForecast")).baseline; assert.equal(f.brokerageObservations[0].freshness, "stale"); assert.equal(f.brokerageObservations[0].details.cashAvailableToWithdrawCents, null);
   await assert.rejects(checkpoint(s, "investment", 900000, [], { brokerageDetails: { date: "2026-11-07" } }), /cannot follow/);
+  await checkpoint(s, "investment", 900000, [], { brokerageDetails: { date: "2026-11-06", cashBalanceCents: -10000 } });
+  f = (await s.query("buildPersonalForecast")).baseline;
+  assert.equal(f.status, "unresolved"); assert(f.gaps.some(g => g.code === "brokerage_debt_requires_review"));
 });
 test("exact primary owner required before catalog, query or command; aliases/delegation cannot grant access", async () => {
   const s = setup();
