@@ -25,7 +25,7 @@ test("fictional reference output survives adapter, publication and selective ret
   assert(read.observations.some(o=>o.citations.some(c=>c.id==="request")&&o.citations.some(c=>c.id==="reply")));
   assert(!JSON.stringify(read).includes('"quote"'));assert(!JSON.stringify(read).includes('"support"'));
   assert.equal((await getCurrentContext({purposes:["brief"]},f.deps)).observations.length,1);
-  assert.equal((await f.db.collection("danLifeContext").doc("observations").get()).data().model.promptVersion,"life-context-observations-v7");
+  assert.equal((await f.db.collection("danLifeContext").doc("observations").get()).data().model.promptVersion,"life-context-observations-v8");
   assert(!f.db.rows.has("danLifeContext/profile"));
 });
 test("invented relationship quotations fail publication and leave no new observation revision",async()=>{
