@@ -11879,6 +11879,22 @@ for (const [path, operation] of [["query", "getLifeContext"], ["command", "saveL
     }
   });
 }
+// Personal financial information has an exact-owner gate on every endpoint.
+app.get("/personal-finance/operations", (req, res) => {
+  try {
+    return res.json({ ok: true, ...require("./lib/personal-finance-operation-registry").listOperations(req.query, getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) })) });
+  } catch (error) { return res.status(error.statusCode || 500).json({ ok: false, error: { code: error.code || "personal_finance_failed", message: error.statusCode ? error.message : "Personal finance unavailable" } }); }
+});
+for (const mode of ["query", "command"]) {
+  app.post(`/personal-finance/${mode}`, async (req, res) => {
+    const requestId = randomUUID();
+    try { return res.json({ ok: true, requestId, ...await require("./lib/personal-finance-operation-registry").run({ ...req.body, mode }, getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) })) }); }
+    catch (error) {
+      console.error(JSON.stringify({ event: "personal_finance_failed", requestId, code: error.code || "personal_finance_failed" }));
+      return res.status(error.statusCode || 500).json({ ok: false, requestId, error: { code: error.code || "personal_finance_failed", message: error.statusCode ? error.message : "Personal finance operation failed" } });
+    }
+  });
+}
 app.get("/finance-forecast/operations", (req, res) => {
   try {
     require("./lib/finance-forecast-model").access(getIntakeDependencies({ taskAccess: buildTaskAccessFromRequest(req) }));
