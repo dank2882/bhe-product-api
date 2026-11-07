@@ -19,6 +19,7 @@ function setup() {
 const account = (id = "checking", type = "checking", extra = {}) => ({ id, name: id, type, currency: "USD", ...extra });
 const tx = (externalId, extra = {}) => ({ accountId: "checking", externalId, date: "2026-11-06", amountCents: -1000, status: "posted", kind: "expense", splits: [{ categoryId: "food", amountCents: -1000 }], source: { ...source, system: "bank" }, ...extra });
 const input = transactions => ({ reference: "synthetic export", transactions });
+const brokerageBatch = () => ({ reference: "synthetic brokerage export", brokerageAccounts: [account("investment", "brokerage")], brokerageBalances: [{ id: "investment-observation", accountId: "investment", date: "2026-11-06", amountCents: 900000, treatments: [], source, brokerageDetails: { date: "2026-11-05", cashBalanceCents: 300000, securitiesValueCents: 600000, settledFundsCents: 290000, cashAvailableToWithdrawCents: 250000 } }] });
 const budget = (extra = {}) => ({ id: "baseline", name: "Plan", month: "2026-11", type: "proposal", categories: [], repeatMonthly: true, forecastEnabled: true, source, ...extra });
 const schedule = (id, extra = {}) => ({ id, name: id, accountId: "checking", kind: "expense", amountCents: 1000, startDate: "2026-11-10", frequency: "once", source, ...extra });
 async function checkpoint(s, accountId = "checking", amountCents = 100000, treatments = [], extra = {}) { return s.save("balances", { id: `balance-${accountId}-${await s.version()}`, accountId, amountCents, date: "2026-11-06", source, treatments, ...extra }); }
@@ -27,6 +28,52 @@ async function baseline(s) {
   await s.save("budgets", budget());
   await s.command("savePersonalSettings", { settings: { reserveCents: 10000, baselineBudgetId: "baseline", coverageConfirmedOn: "2026-11-06", coverageThrough: "2027-11-05" } });
 }
+test("brokerage preview, atomic creation, independent readback and duplicate reimport", async () => {
+  const s = setup(), batch = brokerageBatch(), v = await s.version();
+  const preview = await s.preview(batch); assert.equal(preview.canCommit, true); assert.equal(preview.changes.length, 2); assert.equal(await s.version(), v);
+  await s.commit(batch);
+  const observation = (await s.query("getPersonalRecord", { kind: "balances", id: "investment-observation" })).record;
+  assert.deepEqual(observation.brokerageDetails, batch.brokerageBalances[0].brokerageDetails);
+  assert.equal((await s.query("getPersonalRecord", { kind: "accounts", id: "investment" })).record.includeInSpendable, false);
+  const repeated = await s.preview(batch); assert.equal(repeated.changes.length, 0); assert.equal(repeated.unchangedCount, 2);
+  const changed = structuredClone(batch); changed.brokerageBalances[0].amountCents++;
+  assert.equal((await s.preview(changed)).conflicts[0].code, "brokerage_observation_conflict");
+  await assert.rejects(s.commit(changed), /conflicts/);
+  assert.equal((await s.query("getPersonalRecord", { kind: "balances", id: "investment-observation" })).record.amountCents, 900000);
+});
+test("brokerage values never fund reserves or scenarios and remain dated observations", async () => {
+  const s = setup(); await baseline(s);
+  const before = (await s.query("buildPersonalForecast", { includeDetail: true })).baseline;
+  await s.commit(brokerageBatch());
+  const f = await s.query("buildPersonalForecast", { includeDetail: true, scenario: { id: "test", name: "Test", additions: [schedule("purchase", { amountCents: 95000 })] } });
+  assert.equal(f.baseline.openingUsableCents, before.openingUsableCents);
+  assert.deepEqual(f.baseline.daily, before.daily); assert.deepEqual(f.baseline.monthly, before.monthly);
+  assert.equal(f.scenario.status, "shortfall"); assert.equal(f.baseline.accounts.length, 1);
+  assert.equal(f.baseline.brokerageObservations[0].accountValueCents, 900000);
+  assert.equal(f.baseline.brokerageObservations[0].details.date, "2026-11-05");
+  assert.equal(f.baseline.brokerageObservations[0].projected, false);
+});
+test("brokerage import rejects relabeling, duplicate IDs, borrowing and cashflow use", async () => {
+  const s = setup(); await baseline(s); await s.commit(brokerageBatch());
+  await assert.rejects(s.save("accounts", account("investment", "brokerage", { includeInSpendable: true })), /excluded/);
+  await assert.rejects(s.save("accounts", account("investment")), /type cannot/);
+  await assert.rejects(s.save("schedules", schedule("transfer", { kind: "transfer", toAccountId: "investment" })), /observations only/);
+  await assert.rejects(s.preview(input([tx("trade", { accountId: "investment" })])), /observations only/);
+  await assert.rejects(s.save("budgets", budget({ categories: [{ categoryId: "food", accountId: "investment", plannedCents: 100 }] })), /observations only/);
+  await assert.rejects(s.query("buildPersonalForecast", { scenario: { id: "x", name: "x", additions: [schedule("income", { accountId: "investment", kind: "income" })] } }), /observations only/);
+  const bad = brokerageBatch(); bad.brokerageBalances[0].brokerageDetails.borrowingCents = 40000;
+  await assert.rejects(s.preview(bad), /Unsupported|Unknown|Unexpected/i);
+  const dup = brokerageBatch(); dup.brokerageBalances.push(dup.brokerageBalances[0]); await assert.rejects(s.preview(dup), /Duplicate/);
+  const wrong = brokerageBatch(); wrong.brokerageAccounts[0].id = "checking"; await assert.rejects(s.commit(wrong));
+  await assert.rejects(checkpoint(s, "checking", 100000, [], { brokerageDetails: { date: "2026-11-06" } }), /require a brokerage/);
+});
+test("brokerage missing fields stay unknown; stale and absent observations are explicit", async () => {
+  const s = setup(); await baseline(s); await s.save("accounts", account("investment", "brokerage"));
+  let f = (await s.query("buildPersonalForecast")).baseline; assert.equal(f.brokerageObservations[0].freshness, "missing"); assert.equal(f.brokerageObservations[0].accountValueCents, null);
+  await checkpoint(s, "investment", 900000, [], { date: "2026-10-01", brokerageDetails: { date: "2026-10-01" } });
+  f = (await s.query("buildPersonalForecast")).baseline; assert.equal(f.brokerageObservations[0].freshness, "stale"); assert.equal(f.brokerageObservations[0].details.cashAvailableToWithdrawCents, null);
+  await assert.rejects(checkpoint(s, "investment", 900000, [], { brokerageDetails: { date: "2026-11-07" } }), /cannot follow/);
+});
 test("exact primary owner required before catalog, query or command; aliases/delegation cannot grant access", async () => {
   const s = setup();
   for (const subject of ["sarah", "staff", "admin", ""]) {

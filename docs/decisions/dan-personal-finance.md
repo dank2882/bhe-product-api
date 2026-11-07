@@ -90,3 +90,22 @@ Initialize only a zero-row technical import receipt for write verification;
 never invent financial records. Actual Chrome/source collection, account
 reconciliation, installed-client discovery and one real affordability decision
 remain distinct acceptance gates. Release evidence is recorded separately.
+
+## Accepted brokerage extension — November 6, 2026
+
+Dan explicitly approved adding brokerage import during source onboarding.
+Reuse the same accounts, immutable balances, import previews and receipts. New
+brokerage accounts are always excluded from spendable cash. Balance amount is
+observed total account value; optional separately dated details preserve cash,
+securities value, settled funds and cash available to withdraw. Unknown details
+remain null. Borrowing power is not cash. Do not assume date equality between a
+summary and its detail panel, or infer withdrawal availability from account value.
+
+The existing import input accepts bounded brokerage accounts and balances,
+including atomic account creation. Duplicate observations are unchanged;
+conflicting immutable IDs block commit. Reports return brokerage observations
+separately from cash projections. This extension imports balance snapshots only;
+trade/lot accounting, investment-return assumptions and brokerage cash movement
+projections remain unsupported and are rejected. Checking transfers still need
+reconciliation, never relabeling as income. This is an additive schema change,
+with no authentication, database, service or gateway changes.
