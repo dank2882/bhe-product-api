@@ -341,3 +341,18 @@ test("wish list entry points deny delegates and staff without creating records",
   }
   assert.equal(s.db.rows.size, 0);
 });
+
+test("quarterly schedules stay anchored, avoid monthly duplicates and consume budget allowance", async () => {
+  const { occurrences } = require("../lib/personal-finance-engine");
+  assert.deepEqual(occurrences({ startDate: "2026-11-30", frequency: "quarterly" }, "2027-11-30"), ["2026-11-30", "2027-02-28", "2027-05-30", "2027-08-30", "2027-11-30"]);
+  assert.deepEqual(occurrences({ startDate: "2027-11-30", frequency: "quarterly" }, "2028-05-30"), ["2027-11-30", "2028-02-29", "2028-05-30"]);
+  assert.throws(() => occurrences({ startDate: "2026-11-30", frequency: "invalid" }, "2027-11-30"));
+  const s = setup(); await baseline(s);
+  await s.save("budgets", budget({ categories: [{ categoryId: "care", accountId: "checking", plannedCents: 50000 }] }));
+  await s.save("schedules", schedule("refill", { amountCents: 30000, categoryId: "care", startDate: "2026-11-27", frequency: "quarterly" }));
+  const f = (await s.query("buildPersonalForecast", { includeDetail: true })).baseline;
+  const refill = f.events.filter(x => x.scheduleId === "refill" || x.id.includes("refill"));
+  assert.deepEqual(refill.map(x => x.date), ["2026-11-27", "2027-02-27", "2027-05-27", "2027-08-27"]);
+  assert(refill.every(x => x.amountCents === -30000));
+  const nov = f.monthly.find(x => x.month === "2026-11"); assert.equal(nov.outflowCents, 50000);
+});

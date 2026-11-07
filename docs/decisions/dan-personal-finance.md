@@ -157,3 +157,16 @@ does not import an expense. Testing affordability uses a separate, explicitly
 requested scenario with known amount/date/account and existing reserve checks.
 Older revisions ignore this additive collection and preserve its documents.
 Implementation and live/client acceptance remain separately verified.
+
+## Quarterly recurrence — November 7, 2026
+
+Dan requested an existing purchase recur every three months. Add quarterly to
+the existing schedule frequency enum; anchor calendar-month offsets to the original
+start date and clamp short months without drifting subsequent dates. Existing
+schedule identity is updated rather than adding a duplicate first occurrence.
+Known occurrences consume their category allowance normally. Unknown frequencies
+fail explicitly. No source payment, new infrastructure or permissions change.
+Before rolling back to pre-quarterly engine versions, convert quarterly records
+to equivalent bounded once occurrences or restore a compatible engine; older
+engines do not understand the new frequency. Never send quarterly state to an
+older cash engine.
