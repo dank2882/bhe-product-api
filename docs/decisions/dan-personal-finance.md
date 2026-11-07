@@ -140,3 +140,20 @@ held source observation cannot duplicate spending or turn uncertainty into cash.
 Manifests link versioned input chunks, assumptions, method and report. Revisions
 use new immutable identities. Operational content never belongs in Git/registry.
 Rollback hides artifact operations while preserving documents and cash behavior.
+
+## Ranked purchase wish list — November 7, 2026
+
+Dan explicitly requested a durable top-to-bottom purchase wish list for future
+extra income. Extend the existing private finance workspace, not Task Management.
+Individual wishlist records hold name, optional USD estimated cost, notes, source,
+status and backend-assigned rank. Unknown prices remain null. New wanted items
+append; explicit moves change ordering atomically. Deferred, purchased and dropped
+items remain retrievable; restoring an item appends it. Maximum 200 total items.
+Use listPersonalWishlist, savePersonalWish and movePersonalWish through the same
+three Life OS tools, exact-owner gate, global version, audit and retry receipts.
+No new infrastructure, auth, sharing, or automatic money movement. Wishes do not
+reserve money, affect cash calculations or add coverage gaps; purchased status
+does not import an expense. Testing affordability uses a separate, explicitly
+requested scenario with known amount/date/account and existing reserve checks.
+Older revisions ignore this additive collection and preserve its documents.
+Implementation and live/client acceptance remain separately verified.

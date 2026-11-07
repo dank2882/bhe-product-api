@@ -286,3 +286,58 @@ test("voided included movements require new reconciliation and zero reserve is e
   await s.command("savePersonalSettings", { settings: { reserveCents: 0, baselineBudgetId: "baseline", coverageConfirmedOn: "2026-11-06", coverageThrough: "2027-11-05" } });
   assert.equal((await s.query("buildPersonalForecast")).baseline.status, "within_plan");
 });
+
+test("wish list preserves priority across edits, deferral, restore and atomic moves", async () => {
+  const s = setup(); await baseline(s);
+  const before = (await s.query("buildPersonalForecast", { includeDetail: true })).baseline;
+  const wish = (id, extra = {}) => ({ id, name: id, currency: "USD", estimatedCostCents: null, source, ...extra });
+  for (const id of ["a", "b", "c"]) await s.command("savePersonalWish", { item: wish(id) });
+  await s.command("movePersonalWish", { id: "c", beforeId: "a" });
+  let list = await s.query("listPersonalWishlist");
+  assert.deepEqual(list.items.map(x => [x.id, x.rank]), [["c", 1], ["a", 2], ["b", 3]]);
+  await s.command("savePersonalWish", { item: wish("a", { estimatedCostCents: 50000, notes: "Synthetic cost estimate" }) });
+  assert.equal((await s.query("getPersonalRecord", { kind: "wishlist", id: "a" })).record.rank, 2);
+  await s.command("savePersonalWish", { item: wish("c", { status: "deferred" }) });
+  assert.deepEqual((await s.query("listPersonalWishlist")).items.map(x => [x.id, x.rank]), [["a", 1], ["b", 2]]);
+  assert.equal((await s.query("listPersonalWishlist", { status: "deferred" })).items[0].rank, null);
+  await s.command("savePersonalWish", { item: wish("c") });
+  await s.command("movePersonalWish", { id: "a" });
+  assert.deepEqual((await s.query("listPersonalWishlist")).items.map(x => x.id), ["b", "c", "a"]);
+  await s.command("savePersonalWish", { item: wish("b", { status: "purchased" }) });
+  assert.equal((await s.query("getPersonalRecord", { kind: "wishlist", id: "b" })).record.status, "purchased");
+  assert.deepEqual((await s.query("buildPersonalForecast", { includeDetail: true })).baseline, before);
+  const history = (await s.query("getPersonalHistory")).items;
+  assert(history.some(h => h.operation === "movePersonalWish" && h.changes.length === 3));
+});
+test("wish list retries, stale edits, pagination and invalid input are safe", async () => {
+  const s = setup(), item = { id: "a", name: "Synthetic wish", currency: "USD", estimatedCostCents: null, source };
+  const args = { expectedVersion: 0, item };
+  const receipt = await s.command("savePersonalWish", args, "wish-stable-key");
+  assert.equal((await s.command("savePersonalWish", args, "wish-stable-key")).version, receipt.version);
+  await assert.rejects(s.command("savePersonalWish", { ...args, item: { ...item, name: "Changed" } }, "wish-stable-key"), /Idempotency/);
+  await assert.rejects(s.command("savePersonalWish", args), /Workspace changed/);
+  for (const bad of [{ estimatedCostCents: -1 }, { estimatedCostCents: 1.1 }, { currency: "EUR" }, { rank: 1 }, { status: "funded" }, { accountId: "checking" }, { notes: "x".repeat(2001) }]) await assert.rejects(s.command("savePersonalWish", { item: { ...item, ...bad } }));
+  await assert.rejects(s.command("movePersonalWish", { id: "a", beforeId: "a" }));
+  await assert.rejects(s.command("movePersonalWish", { id: "absent" }));
+  await assert.rejects(s.command("movePersonalWish", { id: "a", beforeId: "absent" }));
+  await assert.rejects(s.save("wishlist", item));
+  await s.command("savePersonalWish", { item: { ...item, id: "b" } });
+  const page = await s.query("listPersonalWishlist", { limit: 1 });
+  assert.equal(page.items[0].id, "a");assert(page.nextCursor);
+  assert.equal((await s.query("listPersonalWishlist", { limit: 1, cursor: page.nextCursor })).items[0].id, "b");
+  await s.command("movePersonalWish", { id: "b", beforeId: "a" });
+  await assert.rejects(s.query("listPersonalWishlist", { limit: 1, cursor: page.nextCursor }));
+  await s.command("savePersonalWish", { item: { ...item, id: "b", status: "dropped" } });
+  await assert.rejects(s.command("movePersonalWish", { id: "b" }));
+  assert.equal((await s.query("listPersonalWishlist", { status: "all" })).items.length, 2);
+});
+test("wish list entry points deny delegates and staff without creating records", async () => {
+  const s = setup();
+  for (const taskAccess of [{ subject: "staff", role: "admin" }, { subject: "delegate", subjects: ["dan"], role: "admin" }]) {
+    const deps = { ...s.deps, taskAccess };
+    await assert.rejects(s.query("listPersonalWishlist", {}, deps), e => e.statusCode === 403);
+    await assert.rejects(s.query("getPersonalRecord", { kind: "wishlist", id: "a" }, deps), e => e.statusCode === 403);
+    for (const operation of ["savePersonalWish", "movePersonalWish"]) await assert.rejects(run({ operation, mode: "command", arguments: { expectedVersion: 0, ...(operation === "movePersonalWish" ? { id: "a" } : { item: {} }) }, idempotencyKey: "denied-wish-intent" }, deps), e => e.statusCode === 403);
+  }
+  assert.equal(s.db.rows.size, 0);
+});
