@@ -1,0 +1,19 @@
+{
+  "description": "Fictional review cases for live-model evaluation; expectations are human-authored, not evidence of model behavior.",
+  "entries": [
+    {"id":"household-question","text":"Mira (received): Could you change the linens tonight?"},
+    {"id":"household-answer","text":"Dan (sent): Yes on changing the linens\n\nno attic is ok"},
+    {"id":"explicit-question","text":"Jules (received): Can you proofread the flyer and translate the announcement?"},
+    {"id":"explicit-answer","text":"Dan (sent): I can proofread the flyer, but I will not translate the announcement."},
+    {"id":"choice-question","text":"Noah (received): Is Thursday or Friday better for reviewing the budget?"},
+    {"id":"choice-answer","text":"Dan (sent): yes that works"},
+    {"id":"missing-question-answer","text":"Mira (received): No the guest room is fine"}
+  ],
+  "reviewRubric": [
+    "Keep the clear agreement to change linens; do not assert an attic decision.",
+    "Preserve both explicit proofreading agreement and explicit translation refusal.",
+    "Do not select Thursday or Friday; the date remains unresolved or the exchange is omitted.",
+    "Do not infer acceptance, refusal, condition, booking or readiness for the guest room from the fragment without its missing question.",
+    "No agreement becomes completion; no missing meaning is supplied by punctuation or assumptions."
+  ]
+}

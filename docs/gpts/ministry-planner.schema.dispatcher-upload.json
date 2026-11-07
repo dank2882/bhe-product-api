@@ -155,7 +155,9 @@
               "listPianists",
               "getPianoServicePlan",
               "getPianistWorkload",
-              "getServiceMinistryAssignments"
+              "getServiceMinistryAssignments",
+              "getServicePlan",
+              "buildServiceForecast"
             ],
             "description": "Exact read-only operation name from listMinistryPlanningOperations."
           },
@@ -191,6 +193,9 @@
               "saveServicePianoAssignments",
               "saveServiceCongregationalPlan",
               "saveServiceMinistryAssignments",
+              "saveServicePlan",
+              "saveServicePlanItem",
+              "recordServiceFeedback",
               "syncServiceAssignmentsToSpreadsheet",
               "restoreGoogleSheetBackup",
               "restoreGoogleSheetRange",

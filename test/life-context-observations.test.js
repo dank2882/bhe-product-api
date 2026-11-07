@@ -29,6 +29,31 @@ test("one run publishes provisional cited observations, retrieves selectively, a
   assert(![...f.db.rows.keys()].some(k=>k.startsWith("danLifeContext/profile")));
   assert.equal((await run({runId:f.input.runId},f.deps)).status,"completed");
 });
+test("pilot window rejects before start and at end without storage or inference; reads remain available",async()=>{
+  const f=fixture();
+  f.deps.contextCollectionStartsAt="2026-10-29T15:00:00Z";
+  f.deps.contextCollectionEndsAt="2026-11-07T08:00:00Z";
+  f.time("2026-10-29T14:59:59.999Z");
+  await assert.rejects(collect(f.input,f.deps),e=>e.code==="context_window_not_started");
+  assert.equal(f.db.rows.size,0);assert.equal(f.calls(),0);
+  f.time("2026-10-29T15:00:00Z");
+  await collect(f.input,f.deps);
+  const rows=JSON.stringify([...f.db.rows]);
+  f.time("2026-11-07T08:00:00Z");
+  await assert.rejects(collect({...f.input,runId:"after-pilot",expectedVersion:1},f.deps),e=>e.code==="context_window_ended");
+  await assert.rejects(require("../lib/life-context-observations").reprocessContext({runId:"after-reprocess",expectedVersion:1,reason:"Fictional"},f.deps),e=>e.code==="context_window_ended");
+  assert.equal(JSON.stringify([...f.db.rows]),rows);assert.equal(f.calls(),1);
+  assert.equal((await get({purposes:["brief"]},f.deps)).version,1);
+  assert.equal((await run({runId:f.input.runId},f.deps)).status,"completed");
+});
+test("incomplete or invalid pilot configuration fails closed before writes and does not bypass authorization",async()=>{
+  for(const [start,end] of [["bad","2026-11-07T08:00:00Z"],[undefined,"2026-11-07T08:00:00Z"],["2026-10-29T15:00:00Z",undefined],["2026-10-29T15:00:00Z","2026-10-29T15:00:00Z"],["2026-11-08T08:00:00Z","2026-11-07T08:00:00Z"]]) {
+    const f=fixture();Object.assign(f.deps,{contextCollectionStartsAt:start,contextCollectionEndsAt:end});
+    await assert.rejects(collect(f.input,f.deps),e=>e.code==="context_window_unconfigured");
+    assert.equal(f.db.rows.size,0);assert.equal(f.calls(),0);
+    await assert.rejects(collect(f.input,{...f.deps,taskAccess:{subject:"other"}}),e=>e.code==="life_context_access_denied");
+  }
+});
 test("idempotency binds actor and complete intent; same content across new runs skips generation without refreshing expiry",async()=>{
   const f=fixture();await collect(f.input,f.deps);
   assert.equal((await collect(f.input,f.deps)).replayed,true);assert.equal(f.calls(),1);
@@ -77,6 +102,22 @@ test("invalid citations and malformed output cannot be published; model instruct
   assert.equal((await get({purposes:["brief"]},f.deps)).version,0);
   assert.equal((await run({runId:f.input.runId},f.deps)).status,"failed");
 });
+test("explicit daily allowance permits reviewed extra attempts without resetting counters or bypassing monthly budget",async()=>{
+  const f=fixture();f.deps.contextDailyLimit=3;
+  f.deps.generateContext=async()=>{throw Error("bounded failure");};
+  for(let i=0;i<3;i++) await assert.rejects(collect({...f.input,runId:`reviewed-${i}`},f.deps),e=>e.code==="context_processing_failed");
+  assert.equal((await collect({...f.input,runId:"fourth-denied"},f.deps)).code,"context_budget_exhausted");
+  assert.equal((await f.db.collection("danLifeContext").doc("observations").collection("days").doc("2026-10-29").get()).data().calls,3);
+  const g=fixture();g.deps.contextDailyLimit=3;g.deps.contextMonthlyLimitMicros=100000;
+  g.deps.generateContext=async()=>{throw Error("bounded failure");};
+  await assert.rejects(collect(g.input,g.deps));
+  assert.equal((await collect({...g.input,runId:"monthly-denied"},g.deps)).code,"context_budget_exhausted");
+});
+test("invalid daily allowances fail before writing receipts or calling a provider",async()=>{
+  for(const value of [0,-1,1.5,11,NaN,"3"]){const f=fixture();f.deps.contextDailyLimit=value;
+    await assert.rejects(collect(f.input,f.deps),e=>e.code==="context_budget_unconfigured");assert.equal(f.calls(),0);assert.equal(f.db.rows.size,0);
+  }
+});
 test("packet validation rejects unknown owners, oversized sources, ambiguous timestamps, false completeness and unavailable evidence",async()=>{
   const f=fixture();
   for(const change of [{owner:"dan"},{expectedVersion:-1},{entries:Array(81).fill(f.input.entries[0])},{sources:[{...f.input.sources[0],status:"complete"}]},{sources:[{...f.input.sources[0],status:"unavailable"}]},{entries:[{...f.input.entries[0],sourceTime:"2026-10-29"}]},{entries:[{...f.input.entries[0],sourceTime:"2027-01-01T00:00:00Z"}]}]) await assert.rejects(collect({...f.input,...change},f.deps),e=>e.code==="context_invalid_input");
@@ -118,6 +159,8 @@ test("Vertex adapter uses fixed bounded JSON generation, no tools or automatic p
   const args={auth,projectId:"synthetic-project",at:"2026-10-29T15:00:00Z"};
   const result=await generateContextWithVertex(f.input,args);
   assert.equal(request.retry,false);assert.equal(request.timeout,45000);assert.equal(request.data.generationConfig.maxOutputTokens,8192);assert.equal(request.data.tools,undefined);
+  assert.equal(request.data.generationConfig.thinkingConfig.thinkingLevel,"LOW");
+  assert.equal(request.data.generationConfig.temperature,undefined);assert.equal(request.data.generationConfig.candidateCount,undefined);
   assert.match(request.data.systemInstruction.parts[0].text,/untrusted data/);assert.deepEqual(result.usage,{totalTokenCount:100});
   await assert.rejects(generateContextWithVertex(f.input,{...args,at:"2026-11-30T00:00:00Z"}),/pricing/);
   await assert.rejects(generateContextWithVertex(f.input,{...args,auth:{getClient:async()=>({request:async()=>({data:{candidates:[{finishReason:"MAX_TOKENS"}]}})})}}),/Incomplete/);

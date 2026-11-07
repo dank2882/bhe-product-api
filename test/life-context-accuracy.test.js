@@ -25,7 +25,7 @@ test("fictional reference output survives adapter, publication and selective ret
   assert(read.observations.some(o=>o.citations.some(c=>c.id==="request")&&o.citations.some(c=>c.id==="reply")));
   assert(!JSON.stringify(read).includes('"quote"'));assert(!JSON.stringify(read).includes('"support"'));
   assert.equal((await getCurrentContext({purposes:["brief"]},f.deps)).observations.length,1);
-  assert.equal((await f.db.collection("danLifeContext").doc("observations").get()).data().model.promptVersion,"life-context-observations-v7");
+  assert.equal((await f.db.collection("danLifeContext").doc("observations").get()).data().model.promptVersion,PROMPT_VERSION);
   assert(!f.db.rows.has("danLifeContext/profile"));
 });
 test("invented relationship quotations fail publication and leave no new observation revision",async()=>{
@@ -47,6 +47,17 @@ test("every cited source needs its own exact quote; quotes cannot be swapped, st
     o=>{o.support[0].quote=" ";},
     o=>{o.support[0].quote="x".repeat(401);}
   ]){const f=fixture(),o=f.output.observations[4];mutate(o);assert.throws(()=>normalizeOutput({observations:[o]},f.packet,at));}
+});
+test("failure receipts distinguish invalid quotes from provider failures without storing private exceptions",async()=>{
+  const invalid=fixture();invalid.output.observations[0].support[0].quote="x".repeat(401);
+  await assert.rejects(collectContext(invalid.packet,invalid.deps));
+  assert.deepEqual((await getContextRun({runId:invalid.packet.runId},invalid.deps)).failure,{stage:"validation",reason:"unsupported_quote"});
+  const provider=fixture(),secret="fictional-provider-body-and-credential";
+  provider.deps.generateContext=async()=>{throw Object.assign(new Error(secret),{response:{data:secret},code:secret});};
+  await assert.rejects(collectContext(provider.packet,provider.deps),e=>!e.message.includes(secret));
+  assert.deepEqual((await getContextRun({runId:provider.packet.runId},provider.deps)).failure,{stage:"generation",reason:"unclassified"});
+  assert(!JSON.stringify([...provider.db.rows]).includes(secret));
+  assert(!provider.db.rows.has("danLifeContext/observations/revisions/1"));
 });
 test("a year in timestamps or uncited adjacent evidence cannot supply a generated observation year",()=>{
   const f=fixture(),o=f.output.observations[3];
@@ -70,4 +81,24 @@ test("exact excerpts alone are not a semantic verifier: faithful event/date asso
   // Deliberately document the guard's limit instead of claiming canned model
   // output demonstrates that v3 has solved semantic generation errors.
   assert.equal(normalizeOutput({observations:[conflated]},f.packet,at).length,1);
+});
+test("backend rejects oversized model arrays independently of provider schema bounds",()=>{
+  const f=fixture();
+  assert.throws(()=>normalizeOutput({observations:Array.from({length:21},()=>structuredClone(f.output.observations[0]))},f.packet,at),e=>e.code==="context_invalid_output");
+  const entries=Array.from({length:7},(_,i)=>({...f.packet.entries[0],id:`extra-${i}`}));
+  const observation={...f.output.observations[0],sourceIds:entries.map(e=>e.id),support:entries.map(e=>({sourceId:e.id,quote:e.text}))};
+  assert.throws(()=>normalizeOutput({observations:[observation]},{...f.packet,entries},at),e=>e.code==="context_invalid_output");
+});
+test("fictional summary references preserve both sides and overlapping brief/planning views through publication",async()=>{
+  const refs=require("./fixtures/life-context-summary-regressions.json"), f=fixture();
+  f.packet.entries=refs.entries.map(e=>({...f.packet.entries[0],...e,sourceReference:`fictional:${e.id}`}));
+  f.deps.generateContext=async()=>({output:structuredClone(refs.expected),model:{id:"fixture-provider",promptVersion:PROMPT_VERSION}});
+  await collectContext(f.packet,f.deps);
+  const brief=await getCurrentContext({purposes:["brief"]},f.deps);
+  const planning=await getCurrentContext({purposes:["planning"]},f.deps);
+  const care=await getCurrentContext({purposes:["counseling"]},f.deps);
+  assert.equal(brief.observations.length,5);assert.equal(planning.observations.length,4);assert.equal(care.observations.length,1);
+  for(const observation of planning.observations){assert.equal(observation.citations.length,2);assert(brief.observations.some(b=>b.id===observation.id&&b.text===observation.text));}
+  assert(brief.observations.every(o=>!o.citations.some(c=>c.id==="chatter")));
+  assert.equal(care.observations[0].citations[0].id,"personal");
 });
