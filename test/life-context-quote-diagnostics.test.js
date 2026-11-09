@@ -74,3 +74,21 @@ test("gendered narrative pronouns fail while exact source wording and neutral su
   assert.equal(normalizeOutput(output,packet,at).length,1);
   assert.equal(packet.entries[0].text,"Mira: She has an injury. I do not know who can help.");
 });
+test("bare family titles cannot become named relationships without quoted support",async()=>{
+  const {packet,output}=fixture();
+  packet.entries[0].text="Nora: I asked Jules and Alex to work with Dad on purchases.";
+  output.observations[0].support[0].quote=packet.entries[0].text;
+  for(const name of ["Dan's dad","Nora’s dad"]) {
+    output.observations[0].text=`Nora reports asking Jules and Alex to work with ${name}.`;
+    assert.throws(()=>normalizeOutput(output,packet,at),/Family relationship absent/);
+  }
+  const db=fakeFirestore(),deps={firestoreDb:db,danOwnerSubjects:["fictional-owner"],taskAccess:{subject:"fictional-owner"},contextEnabled:true,contextMonthlyLimitMicros:100000,now:()=>at,generateContext:async()=>({output})};
+  await assert.rejects(collectContext(packet,deps));
+  assert.deepEqual((await getContextRun({runId:packet.runId},deps)).failure,{stage:"validation",reason:"unsupported_relationship"});
+  output.observations[0].text="Nora reports asking Jules and Alex to work with the person referred to as Dad on purchases.";
+  assert.equal(normalizeOutput(output,packet,at).length,1);
+  packet.entries[0].text="Nora: I asked Jules and Alex to work with Dan's dad on purchases.";
+  output.observations[0].support[0].quote=packet.entries[0].text;
+  output.observations[0].text="Nora reports asking Jules and Alex to work with Dan’s dad on purchases.";
+  assert.equal(normalizeOutput(output,packet,at).length,1);
+});
