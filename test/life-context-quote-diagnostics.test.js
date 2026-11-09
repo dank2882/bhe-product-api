@@ -62,3 +62,15 @@ test("provider-supplied diagnostic fields are never persisted",async()=>{
   assert.deepEqual(receipt.failure,{stage:"generation",reason:"unsupported_quote"});
   assert(!JSON.stringify([...db.rows]).includes("private-provider-data"));
 });
+test("gendered narrative pronouns fail while exact source wording and neutral summaries remain intact",()=>{
+  const {packet,output}=fixture();
+  packet.entries[0].text="Mira: She has an injury. I do not know who can help.";
+  output.observations[0].support[0].quote=packet.entries[0].text;
+  for(const text of ["Mira says she needs help.","Dan says he can help.","Her appointment is tomorrow.","His time is uncertain."]) {
+    output.observations[0].text=text;
+    assert.throws(()=>normalizeOutput(output,packet,at),/source names or neutral pronouns/);
+  }
+  output.observations[0].text="Mira reports someone has an injury; the person is unidentified.";
+  assert.equal(normalizeOutput(output,packet,at).length,1);
+  assert.equal(packet.entries[0].text,"Mira: She has an injury. I do not know who can help.");
+});
