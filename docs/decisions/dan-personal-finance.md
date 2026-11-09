@@ -122,3 +122,51 @@ never become cash accounts, collateral borrowing assumptions or forecast inflows
 No new infrastructure, authentication or source-system writes. Earlier revisions
 ignore this additive collection; restoring them hides assets but preserves data
 and does not change cash calculations. Do not represent that as full asset support.
+
+## Durable source and forecast reviews — November 7, 2026
+
+Dan explicitly requested that all finance information be retained in Google Cloud.
+Core financial records were already durable, but unresolved source observations,
+review reports and the local illustrative forecast assumptions were not. Extend
+the existing domain with immutable `artifacts` documents, using the same exact
+owner authorization, global version, command receipts and append-only history.
+No new service, database, storage bucket, OAuth application or sharing boundary.
+
+The catalog exposes save/get/list artifact operations through the existing three
+Life OS tools. Artifacts contain bounded JSON, Markdown or text, a type, status,
+source/date, based-on version and backend-computed SHA-256. Lists return metadata;
+exact reads return content. They stay outside cash-engine state, so recording a
+held source observation cannot duplicate spending or turn uncertainty into cash.
+Manifests link versioned input chunks, assumptions, method and report. Revisions
+use new immutable identities. Operational content never belongs in Git/registry.
+Rollback hides artifact operations while preserving documents and cash behavior.
+
+## Ranked purchase wish list — November 7, 2026
+
+Dan explicitly requested a durable top-to-bottom purchase wish list for future
+extra income. Extend the existing private finance workspace, not Task Management.
+Individual wishlist records hold name, optional USD estimated cost, notes, source,
+status and backend-assigned rank. Unknown prices remain null. New wanted items
+append; explicit moves change ordering atomically. Deferred, purchased and dropped
+items remain retrievable; restoring an item appends it. Maximum 200 total items.
+Use listPersonalWishlist, savePersonalWish and movePersonalWish through the same
+three Life OS tools, exact-owner gate, global version, audit and retry receipts.
+No new infrastructure, auth, sharing, or automatic money movement. Wishes do not
+reserve money, affect cash calculations or add coverage gaps; purchased status
+does not import an expense. Testing affordability uses a separate, explicitly
+requested scenario with known amount/date/account and existing reserve checks.
+Older revisions ignore this additive collection and preserve its documents.
+Implementation and live/client acceptance remain separately verified.
+
+## Quarterly recurrence — November 7, 2026
+
+Dan requested an existing purchase recur every three months. Add quarterly to
+the existing schedule frequency enum; anchor calendar-month offsets to the original
+start date and clamp short months without drifting subsequent dates. Existing
+schedule identity is updated rather than adding a duplicate first occurrence.
+Known occurrences consume their category allowance normally. Unknown frequencies
+fail explicitly. No source payment, new infrastructure or permissions change.
+Before rolling back to pre-quarterly engine versions, convert quarterly records
+to equivalent bounded once occurrences or restore a compatible engine; older
+engines do not understand the new frequency. Never send quarterly state to an
+older cash engine.
