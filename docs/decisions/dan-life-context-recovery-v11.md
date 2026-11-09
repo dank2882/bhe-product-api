@@ -26,3 +26,21 @@ one additional daily reservation (daily limit3 after two used attempts), keep
 the monthly ceiling and counters unchanged, and restore daily limit1 regardless
 of the result. Independent receipt/current-context/source acceptance must pass
 before resuming the same daily08:30Pacific timer. Approved profiles unchanged.
+
+## Live acceptance
+
+Core6cb6b12 was staged and promoted with configuration and unrelated traffic
+tags preserved. Reprocess life-context-v11-recovery-20261109 completed at
+2026-11-09T17:35:38.371Z, producing version13. All4 observations passed independent
+source review; all7 citations matched. Current context is nonpending, valid and
+unexpired. Normal daily limit1 restored on bhe-product-api-lc-daily-1109b; monthly
+ceiling/counters preserved. Approved life0 and voice1 unchanged. Existing daily
+08:30Pacific automation resumed and independently read back ACTIVE. Actual next
+scheduled delivery remains unverified.
+
+Coverage remains partial:39 entries across four sources; owning tasks/care/sermons
+unchecked, continuity unknown. Purpose selection returned planning3 and
+correspondence1, no brief-only/preaching/counseling items. A work brief can retrieve
+brief+planning together; it must still refresh calendar/tasks. This acceptance
+validates the selected observations, not exhaustive summary or source coverage.
+Registry evidence: life-context-v11-live-acceptance-20261109, independently read back.
