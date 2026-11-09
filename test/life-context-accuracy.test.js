@@ -15,7 +15,7 @@ function fixture(){
 }
 test("fictional reference output survives adapter, publication and selective retrieval without exposing support quotes",async()=>{
   const f=fixture();let providerRequest;
-  const auth={getClient:async()=>({request:async request=>{providerRequest=request;return {data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify(f.output)}]}}]}};}})};
+  const auth={getClient:async()=>({request:async request=>{providerRequest=request;const ids=new Map([...f.packet.entries].sort((a,b)=>a.id.localeCompare(b.id)).map((e,i)=>[e.id,`e${i+1}`]));const providerOutput={observations:f.output.observations.map(o=>({...o,sourceIds:o.sourceIds.map(id=>ids.get(id)),support:o.support.map(s=>({...s,sourceId:ids.get(s.sourceId)}))}))};return {data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify(providerOutput)}]}}]}};}})};
   f.deps.generateContext=packet=>generateContextWithVertex(packet,{auth,projectId:"fictional-project",at});
   const receipt=await collectContext(f.packet,f.deps);assert.equal(receipt.status,"completed");
   const requestPacket=JSON.parse(providerRequest.data.contents[0].parts[0].text);
@@ -51,7 +51,7 @@ test("every cited source needs its own exact quote; quotes cannot be swapped, st
 test("failure receipts distinguish invalid quotes from provider failures without storing private exceptions",async()=>{
   const invalid=fixture();invalid.output.observations[0].support[0].quote="x".repeat(401);
   await assert.rejects(collectContext(invalid.packet,invalid.deps));
-  assert.deepEqual((await getContextRun({runId:invalid.packet.runId},invalid.deps)).failure,{stage:"validation",reason:"unsupported_quote"});
+  assert.deepEqual((await getContextRun({runId:invalid.packet.runId},invalid.deps)).failure,{stage:"validation",reason:"unsupported_quote",observationIndex:0,supportIndex:0,issue:"quote_too_long",evidenceIndex:4,quoteLength:401});
   const provider=fixture(),secret="fictional-provider-body-and-credential";
   provider.deps.generateContext=async()=>{throw Object.assign(new Error(secret),{response:{data:secret},code:secret});};
   await assert.rejects(collectContext(provider.packet,provider.deps),e=>!e.message.includes(secret));

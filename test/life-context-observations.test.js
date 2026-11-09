@@ -155,7 +155,7 @@ test("a lease timeout is explicit; late model output cannot overwrite a newer ru
 });
 test("Vertex adapter uses fixed bounded JSON generation, no tools or automatic provider retries, and rejects incomplete output",async()=>{
   const f=fixture();let request;
-  const auth={getClient:async()=>({request:async r=>{request=r;return {data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify(f.output)}]}}],usageMetadata:{totalTokenCount:100,secret:"ignored"}}};}})};
+  const auth={getClient:async()=>({request:async r=>{request=r;return {data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify({...f.output,observations:f.output.observations.map(o=>({...o,sourceIds:["e1"],support:o.support.map(s=>({...s,sourceId:"e1"}))}))})}]}}],usageMetadata:{totalTokenCount:100,secret:"ignored"}}};}})};
   const args={auth,projectId:"synthetic-project",at:"2026-10-29T15:00:00Z"};
   const result=await generateContextWithVertex(f.input,args);
   assert.equal(request.retry,false);assert.equal(request.timeout,45000);assert.equal(request.data.generationConfig.maxOutputTokens,8192);assert.equal(request.data.tools,undefined);
