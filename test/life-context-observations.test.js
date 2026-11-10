@@ -29,6 +29,21 @@ test("one run publishes provisional cited observations, retrieves selectively, a
   assert(![...f.db.rows.keys()].some(k=>k.startsWith("danLifeContext/profile")));
   assert.equal((await run({runId:f.input.runId},f.deps)).status,"completed");
 });
+test("receipt preflight distinguishes verified absence from failed reads without writes or inference",async()=>{
+  const f=fixture();
+  assert.deepEqual(await run({runId:f.input.runId},f.deps),{runId:f.input.runId,status:"not_found",found:false});
+  assert.equal(f.db.rows.size,0); assert.equal(f.calls(),0);
+  for(const runId of ["../other","",null]) await assert.rejects(run({runId},f.deps),e=>e.code==="context_invalid_input");
+  for(const code of ["permission-denied","unavailable","not-found"]) {
+    const problem=Object.assign(new Error("Storage failed"),{code});
+    const ref={collection:()=>ref,doc:()=>ref,get:async()=>{throw problem;}};
+    await assert.rejects(run({runId:f.input.runId},{...f.deps,firestoreDb:ref}),e=>e===problem);
+  }
+  await collect(f.input,f.deps);
+  const before=JSON.stringify([...f.db.rows]), receipt=await run({runId:f.input.runId},f.deps);
+  assert.equal(receipt.status,"completed"); assert.equal(receipt.version,1);
+  assert.equal(JSON.stringify([...f.db.rows]),before);assert.equal(f.calls(),1);
+});
 test("pilot window rejects before start and at end without storage or inference; reads remain available",async()=>{
   const f=fixture();
   f.deps.contextCollectionStartsAt="2026-10-29T15:00:00Z";
