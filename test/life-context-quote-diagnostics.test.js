@@ -74,6 +74,17 @@ test("gendered narrative pronouns fail while exact source wording and neutral su
   assert.equal(normalizeOutput(output,packet,at).length,1);
   assert.equal(packet.entries[0].text,"Mira: She has an injury. I do not know who can help.");
 });
+test("pronoun failure receipt identifies the observation without retaining rejected wording",async()=>{
+  const {packet,output}=fixture(), db=fakeFirestore();
+  output.observations.push({...structuredClone(output.observations[0]),text:"Nora says she cannot confirm her arrival."});
+  const deps={firestoreDb:db,danOwnerSubjects:["fictional-owner"],taskAccess:{subject:"fictional-owner"},contextEnabled:true,contextMonthlyLimitMicros:100000,now:()=>at,generateContext:async()=>({output})};
+  await collectContext(packet,deps);
+  const receipt=await getContextRun({runId:packet.runId},deps);
+  assert.equal(receipt.status,"completed");
+  assert.deepEqual(receipt.validation.rejections,[{stage:"validation",reason:"narrative_pronoun",observationIndex:1,issue:"gendered_narrative",pronounCount:2}]);
+  assert(!JSON.stringify([...db.rows]).includes("Nora says"));
+  assert(!JSON.stringify(receipt).includes("arrival"));
+});
 test("bare family titles cannot become named relationships without quoted support",async()=>{
   const {packet,output}=fixture();
   packet.entries[0].text="Nora: I asked Jules and Alex to work with Dad on purchases.";

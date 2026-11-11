@@ -28,13 +28,16 @@ test("fictional reference output survives adapter, publication and selective ret
   assert.equal((await f.db.collection("danLifeContext").doc("observations").get()).data().model.promptVersion,PROMPT_VERSION);
   assert(!f.db.rows.has("danLifeContext/profile"));
 });
-test("invented relationship quotations fail publication and leave no new observation revision",async()=>{
+test("invented relationship quotations are omitted while valid observations publish as partial",async()=>{
   const f=fixture();f.output.observations[2].text="Jules reports her daughter has an injured ankle.";
   f.output.observations[2].support[0].quote="My daughter has an injured ankle.";
-  await assert.rejects(collectContext(f.packet,f.deps),e=>e.code==="context_processing_failed");
-  assert.equal((await getContextRun({runId:f.packet.runId},f.deps)).status,"failed");
-  assert.equal((await getCurrentContext({purposes:["brief"]},f.deps)).version,0);
-  assert(!f.db.rows.has("danLifeContext/observations/revisions/1"));
+  await collectContext(f.packet,f.deps);
+  const receipt=await getContextRun({runId:f.packet.runId},f.deps);
+  assert.equal(receipt.status,"completed");assert.equal(receipt.validation.status,"partial");
+  assert.equal(receipt.validation.rejectedCount,1);
+  const saved=(await f.db.collection("danLifeContext").doc("observations").collection("revisions").doc("1").get()).data();
+  assert(!saved.observations.some(o=>o.text.includes("her daughter")));
+  assert.equal(saved.observations.length,f.output.observations.length-1);
 });
 test("every cited source needs its own exact quote; quotes cannot be swapped, stitched or borrowed",()=>{
   for(const mutate of [
@@ -50,6 +53,7 @@ test("every cited source needs its own exact quote; quotes cannot be swapped, st
 });
 test("failure receipts distinguish invalid quotes from provider failures without storing private exceptions",async()=>{
   const invalid=fixture();invalid.output.observations[0].support[0].quote="x".repeat(2001);
+  invalid.output.observations=invalid.output.observations.slice(0,1);
   await assert.rejects(collectContext(invalid.packet,invalid.deps));
   assert.deepEqual((await getContextRun({runId:invalid.packet.runId},invalid.deps)).failure,{stage:"validation",reason:"unsupported_quote",observationIndex:0,supportIndex:0,issue:"quote_too_long",evidenceIndex:4,quoteLength:2001});
   const provider=fixture(),secret="fictional-provider-body-and-credential";
