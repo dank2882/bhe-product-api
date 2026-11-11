@@ -45,13 +45,13 @@ test("every cited source needs its own exact quote; quotes cannot be swapped, st
     o=>{o.support[0].quote="Yes, Friday works.";},
     o=>{o.support[0].quote="Could you review ... Friday?";},
     o=>{o.support[0].quote=" ";},
-    o=>{o.support[0].quote="x".repeat(401);}
+    o=>{o.support[0].quote="x".repeat(2001);}
   ]){const f=fixture(),o=f.output.observations[4];mutate(o);assert.throws(()=>normalizeOutput({observations:[o]},f.packet,at));}
 });
 test("failure receipts distinguish invalid quotes from provider failures without storing private exceptions",async()=>{
-  const invalid=fixture();invalid.output.observations[0].support[0].quote="x".repeat(401);
+  const invalid=fixture();invalid.output.observations[0].support[0].quote="x".repeat(2001);
   await assert.rejects(collectContext(invalid.packet,invalid.deps));
-  assert.deepEqual((await getContextRun({runId:invalid.packet.runId},invalid.deps)).failure,{stage:"validation",reason:"unsupported_quote",observationIndex:0,supportIndex:0,issue:"quote_too_long",evidenceIndex:4,quoteLength:401});
+  assert.deepEqual((await getContextRun({runId:invalid.packet.runId},invalid.deps)).failure,{stage:"validation",reason:"unsupported_quote",observationIndex:0,supportIndex:0,issue:"quote_too_long",evidenceIndex:4,quoteLength:2001});
   const provider=fixture(),secret="fictional-provider-body-and-credential";
   provider.deps.generateContext=async()=>{throw Object.assign(new Error(secret),{response:{data:secret},code:secret});};
   await assert.rejects(collectContext(provider.packet,provider.deps),e=>!e.message.includes(secret));

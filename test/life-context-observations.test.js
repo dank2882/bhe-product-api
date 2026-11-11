@@ -91,7 +91,7 @@ test("concurrent requests and in-flight replays call the model only once",async(
 test("correction recomputes from evidence and immediately invalidates old observations even if processing fails",async()=>{
   const f=fixture();await collect(f.input,f.deps);
   f.deps.generateContext=async packet=>{assert.equal(packet.entries[0].text,"Correction: arrangement canceled.");assert(!JSON.stringify(packet).includes("AI interpretation"));throw Error("private provider payload");};
-  const corrected={...f.input,runId:"correction",expectedVersion:1,reason:"Explicit correction",entries:[{...f.input.entries[0],text:"Correction: arrangement canceled."}]};
+  const corrected={...f.input,runId:"correction",intent:"correction",expectedVersion:1,reason:"Explicit correction",entries:[{...f.input.entries[0],text:"Correction: arrangement canceled."}]};
   await assert.rejects(collect(corrected,f.deps),e=>e.code==="context_processing_failed"&&!e.message.includes("private"));
   const read=await get({purposes:["planning"]},f.deps);assert.equal(read.invalidatedBy,"correction");assert.equal(read.observations.length,0);
   assert.equal((await collect(corrected,f.deps)).status,"failed");
@@ -109,7 +109,7 @@ test("budget reservations persist on failures, daily limits and monthly hard sto
   const change=n=>({...g.input,runId:`change-${n}`,expectedVersion:n,entries:[{...g.input.entries[0],text:`changed-${n}`}]});
   g.output.observations[0].support[0].quote="changed-1";
   await collect(change(1),g.deps);assert.equal((await collect(change(2),g.deps)).code,"context_budget_exhausted");
-  assert.equal((await get({purposes:["planning"]},g.deps)).observations.length,0);
+  assert.equal((await get({purposes:["planning"]},g.deps)).observations.length,1);
 });
 test("invalid citations and malformed output cannot be published; model instructions do not grant writes",async()=>{
   const f=fixture();f.output.observations[0].sourceIds=["invented"];

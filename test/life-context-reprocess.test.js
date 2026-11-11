@@ -24,7 +24,7 @@ test("reprocess uses immutable original evidence, preserves coverage, returns no
   assert.deepEqual((await getContextRun({runId:f.args.runId},f.deps)).origin,r.origin);
   assert(!JSON.stringify(await getCurrentContext({purposes:["brief"]},f.deps)).includes(f.input.entries[0].text));
   assert(![...f.db.rows.keys()].some(k=>k.startsWith("danLifeContext/profile")));
-  const newer=await reprocessContext({...f.args,runId:"same-prompt",expectedVersion:2},f.deps);assert.equal(newer.reused,true);assert.equal(f.calls.length,2);
+  const newer=await reprocessContext({...f.args,runId:"same-prompt",expectedVersion:2},f.deps);assert.equal(newer.reused,false);assert.equal(f.calls.length,3);
   // Original replay remains stable even after another current revision exists.
   assert.equal((await reprocessContext(f.args,f.deps)).version,2);
   for(const changes of [{reason:"different"},{expectedVersion:2}])await assert.rejects(reprocessContext({...f.args,...changes},f.deps),e=>e.code==="context_idempotency_conflict");

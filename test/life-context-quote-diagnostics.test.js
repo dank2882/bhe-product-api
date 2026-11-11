@@ -33,7 +33,7 @@ test("invented or original IDs from the model cannot bypass alias resolution",as
 });
 test("receipts locate quote failures without exposing quotes, summaries, identities or provider errors",async()=>{
   const cases=[
-    [o=>o.support[0].quote="x".repeat(401),"quote_too_long"],
+    [o=>o.support[0].quote="x".repeat(2001),"quote_too_long"],
     [o=>o.support[0].quote="Nora (received): Not before 9:30. Arrival is unknown.","quote_not_exact"],
     [o=>o.support[0].quote="Nora will arrive at 9:30.","quote_not_exact"],
     [o=>o.support[0].quote=" ","empty_or_nontext_quote"],
