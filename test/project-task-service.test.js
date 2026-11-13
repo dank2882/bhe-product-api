@@ -1943,6 +1943,8 @@ test("Dan daily-brief fallback retains personal ownership; explicit staff invent
   const unqualified = await listTasks({ status: "next", limit: 100 }, deps);
   assert.deepEqual(fallback.tasks.map(t=>t.taskId), review.activeNext.map(t=>t.taskId));
   assert.deepEqual(unqualified.tasks.map(t=>t.taskId), fallback.tasks.map(t=>t.taskId));
+  assert.deepEqual(fallback.tasks.map(t=>t.taskId), ["own"]);
+  assert.equal(review.summary.openTaskCount, 1);
   assert.equal(fallback.ownershipScope, "personal");
   assert.equal(review.summary.overdueCount, 0);
   const staff = await listTasks({ status: "next", view: "authorized", limit: 100 }, deps);
