@@ -61,3 +61,20 @@ test("all rejected stays a failed refresh with the existing next-day recovery ac
  const r=await getContextRun({runId:f.input.runId},deps);
  assert.equal(r.status,"failed");assert.equal(r.failure.reason,"uncited_named_detail");assert.equal(r.recovery.action,"next_scheduled_day");
 });
+test("ambiguous family reporter cannot become the actor even with exact citations",()=>{
+ const f=fixture();f.entries[0].text="Riley: Mom mentioned that she would be nearby, but no details were settled.";
+ for(const text of ["The person referred to as Mom mentioned being nearby.","The visit is tentative."]){
+  const bad=f.claim(["roster"],text);
+  const result=validateOutput({observations:[bad,f.good]},f,at);
+  assert.equal(result.observations.length,1);
+  assert.equal(result.observations[0].text,f.good.text);
+  assert.deepEqual(result.validation.rejections,[{stage:"validation",reason:"ambiguous_reported_subject",observationIndex:0}]);
+  assert(!JSON.stringify(result.validation).includes("Mom"));
+ }
+});
+test("explicit reported actor and unrelated family labels remain eligible for review",()=>{
+ for(const source of ["Riley: Mom mentioned that Rowan would be nearby.","Riley: Mom will be nearby."]){
+  const f=fixture();f.entries[0].text=source;
+  assert.equal(validateOutput({observations:[f.claim(["roster"],"Riley reported a possible visit.")]},f,at).validation.status,"passed");
+ }
+});

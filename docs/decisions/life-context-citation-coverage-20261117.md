@@ -35,3 +35,26 @@ IDs and privacy-safe diagnostics, sender headers, reordered evidence, initial
 and possessive names, unchanged valid output, all-rejected recovery, idempotent
 replay and unchanged complete-source checkpoints. Release and live acceptance
 are separate gates; preserve concurrent production changes and rollback.
+
+## Independent fresh-scan finding and follow-up
+
+The fresh November17 version22 transport completed with five retained summaries
+and three uncited_named_detail omissions, but semantic review rejected
+observation-7: a family-label reporter became the actor of an ambiguous reported
+pronoun. Version22 is not semantically accepted. No private source text is
+recorded here.
+
+Promptv16 and ambiguous_reported_subject conservatively omit every candidate
+citing a family-label report followed by a gendered reported-speech subject.
+This narrow pattern can omit safe subclaims too; it does not resolve pronouns
+or claim general semantic entailment. This follows Dan's accepted policy to
+keep supported summaries and flag omissions. Regression fixtures are fictional.
+
+Dan's active instruction to fix, verify and restore daily operation covers this
+verification-driven repair. A single saved-evidence correction named
+life-context-v16-recovery-20261117 uses expectedVersion22, preserves the fresh
+November17 source window, and does not recollect sources. Temporarily allow
+three cumulative calls today for this one reviewed correction, with the same
+monthly ceiling; restore daily1 immediately afterward. This is manual repair
+authority, never authorization for scheduled retries or raising future limits.
+Resume only after independent semantic acceptance and normal-limit readback.
