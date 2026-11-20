@@ -1,7 +1,8 @@
 # Service Forecaster first release — October 29, 2026
 
-Decision: fbc-service-forecaster-20261029. Implemented and deployed; fresh client
-invocation of the new operation enums and Dan usability acceptance remain open.
+Decision: fbc-service-forecaster-20261029. Implemented and deployed; fresh-client
+forecast read acceptance passed. Intended-client write and Dan usability acceptance
+remain open.
 
 ## Source and release
 
@@ -33,9 +34,17 @@ invocation of the new operation enums and Dan usability acceptance remain open.
   Sequence 100 is explicitly a review placement; no duration was invented.
 - Every pilot write was read back through getServicePlan, then all nine records
   were independently read by exact ID through the existing Life OS queryData tool.
-- Live Life OS catalog independently exposes the new operations. This current
-  conversation still has old enum metadata, so this is NOT fresh-client command
-  acceptance. No plugin reconnect or authentication repair was attempted.
+- Refreshed ChatGPT Life OS tool discovery. Before/after plugin ZIP comparison
+  found all 17 instruction-package files identical. No reconnect was needed.
+- A fresh ChatGPT conversation invoked buildServiceForecast and returned all nine
+  Wednesday services with proposed speakers and outstanding planning issues.
+  Production operation logs independently confirmed successful calls at
+  2026-10-29T18:12:22Z and 18:12:37Z (request IDs
+  887b786f-5165-4168-b802-97e00582826f and
+  de36d180-c949-492e-b001-d5196bbb5325). This proves read acceptance only.
+- Durable evidence: fbc-service-forecaster-client-read-20261029, version 1, passed.
+  Workstream version 2 retains write, spreadsheet, and usability gates. Both were
+  independently read back after recording.
 
 ## Boundaries and next acceptance
 
@@ -50,8 +59,8 @@ No spreadsheet edits, invitations, calendar entries or tasks were created.
 Positive whole-service feedback is implemented and tested; no historical feedback
 was automatically backfilled during this release.
 
-Next: refresh tool discovery and invoke buildServiceForecast through Dan's intended
-client; use an actual requested missions update or graduation to verify the complete
+Next: resolve the spreadsheet layout choice and implement safe projection; use an
+actual requested missions update or graduation to verify the complete intended-client
 save/read-back interaction. Preserve confirmation uncertainty and report untimed
 music and elements until Dan supplies the service order. Keep the engineering
 workstream open until that intended-client and usability acceptance is recorded.
