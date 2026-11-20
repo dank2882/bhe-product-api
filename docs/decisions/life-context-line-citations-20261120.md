@@ -1,0 +1,9 @@
+# Life Context line-selected citations
+
+Dan requested repair of repeated citation omissions and verification of the existing daily scanner on November 20, 2026. This extends the existing adapter; no new component, permission, storage owner or external API contract.
+
+Prompt v17 presents source text as numbered lines. The model selects one inclusive contiguous line range per cited entry. The adapter copies the exact original bytes (including CRLF and blank lines) and derives the citation ID list from those selections. It never supplies guessed evidence, changes a narrative, retries inference or relaxes publication checks. Unknown IDs, extra citation fields, duplicate sources and invalid ranges fail. Existing original-evidence, privacy, budget, concurrency and semantic-review rules remain. An accurate quotation still does not prove entailment. Unsupported claims remain omitted; not all possible source facts must become summaries.
+
+Validation before release: 68 focused tests and all 1014 core tests passed; canonical configuration checks passed. One bounded real-model fictional trial generated eight observations, all eight mechanically accepted with zero citation omissions. Independent reading confirmed event/time roles, uncertain identity, request/reply and tentative status in that sample. This does not establish universal model accuracy. Production correction and scheduler acceptance are recorded separately.
+
+The scheduled scanner must preflight actual clock-based timestamps, inclusive start/exclusive end windows and packet limits. Manual saved-evidence correction does not constitute a fresh scheduled scan. Restore the same existing daily 08:30 America/Los_Angeles automation after independent live acceptance. Preserve daily/monthly controls; any one-time recovery allowance must be restored. Future delivery, sleep and token-expiry behavior remain separately observed gates.
