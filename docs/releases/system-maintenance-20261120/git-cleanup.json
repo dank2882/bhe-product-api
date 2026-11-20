@@ -1,0 +1,58 @@
+[
+  {
+    "repository": "/Users/danielkirchner/Documents/bhe-product-api",
+    "removedMergedRemoteBranches": [
+      "codex/appointments-finish-booking-20261006",
+      "codex/church-people-20261005",
+      "codex/personal-finance-20261106",
+      "feat/dan-notebooks",
+      "feat/fbc-maintenance",
+      "feat/fbc-service-forecaster-20261029",
+      "feat/maintenance-chat-table",
+      "feat/maintenance-email-send-gate",
+      "feature/repository-images-information",
+      "fix/life-context-line-citations-20261120",
+      "fix/maintenance-ci-dependencies",
+      "fix/maintenance-import-unassigned",
+      "integrate-life-context-v3"
+    ],
+    "removedUnattachedMergedLocalBranches": [
+      "access/sarah-dan-life-os-20260915",
+      "codex/personal-finance-20261106",
+      "feat/dan-life-context-mvp-20261028",
+      "feat/dan-notebooks",
+      "feat/fbc-maintenance",
+      "feat/maintenance-email-send-gate",
+      "feature/repository-images-information",
+      "fix/maintenance-ci-dependencies",
+      "fix/maintenance-import-unassigned"
+    ]
+  },
+  {
+    "repository": "/Users/danielkirchner/Documents/bhe-agent-platform",
+    "removedMergedRemoteBranches": [
+      "codex/appointments-finish-booking-20261006",
+      "codex/church-people-20261005",
+      "codex/life-os-sarah-delegation",
+      "codex/personal-finance-20261106",
+      "feat/dan-notebooks",
+      "feat/fbc-maintenance",
+      "feat/fbc-service-forecaster-20261029",
+      "feat/life-context-reprocess",
+      "feat/member-care-milestones",
+      "feature/repository-images-information",
+      "fix/life-context-scanner-preflight-20261120",
+      "fix/pastoral-care-daily-review"
+    ],
+    "removedUnattachedMergedLocalBranches": [
+      "access/sarah-dan-life-os-20260915",
+      "codex/personal-finance-20261106",
+      "feat/correspondence-desk-20260921",
+      "feat/dan-life-context-mvp-20261028",
+      "feat/dan-notebooks",
+      "feat/member-care-milestones",
+      "feature/repository-images-information",
+      "fix/pastoral-care-daily-review"
+    ]
+  }
+]

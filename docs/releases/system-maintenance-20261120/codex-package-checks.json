@@ -1,0 +1,20 @@
+[
+  {
+    "plugin": "dan-life-os",
+    "version": "1.0.22",
+    "sourceFilesVerified": 19,
+    "exactByteMatch": true
+  },
+  {
+    "plugin": "fbc-staff-tools",
+    "version": "0.1.0+codex.20261120124500",
+    "sourceFilesVerified": 40,
+    "exactByteMatch": true
+  },
+  {
+    "plugin": "dan-developer-tools",
+    "version": "0.1.0+codex.20261120124500",
+    "sourceFilesVerified": 5,
+    "exactByteMatch": true
+  }
+]

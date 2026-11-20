@@ -1,0 +1,47 @@
+[
+  {
+    "service": "bhe-product-api",
+    "revision": "bhe-product-api-maint-1120",
+    "trafficPercent": 100,
+    "healthStatus": 200,
+    "commit": "9ae625f19b6f3577926ce0e0c3f7fdc07df46c95",
+    "runtimeConfigUnchanged": true,
+    "rollbackRevision": "bhe-product-api-lc-daily-1120"
+  },
+  {
+    "service": "dan-life-os-mcp",
+    "revision": "dan-life-os-mcp-maint-1120",
+    "trafficPercent": 100,
+    "healthStatus": 200,
+    "commit": "aa11a4344a85fd2d8f4a31c454383dd8eb2d38f2",
+    "runtimeConfigUnchanged": true,
+    "rollbackRevision": "dan-life-os-mcp-pf-1118r"
+  },
+  {
+    "service": "fbc-staff-tools-mcp-entra-prod",
+    "revision": "fbc-staff-tools-mcp-entra-prod-maint-1120",
+    "trafficPercent": 100,
+    "healthStatus": 200,
+    "commit": "aa11a4344a85fd2d8f4a31c454383dd8eb2d38f2",
+    "runtimeConfigUnchanged": true,
+    "rollbackRevision": "fbc-staff-tools-mcp-entra-prod-sermon-1017a"
+  },
+  {
+    "service": "dan-developer-tools-mcp",
+    "revision": "dan-developer-tools-mcp-maint-1120",
+    "trafficPercent": 100,
+    "healthStatus": 200,
+    "commit": "aa11a4344a85fd2d8f4a31c454383dd8eb2d38f2",
+    "runtimeConfigUnchanged": true,
+    "rollbackRevision": "dan-developer-tools-mcp-sermon-1017a"
+  },
+  {
+    "service": "fbc-maintenance-messaging-worker",
+    "revision": "fbc-maintenance-messaging-worker-maint-1120",
+    "trafficPercent": 100,
+    "healthStatus": 200,
+    "commit": "9ae625f19b6f3577926ce0e0c3f7fdc07df46c95",
+    "runtimeConfigUnchanged": true,
+    "rollbackRevision": "fbc-maintenance-messaging-worker-00009-kwp"
+  }
+]

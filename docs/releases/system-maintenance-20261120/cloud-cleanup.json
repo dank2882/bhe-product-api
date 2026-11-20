@@ -1,0 +1,101 @@
+[
+  {
+    "service": "bhe-product-api",
+    "retiredTags": [
+      "notebooks-candidate",
+      "repository-images",
+      "repo-gallery",
+      "dropbox-review",
+      "travel-advisor-review",
+      "intake-review",
+      "maintenance-handoff",
+      "appointments-review",
+      "family-review",
+      "ministry-review",
+      "appointment-contract-review",
+      "instruction-review",
+      "ministry-portfolio-review",
+      "finance-review",
+      "sermon-review",
+      "brief-review",
+      "church-people-review",
+      "booking-review",
+      "service-forecaster-review",
+      "maintenance-1120",
+      "missions-review",
+      "personal-finance-review",
+      "pf-brokerage-review",
+      "pf-assets-review",
+      "personal-finance-artifacts",
+      "personal-finance-quarterly",
+      "personal-finance-wishlist",
+      "sarah-suggestion",
+      "shared-thoughts-review"
+    ],
+    "productionUnchanged": true,
+    "revisionsAndImagesRetained": true
+  },
+  {
+    "service": "dan-life-os-mcp",
+    "retiredTags": [
+      "notebooks-candidate",
+      "desk-candidate",
+      "oauth-refresh-candidate",
+      "intake-review",
+      "appointments-review",
+      "family-review",
+      "ministry-review",
+      "instruction-review",
+      "finance-review",
+      "sermon-review",
+      "church-people-review",
+      "booking-review",
+      "care-pilot",
+      "service-forecaster-review",
+      "maintenance-1120",
+      "missions-review",
+      "personal-finance-review",
+      "personal-finance-artifacts",
+      "personal-finance-wishlist",
+      "pf-access-repair",
+      "sarah-suggestion",
+      "shared-thoughts-review"
+    ],
+    "productionUnchanged": true,
+    "revisionsAndImagesRetained": true
+  },
+  {
+    "service": "fbc-staff-tools-mcp-entra-prod",
+    "retiredTags": [
+      "repo-img",
+      "gallery",
+      "dropbox-review",
+      "travel-review",
+      "ministry-review",
+      "people-review",
+      "care-pilot",
+      "maintenance-1120",
+      "missions-review"
+    ],
+    "productionUnchanged": true,
+    "revisionsAndImagesRetained": true
+  },
+  {
+    "service": "dan-developer-tools-mcp",
+    "retiredTags": [
+      "oauth-v2",
+      "scope-fix",
+      "maintenance-1120"
+    ],
+    "productionUnchanged": true,
+    "revisionsAndImagesRetained": true
+  },
+  {
+    "service": "fbc-maintenance-messaging-worker",
+    "retiredTags": [
+      "maint1120"
+    ],
+    "productionUnchanged": true,
+    "revisionsAndImagesRetained": true
+  }
+]

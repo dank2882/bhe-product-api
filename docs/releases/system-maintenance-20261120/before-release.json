@@ -1,0 +1,370 @@
+[
+  {
+    "service": "bhe-product-api",
+    "ready": "bhe-product-api-lc-daily-1120",
+    "traffic": [
+      {
+        "revisionName": "bhe-product-api-00284-mon",
+        "tag": "notebooks-candidate",
+        "url": "https://notebooks-candidate---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00286-nov",
+        "tag": "repository-images",
+        "url": "https://repository-images---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00288-zis",
+        "tag": "repo-gallery",
+        "url": "https://repo-gallery---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00304-yug",
+        "tag": "dropbox-review",
+        "url": "https://dropbox-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00311-niy",
+        "tag": "travel-advisor-review",
+        "url": "https://travel-advisor-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00319-jug",
+        "tag": "intake-review",
+        "url": "https://intake-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00321-vev",
+        "tag": "maintenance-handoff",
+        "url": "https://maintenance-handoff---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00323-mov",
+        "tag": "appointments-review",
+        "url": "https://appointments-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00327-cog",
+        "tag": "family-review",
+        "url": "https://family-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00331-cuy",
+        "tag": "ministry-review",
+        "url": "https://ministry-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00333-xis",
+        "tag": "appointment-contract-review",
+        "url": "https://appointment-contract-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00335-nug",
+        "tag": "instruction-review",
+        "url": "https://instruction-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00337-yap",
+        "tag": "ministry-portfolio-review",
+        "url": "https://ministry-portfolio-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00339-tef",
+        "tag": "finance-review",
+        "url": "https://finance-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00343-xac",
+        "tag": "sermon-review",
+        "url": "https://sermon-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00345-gas",
+        "tag": "brief-review",
+        "url": "https://brief-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00349-qaf",
+        "tag": "church-people-review",
+        "url": "https://church-people-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00353-qob",
+        "tag": "booking-review",
+        "url": "https://booking-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-00381-nuv",
+        "tag": "service-forecaster-review",
+        "url": "https://service-forecaster-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "percent": 100,
+        "revisionName": "bhe-product-api-lc-daily-1120"
+      },
+      {
+        "revisionName": "bhe-product-api-missions-1006a",
+        "tag": "missions-review",
+        "url": "https://missions-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-pf-1106a",
+        "tag": "personal-finance-review",
+        "url": "https://personal-finance-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-pf-1106c",
+        "tag": "pf-brokerage-review",
+        "url": "https://pf-brokerage-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-pf-1106d",
+        "tag": "pf-assets-review",
+        "url": "https://pf-assets-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-pf-1107a",
+        "tag": "personal-finance-artifacts",
+        "url": "https://personal-finance-artifacts---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-pf-1107q",
+        "tag": "personal-finance-quarterly",
+        "url": "https://personal-finance-quarterly---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-pf-1107w",
+        "tag": "personal-finance-wishlist",
+        "url": "https://personal-finance-wishlist---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-sarah-1103a",
+        "tag": "sarah-suggestion",
+        "url": "https://sarah-suggestion---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "bhe-product-api-thoughts-1025a",
+        "tag": "shared-thoughts-review",
+        "url": "https://shared-thoughts-review---bhe-product-api-mwhc25pkra-uw.a.run.app"
+      }
+    ],
+    "image": "us-west1-docker.pkg.dev/location-map-985/cloud-run-source-deploy/bhe-product-api@sha256:a5e222abe3effd7a4d26cff8a2b5590ac5533a9da8991769f0a0a0cde880d8ea",
+    "runtimeConfigSha256": "3a18741fc780d242c07d22bc01f94bfbcfa9a40731d087f9178e0a354448ca9a",
+    "resourceVersion": "AAZgs/1SD6E",
+    "url": "https://bhe-product-api-mwhc25pkra-uw.a.run.app",
+    "commit": "5007284eec8f58d8f903aa60e8ad096850864eb8"
+  },
+  {
+    "service": "dan-life-os-mcp",
+    "ready": "dan-life-os-mcp-pf-1118r",
+    "traffic": [
+      {
+        "revisionName": "dan-life-os-mcp-00019-hay",
+        "tag": "notebooks-candidate",
+        "url": "https://notebooks-candidate---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00021-mar",
+        "tag": "desk-candidate",
+        "url": "https://desk-candidate---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00028-veq",
+        "tag": "oauth-refresh-candidate",
+        "url": "https://oauth-refresh-candidate---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00032-zol",
+        "tag": "intake-review",
+        "url": "https://intake-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00034-ruv",
+        "tag": "appointments-review",
+        "url": "https://appointments-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00036-waw",
+        "tag": "family-review",
+        "url": "https://family-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00038-buc",
+        "tag": "ministry-review",
+        "url": "https://ministry-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00040-xam",
+        "tag": "instruction-review",
+        "url": "https://instruction-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00042-raf",
+        "tag": "finance-review",
+        "url": "https://finance-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00044-ven",
+        "tag": "sermon-review",
+        "url": "https://sermon-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00046-teh",
+        "tag": "church-people-review",
+        "url": "https://church-people-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00048-coj",
+        "tag": "booking-review",
+        "url": "https://booking-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00056-lih",
+        "tag": "care-pilot",
+        "url": "https://care-pilot---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-00067-jun",
+        "tag": "service-forecaster-review",
+        "url": "https://service-forecaster-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-missions-1006a",
+        "tag": "missions-review",
+        "url": "https://missions-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-pf-1106a",
+        "tag": "personal-finance-review",
+        "url": "https://personal-finance-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-pf-1107a",
+        "tag": "personal-finance-artifacts",
+        "url": "https://personal-finance-artifacts---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-pf-1107w",
+        "tag": "personal-finance-wishlist",
+        "url": "https://personal-finance-wishlist---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "percent": 100,
+        "revisionName": "dan-life-os-mcp-pf-1118r",
+        "tag": "pf-access-repair",
+        "url": "https://pf-access-repair---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-sarah-1103a",
+        "tag": "sarah-suggestion",
+        "url": "https://sarah-suggestion---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-life-os-mcp-thoughts-1025a",
+        "tag": "shared-thoughts-review",
+        "url": "https://shared-thoughts-review---dan-life-os-mcp-mwhc25pkra-uw.a.run.app"
+      }
+    ],
+    "image": "us-west1-docker.pkg.dev/location-map-985/cloud-run-source-deploy/dan-life-os-mcp@sha256:28bb4dfea39e226c65e15147050fcff6a3581f917415bccec2125cb185c0f3b5",
+    "runtimeConfigSha256": "c34a768c777c647952cfdc13d206d5a0552fddd537aaf00d941d8a31a485ed05",
+    "resourceVersion": "AAZgmn4wZmI",
+    "url": "https://dan-life-os-mcp-mwhc25pkra-uw.a.run.app",
+    "commit": "a4434bf7ebe914ae70e8b8e4a525d3dc72e9f00d"
+  },
+  {
+    "service": "fbc-staff-tools-mcp-entra-prod",
+    "ready": "fbc-staff-tools-mcp-entra-prod-sermon-1017a",
+    "traffic": [
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00044-rud",
+        "tag": "repo-img",
+        "url": "https://repo-img---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00047-kal",
+        "tag": "gallery",
+        "url": "https://gallery---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00062-how",
+        "tag": "dropbox-review",
+        "url": "https://dropbox-review---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00067-did",
+        "tag": "travel-review",
+        "url": "https://travel-review---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00069-pep",
+        "tag": "ministry-review",
+        "url": "https://ministry-review---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00071-foy",
+        "tag": "people-review",
+        "url": "https://people-review---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-00082-tuz",
+        "tag": "care-pilot",
+        "url": "https://care-pilot---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-missions-1006a",
+        "tag": "missions-review",
+        "url": "https://missions-review---fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "percent": 100,
+        "revisionName": "fbc-staff-tools-mcp-entra-prod-sermon-1017a"
+      }
+    ],
+    "image": "us-west1-docker.pkg.dev/location-map-985/cloud-run-source-deploy/bhe-agent-platform:sermon-93a1801",
+    "runtimeConfigSha256": "29031669752ed3c6f931abeee4496d912a338f3acc20b804daa56a09d11871aa",
+    "resourceVersion": "AAZeFUGH57w",
+    "url": "https://fbc-staff-tools-mcp-entra-prod-mwhc25pkra-uw.a.run.app",
+    "commit": "9b1b6f7"
+  },
+  {
+    "service": "dan-developer-tools-mcp",
+    "ready": "dan-developer-tools-mcp-sermon-1017a",
+    "traffic": [
+      {
+        "revisionName": "dan-developer-tools-mcp-00010-fit",
+        "tag": "oauth-v2",
+        "url": "https://oauth-v2---dan-developer-tools-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "revisionName": "dan-developer-tools-mcp-00012-yeg",
+        "tag": "scope-fix",
+        "url": "https://scope-fix---dan-developer-tools-mcp-mwhc25pkra-uw.a.run.app"
+      },
+      {
+        "percent": 100,
+        "revisionName": "dan-developer-tools-mcp-sermon-1017a"
+      }
+    ],
+    "image": "us-west1-docker.pkg.dev/location-map-985/cloud-run-source-deploy/bhe-agent-platform:sermon-93a1801",
+    "runtimeConfigSha256": "101c417d1b083f79c19269b1696ad267f19be71300419781f05719654b6bcb18",
+    "resourceVersion": "AAZeFUF8pBs",
+    "url": "https://dan-developer-tools-mcp-mwhc25pkra-uw.a.run.app",
+    "commit": "ce43c1a"
+  },
+  {
+    "service": "fbc-maintenance-messaging-worker",
+    "ready": "fbc-maintenance-messaging-worker-00009-kwp",
+    "traffic": [
+      {
+        "latestRevision": true,
+        "percent": 100,
+        "revisionName": "fbc-maintenance-messaging-worker-00009-kwp"
+      }
+    ],
+    "image": "us-west1-docker.pkg.dev/location-map-985/cloud-run-source-deploy/fbc-maintenance-messaging-worker:636538e",
+    "runtimeConfigSha256": "0270e513852872d76a635e7f08ba108f68cd9f859ef00026ae5f196e0c593078",
+    "resourceVersion": "AAZcKrIYgnU",
+    "url": "https://fbc-maintenance-messaging-worker-mwhc25pkra-uw.a.run.app",
+    "commit": "d9832f8"
+  }
+]

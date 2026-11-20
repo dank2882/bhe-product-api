@@ -1,0 +1,66 @@
+{
+  "passed": true,
+  "revision": "bhe-product-api-maint-1120",
+  "checks": [
+    {
+      "path": "/health",
+      "status": 200,
+      "requestId": null
+    },
+    {
+      "path": "/task-management/operations",
+      "status": 200,
+      "requestId": "9df9e56f-35a0-4222-866a-80188ecf6a2a"
+    },
+    {
+      "path": "/ministry-planning/operations",
+      "status": 200,
+      "requestId": "99c04557-ae9b-405f-8f14-c3dd77b2eaf2"
+    },
+    {
+      "path": "/personal-finance/operations",
+      "status": 200,
+      "requestId": null
+    },
+    {
+      "path": "/personal-finance/query",
+      "status": 200,
+      "requestId": "45bad19e-fad2-4ede-8ed9-5706fdc37bfb"
+    },
+    {
+      "path": "/life-context/current/query",
+      "status": 200,
+      "requestId": "e633ec2f-0935-4000-8d75-42c4764aaa45"
+    },
+    {
+      "path": "/life-context/current/run",
+      "status": 200,
+      "requestId": "3b049b0c-77ed-4da8-90a7-cca45b2968e0"
+    },
+    {
+      "path": "/task-management/query",
+      "status": 200,
+      "requestId": "f060db34-d604-4625-b9b3-7cf307476862"
+    },
+    {
+      "path": "/appointments/query",
+      "status": 200,
+      "requestId": "2985d34a-2d32-492e-a735-d92f4d6a9123"
+    },
+    {
+      "path": "/personal-finance/query",
+      "status": 403,
+      "requestId": "fc929e8b-af1f-4c1a-895f-37a78eac3898"
+    },
+    {
+      "path": "/life-context/current/query",
+      "status": 403,
+      "requestId": "89ac2fe8-9163-4675-be54-b0ca77ac8510"
+    },
+    {
+      "path": "/personal-finance/operations",
+      "status": 401,
+      "requestId": null
+    }
+  ]
+}
