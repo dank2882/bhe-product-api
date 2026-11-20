@@ -15,11 +15,11 @@ function fixture(){
 }
 test("fictional reference output survives adapter, publication and selective retrieval without exposing support quotes",async()=>{
   const f=fixture();let providerRequest;
-  const auth={getClient:async()=>({request:async request=>{providerRequest=request;const ids=new Map([...f.packet.entries].sort((a,b)=>a.id.localeCompare(b.id)).map((e,i)=>[e.id,`e${i+1}`]));const providerOutput={observations:f.output.observations.map(o=>({...o,sourceIds:o.sourceIds.map(id=>ids.get(id)),support:o.support.map(s=>({...s,sourceId:ids.get(s.sourceId)}))}))};return {data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify(providerOutput)}]}}]}};}})};
+  const auth={getClient:async()=>({request:async request=>{providerRequest=request;const ids=new Map([...f.packet.entries].sort((a,b)=>a.id.localeCompare(b.id)).map((e,i)=>[e.id,`e${i+1}`]));const providerOutput={observations:f.output.observations.map(o=>(({sourceIds,support,...rest})=>({...rest,support:support.map(s=>({sourceId:ids.get(s.sourceId),firstLine:1,lastLine:f.packet.entries.find(e=>e.id===s.sourceId).text.split("\n").length}))}))(o))};return {data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify(providerOutput)}]}}]}};}})};
   f.deps.generateContext=packet=>generateContextWithVertex(packet,{auth,projectId:"fictional-project",at});
   const receipt=await collectContext(f.packet,f.deps);assert.equal(receipt.status,"completed");
   const requestPacket=JSON.parse(providerRequest.data.contents[0].parts[0].text);
-  assert.deepEqual(requestPacket.entries.map(e=>e.text),cases.entries.map(e=>e.text).sort((a,b)=>cases.entries.find(x=>x.text===a).id.localeCompare(cases.entries.find(x=>x.text===b).id)));
+  assert.deepEqual(requestPacket.entries.map(e=>e.lines.map(l=>l.text).join("\n")),cases.entries.map(e=>e.text).sort((a,b)=>cases.entries.find(x=>x.text===a).id.localeCompare(cases.entries.find(x=>x.text===b).id)));
   const read=await getCurrentContext({purposes:["planning"]},f.deps);
   assert.deepEqual(read.observations.map(o=>o.text),f.output.observations.filter(o=>o.purposes.includes("planning")).map(o=>o.text));
   assert(read.observations.some(o=>o.citations.some(c=>c.id==="request")&&o.citations.some(c=>c.id==="reply")));

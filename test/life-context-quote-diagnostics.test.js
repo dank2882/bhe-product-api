@@ -18,8 +18,8 @@ test("short provider IDs resolve to original long source IDs without changing qu
   const result=await generateContextWithVertex(packet,{at,projectId:"fictional-project",auth:{getClient:async()=>({request:async request=>{
     const p=JSON.parse(request.data.contents[0].parts[0].text);
     assert.deepEqual(p.entries.map(e=>e.id),["e1","e2"]);
-    assert.deepEqual(p.entries.map(e=>e.text),packet.entries.map(e=>e.text));
-    const provider={observations:output.observations.map(o=>({...o,sourceIds:["e1","e2"],support:o.support.map((s,i)=>({...s,sourceId:`e${i+1}`}))}))};
+    assert.deepEqual(p.entries.map(e=>e.lines.map(l=>l.text).join("\n")),packet.entries.map(e=>e.text));
+    const provider={observations:output.observations.map(o=>(({sourceIds,support,...rest})=>({...rest,support:support.map((s,i)=>({sourceId:`e${i+1}`,firstLine:1,lastLine:packet.entries[i].text.split("\n").length}))}))(o))};
     return {data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify(provider)}]}}]}};}})}});
   assert.deepEqual(result.output,output);assert.deepEqual(packet,before);
   assert.equal(normalizeOutput(result.output,packet,at)[0].citations[0].id,packet.entries[0].id);
@@ -27,7 +27,7 @@ test("short provider IDs resolve to original long source IDs without changing qu
 test("invented or original IDs from the model cannot bypass alias resolution",async()=>{
   for(const alias of ["e3","e01","src-"+"a".repeat(64),{},null]) {
     const {packet}=fixture();
-    const auth={getClient:async()=>({request:async()=>({data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify({observations:[{sourceIds:[alias]}]})}]}}]}})})};
+    const auth={getClient:async()=>({request:async()=>({data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify({observations:[{support:[{sourceId:alias,firstLine:1,lastLine:1}]}]})}]}}]}})})};
     await assert.rejects(generateContextWithVertex(packet,{at,projectId:"fictional-project",auth}),/Unknown model evidence alias/);
   }
 });
@@ -103,3 +103,23 @@ test("bare family titles cannot become named relationships without quoted suppor
   output.observations[0].text="Nora reports asking Jules and Alex to work with Dan’s dad on purchases.";
   assert.equal(normalizeOutput(output,packet,at).length,1);
 });
+
+ test("line citations preserve punctuation, CRLF, blank lines and exact selected scope",async()=>{
+  const {packet}=fixture();packet.entries[0].text="Header: sender\r\nQuoted ‘words’\r\n\r\nLast line 😀";
+  const provider={observations:[{text:"A narrowly supported claim",purposes:["brief"],certainty:"reported",support:[{sourceId:"e1",firstLine:2,lastLine:4}]}]};
+  const auth={getClient:async()=>({request:async()=>({data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify(provider)}]}}]}})})};
+  const r=await generateContextWithVertex(packet,{at,projectId:"fictional-project",auth});
+  assert.deepEqual(r.output.observations[0].sourceIds,[packet.entries[0].id]);
+  assert.equal(r.output.observations[0].support[0].quote,"Quoted ‘words’\r\n\r\nLast line 😀");
+ });
+ test("invalid or invented line support is never repaired, clipped, or silently accepted",async()=>{
+  for(const support of [
+   [{sourceId:"e1",firstLine:0,lastLine:1}], [{sourceId:"e1",firstLine:1,lastLine:3}],
+   [{sourceId:"e1",firstLine:2,lastLine:1}], [{sourceId:"e1",firstLine:"1",lastLine:1}],
+   [{sourceId:"e1",firstLine:1,lastLine:1,quote:"invented"}],
+   [{sourceId:"e1",firstLine:1,lastLine:1},{sourceId:"e1",firstLine:2,lastLine:2}]
+  ]) {
+   const {packet}=fixture(); const auth={getClient:async()=>({request:async()=>({data:{candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify({observations:[{support}]})}]}}]}})})};
+   await assert.rejects(generateContextWithVertex(packet,{at,projectId:"fictional-project",auth}),/Invalid model evidence range/);
+  }
+ });
