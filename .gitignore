@@ -1,6 +1,7 @@
 .DS_Store
 tmp/
 node_modules/
+output/
 npm-debug.log
 .env
 .env.*

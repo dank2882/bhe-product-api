@@ -29,18 +29,26 @@
     "deploy:describe": "gcloud run services describe bhe-product-api --region us-west1 --project location-map-985"
   },
   "dependencies": {
-    "@google-cloud/documentai": "^9.6.0",
-    "@google-cloud/firestore": "^7.11.0",
-    "@google-cloud/storage": "^7.16.0",
+    "@google-cloud/documentai": "^10.2.0",
+    "@google-cloud/firestore": "^9.4.1",
+    "@google-cloud/storage": "^9.0.0",
     "docx": "^9.7.1",
     "express": "^4.21.2",
-    "google-auth-library": "^9.15.1",
+    "google-auth-library": "^11.3.4",
     "jszip": "^3.10.1",
     "multer": "^2.1.1",
     "pptxgenjs": "^4.0.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "puppeteer": "^25.3.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "pptxgenjs": {
+      "image-size": "^2.1.0"
+    }
   }
 }

@@ -1,0 +1,11 @@
+.git
+node_modules
+**/node_modules
+output
+tmp
+.env
+.env.*
+*.pem
+*.key
+*service-account*.json
+npm-debug.log
