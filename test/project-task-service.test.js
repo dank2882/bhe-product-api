@@ -1951,7 +1951,9 @@ test("Dan daily-brief fallback retains personal ownership; explicit staff invent
   assert.match(staff.guidance, /other staff/);
   const selected = await listTasks({ assignedToSub: "smith" }, deps);
   assert.equal(selected.count, 2);
-  assert.equal(review.guidance.sharedMailboxes[1], "orders@biblicalheritageexhibit.com");
+  assert.deepEqual(review.guidance.sharedMailboxes, []);
+  assert.match(review.guidance.mailboxInstruction, /Skip the BHE shared inboxes, Shopify order scan and Customer Care queue/);
+  assert.match(review.guidance.bheHandoffInstruction, /Keep BHE project work/);
   assert.equal(review.guidance.fallbackTaskQuery.arguments.view, "personal");
   assert.equal(JSON.stringify([...deps.tasksCollection.store]), before);
 });
