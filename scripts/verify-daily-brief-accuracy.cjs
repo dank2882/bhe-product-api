@@ -39,7 +39,7 @@ async function query(domain, operation, args) {
   assert.deepEqual(ids(fallback.tasks), ids(review.activeNext));
   assert(authorized.count >= personal.count);
   assert.equal(authorized.ownershipScope, "authorized");
-  assert(review.guidance.sharedMailboxes.includes("orders@biblicalheritageexhibit.com"));
+  assert.deepEqual(review.guidance.sharedMailboxes, []);
   const evaluation = await query("sermon-workspace", "evaluateSermonReadiness", { sermonId });
   assert.equal(evaluation.preservedDevelopment.complete, true);
   assert.equal(evaluation.preservedDevelopment.turnCount, 34);
@@ -50,5 +50,5 @@ async function query(domain, operation, args) {
   assert.equal(dashboard.dataProvenance.sourceOfTruth, "firestore");
   assert(JSON.stringify(dashboard).includes('"assemble_preserved_development"'));
   assert.equal(await preservedHash(), before, "Sermon or preserved wording changed");
-  console.log(JSON.stringify({ status: "verified", base, personalActive: personal.count, authorizedActive: authorized.count, overdue: review.summary.overdueCount, guidanceVersion: review.guidance.version, preservedDevelopment: evaluation.preservedDevelopment, recommendedNextStep: evaluation.recommendedNextStep.code, preservedContentHash: before, checks: ["default and fallback equal personal review", "staff inventory remains explicit", "full mailbox address retained", "dashboard recognizes preserved discussion", "sermon and exact turns unchanged"] }));
+  console.log(JSON.stringify({ status: "verified", base, personalActive: personal.count, authorizedActive: authorized.count, overdue: review.summary.overdueCount, guidanceVersion: review.guidance.version, preservedDevelopment: evaluation.preservedDevelopment, recommendedNextStep: evaluation.recommendedNextStep.code, preservedContentHash: before, checks: ["default and fallback equal personal review", "staff inventory remains explicit", "delegated BHE mailboxes excluded", "dashboard recognizes preserved discussion", "sermon and exact turns unchanged"] }));
 })().catch(error => { console.error(error.message); process.exitCode = 1; });
